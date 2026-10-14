@@ -1,4 +1,4 @@
-# 🍽️ Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn F&B bằng Python
+Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn F&B bằng Python
 
 > **Đồ án Module 1** - Phát triển ứng dụng quản lý nhà hàng / quán ăn F&B bằng Python, áp dụng lập trình hướng đối tượng (OOP), lưu trữ dữ liệu JSON và xây dựng giao diện tương tác với Streamlit.
 
