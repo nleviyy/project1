@@ -45,6 +45,7 @@ desktop.ini
 tmp/
 temp/
 scratch/
+scripts/
 
 # QUAN TRỌNG: KHÔNG bỏ qua uv.lock (uv.lock bắt buộc phải được commit lên Git)
 !uv.lock
