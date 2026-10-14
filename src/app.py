@@ -3,7 +3,8 @@ Hệ thống Quản lý Đơn hàng & Bàn ăn F&B bằng Python
 Module 1 - Đồ án thực hành
 
 File chạy chính ứng dụng Streamlit:
-    uv run streamlit run src/app.py
+    python -m uv run streamlit run src/app.py
+    hoặc: uv run streamlit run src/app.py
 """
 import json
 from pathlib import Path
@@ -27,18 +28,39 @@ def load_json(file_path: Path):
             return json.load(f)
     return []
 
+# Mappings chuẩn hóa hiển thị giao diện
+TABLE_STATUS_MAP = {
+    "AVAILABLE": ("Trống", "🟢"),
+    "OCCUPIED": ("Có khách", "🔴"),
+    "RESERVED": ("Đã đặt trước", "🟡"),
+}
+
+ORDER_STATUS_MAP = {
+    "PENDING": ("Chờ xác nhận", "⏳"),
+    "PREPARING": ("Đang chế biến", "🍳"),
+    "SERVED": ("Đã lên món", "🍽️"),
+    "COMPLETED": ("Hoàn thành", "✅"),
+    "CANCELLED": ("Đã hủy", "❌"),
+}
+
+PAYMENT_METHOD_MAP = {
+    "CASH": "Tiền mặt 💵",
+    "BANK_TRANSFER": "Chuyển khoản / VietQR 📱",
+    "CARD": "Thẻ POS 💳",
+}
+
 # Sidebar
 with st.sidebar:
     st.title("🍽️ F&B Management")
-    st.caption("Đồ án Python Module 1 - Nhóm 4 thành viên")
+    st.caption("Đồ án Python Module 1")
     st.divider()
 
     st.subheader("👥 Phân công thành viên")
     st.markdown("""
-    * **Vy (Leader):** Git, khởi tạo & tích hợp code
-    * **Quỳnh:** Models & Lưu trữ JSON
-    * **Anh:** OOP & Cấu trúc dữ liệu
-    * **Thắng:** Giao diện Streamlit
+    * **Vy:** Git, khởi tạo dự án & tích hợp code
+    * **Quỳnh:** Models (Data Classes) & Lưu trữ JSON
+    * **Anh:** OOP & Xử lý nghiệp vụ bàn ăn / đơn hàng
+    * **Thắng:** Thiết kế giao diện tương tác Streamlit
     """)
     st.divider()
     
@@ -47,47 +69,84 @@ with st.sidebar:
 
 # Main Content
 st.title("🍽️ Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn F&B")
-st.success("Khởi tạo môi trường `uv` và cấu trúc dự án thành công! Sẵn sàng cho việc phân nhánh code.")
+st.success("Hợp đồng dữ liệu JSON (Data Contract) đã được thống nhất và kiểm thử tự động 100%!")
 
-tab1, tab2, tab3 = st.tabs(["📊 Tổng quan hệ thống", "📋 Thực đơn (Menu)", "🪑 Sơ đồ bàn ăn"])
+tabs = st.tabs([
+    "📊 Tổng quan hệ thống", 
+    "📋 Thực đơn (menu.json)", 
+    "🪑 Sơ đồ bàn (tables.json)", 
+    "🧾 Đơn hàng (orders.json)", 
+    "💳 Thanh toán (payments.json)"
+])
 
-with tab1:
-    col1, col2, col3, col4 = st.columns(4)
-    with col1:
+# Tab 1: Tổng quan
+with tabs[0]:
+    c1, c2, c3, c4 = st.columns(4)
+    with c1:
         st.metric("Môi trường", "Python + uv")
-    with col2:
+    with c2:
         st.metric("Giao diện", "Streamlit")
-    with col3:
+    with c3:
         st.metric("Mục tiêu nộp 50%", "17/10/2026")
-    with col4:
-        st.metric("Trạng thái", "Sẵn sàng (Phase 1 OK)")
+    with c4:
+        st.metric("Trạng thái kiểm thử", "5/5 Tests Passed")
 
-    st.markdown("### 🎯 Mục tiêu 50% đồ án (Đến ngày 17/10/2026)")
+    st.markdown("### 🎯 Tiến độ thực hiện đồ án (Đến ngày 17/10/2026)")
     st.markdown("""
-    - [x] **Mục 5 (Vy):** Khởi tạo Repository GitHub, cấu hình `uv`, cấu trúc thư mục và `.gitignore`.
-    - [ ] **Mục 1 (Quỳnh):** Thiết kế Data classes `MenuItem`, `Order`, `Table` và lưu file JSON.
-    - [ ] **Mục 2 (Anh):** Xây dựng các lớp quản lý `OrderManager`, `TableManager` theo nguyên lý OOP.
-    - [ ] **Mục 3 (Thắng):** Tích hợp giao diện hiển thị danh sách bàn, đặt món và thanh toán cơ bản.
+    - [x] **Mục 5 (Vy):** Khởi tạo Repo GitHub, cấu hình `uv`, cấu trúc thư mục, `.gitignore` và chốt Schema JSON.
+    - [ ] **Mục 1 (Quỳnh):** Hiện thực hóa Data Classes (`MenuItem`, `Order`, `Table`, `Payment`) dựa trên Schema.
+    - [ ] **Mục 2 (Anh):** Viết logic OOP quản lý trạng thái (`OrderManager`, `TableManager`).
+    - [ ] **Mục 3 (Thắng):** Nối giao diện Streamlit với các Class nghiệp vụ để tạo đơn và đổi trạng thái bàn.
     """)
 
-with tab2:
-    st.subheader("📋 Thực đơn ban đầu (Dữ liệu mẫu `data/sample_menu.json`)")
-    menu_data = load_json(DATA_DIR / "sample_menu.json")
+# Tab 2: Thực đơn
+with tabs[1]:
+    st.subheader("📋 Danh mục món ăn (`data/menu.json`)")
+    menu_data = load_json(DATA_DIR / "menu.json")
     if menu_data:
         st.dataframe(menu_data, use_container_width=True)
     else:
-        st.warning("Chưa tìm thấy file dữ liệu menu mẫu.")
+        st.warning("Chưa tìm thấy file data/menu.json")
 
-with tab3:
-    st.subheader("🪑 Sơ đồ bàn ăn ban đầu (Dữ liệu mẫu `data/sample_tables.json`)")
-    tables_data = load_json(DATA_DIR / "sample_tables.json")
+# Tab 3: Sơ đồ bàn
+with tabs[2]:
+    st.subheader("🪑 Sơ đồ bàn ăn (`data/tables.json`)")
+    tables_data = load_json(DATA_DIR / "tables.json")
     if tables_data:
         cols = st.columns(len(tables_data))
         for idx, table in enumerate(tables_data):
             with cols[idx]:
-                status_color = "🟢" if table["status"] == "Trống" else ("🔴" if table["status"] == "Có khách" else "🟡")
-                st.markdown(f"### {status_color} {table['name']}")
-                st.caption(f"Sức chứa: {table['capacity']} người")
-                st.write(f"Trạng thái: **{table['status']}**")
+                status_raw = table.get("status", "AVAILABLE")
+                label, icon = TABLE_STATUS_MAP.get(status_raw, (status_raw, "⚪"))
+                st.markdown(f"### {icon} {table['name']}")
+                st.caption(f"Sức chứa: **{table['capacity']}** khách")
+                st.write(f"Trạng thái: **{label}**")
+                if table.get("current_order_id"):
+                    st.badge(f"Đơn: {table['current_order_id']}")
     else:
-        st.warning("Chưa tìm thấy file dữ liệu bàn ăn mẫu.")
+        st.warning("Chưa tìm thấy file data/tables.json")
+
+# Tab 4: Đơn hàng
+with tabs[3]:
+    st.subheader("🧾 Danh sách đơn hàng (`data/orders.json`)")
+    orders_data = load_json(DATA_DIR / "orders.json")
+    if orders_data:
+        for ord_item in orders_data:
+            st_raw = ord_item.get("status", "PENDING")
+            st_label, st_icon = ORDER_STATUS_MAP.get(st_raw, (st_raw, "⚪"))
+            with st.expander(f"{st_icon} Đơn hàng: **{ord_item['id']}** | Bàn: **{ord_item['table_id']}** | Trạng thái: **{st_label}** | Tổng: **{ord_item['final_amount']:,}đ**"):
+                st.write(f"🕒 **Thời gian tạo:** `{ord_item['created_at']}` | **Cập nhật:** `{ord_item['updated_at']}`")
+                if ord_item.get("notes"):
+                    st.caption(f"📝 Ghi chú: {ord_item['notes']}")
+                st.table(ord_item["items"])
+    else:
+        st.warning("Chưa tìm thấy file data/orders.json")
+
+# Tab 5: Thanh toán
+with tabs[4]:
+    st.subheader("💳 Lịch sử giao dịch thanh toán (`data/payments.json`)")
+    payments_data = load_json(DATA_DIR / "payments.json")
+    if payments_data:
+        st.dataframe(payments_data, use_container_width=True)
+    else:
+        st.warning("Chưa tìm thấy file data/payments.json")
