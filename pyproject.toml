@@ -1,0 +1,16 @@
+[project]
+name = "fnb-order-management"
+version = "0.1.0"
+description = "Hệ thống quản lý đơn hàng và bàn ăn F&B bằng Python"
+readme = "README.md"
+authors = [
+    { name = "Nguyễn Lê Vy", email = "nlv08022007@mail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "pytest>=9.1.1",
+    "streamlit>=1.65.0",
+]
+
+[tool.uv]
+package = false

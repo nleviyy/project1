@@ -1,0 +1,30 @@
+[
+  {
+    "id": "M01",
+    "name": "Cà phê sữa đá",
+    "category": "Đồ uống",
+    "price": 29000,
+    "available": true
+  },
+  {
+    "id": "M02",
+    "name": "Trà đào cam sả",
+    "category": "Đồ uống",
+    "price": 39000,
+    "available": true
+  },
+  {
+    "id": "M03",
+    "name": "Bánh mì bò sốt tiêu",
+    "category": "Món ăn",
+    "price": 45000,
+    "available": true
+  },
+  {
+    "id": "M04",
+    "name": "Khoai tây chiên",
+    "category": "Ăn vặt",
+    "price": 30000,
+    "available": true
+  }
+]

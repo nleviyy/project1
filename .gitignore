@@ -1,0 +1,50 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and temporary files
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+*.log
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Streamlit configuration & secrets
+.streamlit/secrets.toml
+
+# Environment variables & Secrets
+.env
+.env.*
+!.env.example
+secrets/
+*.pem
+*.key
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE & Editor settings
+.vscode/*
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Temporary & scratch files
+tmp/
+temp/
+scratch/
+
+# QUAN TRỌNG: KHÔNG bỏ qua uv.lock (uv.lock bắt buộc phải được commit lên Git)
+!uv.lock
