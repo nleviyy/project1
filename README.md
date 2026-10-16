@@ -18,7 +18,7 @@ Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn F&B bằng Python
 ## 📅 Kế Hoạch & Mốc Thời Gian
 
 * **Thứ Bảy, ngày 17/10/2026:** Hoàn thành **50% đồ án** để nộp (khung sườn kiến trúc, models cơ bản, luồng OOP sơ khởi, UI demo hiển thị dữ liệu).
-* **Thứ Ba, ngày 20/10/2026:** Báo cáo tiến độ đồ án trước Giảng viên.
+* **Thứ Ba, ngày 20/10/2026:** Báo cáo tiến độ đồ án.
 
 ---
 

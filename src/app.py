@@ -36,22 +36,22 @@ TABLE_STATUS_MAP = {
 }
 
 ORDER_STATUS_MAP = {
-    "PENDING": ("Chờ xác nhận", "⏳"),
-    "PREPARING": ("Đang chế biến", "🍳"),
-    "SERVED": ("Đã lên món", "🍽️"),
+    "PENDING": ("Chờ xác nhận"),
+    "PREPARING": ("Đang chế biến"),
+    "SERVED": ("Đã lên món"),
     "COMPLETED": ("Hoàn thành", "✅"),
     "CANCELLED": ("Đã hủy", "❌"),
 }
 
 PAYMENT_METHOD_MAP = {
-    "CASH": "Tiền mặt 💵",
-    "BANK_TRANSFER": "Chuyển khoản / VietQR 📱",
+    "CASH": "Tiền mặt",
+    "BANK_TRANSFER": "Chuyển khoản / VietQR",
     "CARD": "Thẻ POS 💳",
 }
 
 # Sidebar
 with st.sidebar:
-    st.title("🍽️ F&B Management")
+    st.title("F&B Management")
     st.caption("Đồ án Python Module 1")
     st.divider()
 
