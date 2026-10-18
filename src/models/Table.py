@@ -83,7 +83,6 @@ class Table:
                 status=target_status,
                 current_order_id=target_order_id
             )
-            # Chỉ khi hợp lệ mới ghi nhận
             self.status = temp_table.status
             self.current_order_id = temp_table.current_order_id
             return True
