@@ -1,15 +1,18 @@
 from typing import Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
 
 class OrderItem(BaseModel):
-    item_id: str = Field(..., description="Mã món ăn gốc từ menu", min_length=2)
-    name: str = Field(..., description="Tên món ăn")
+    menu_item_id: str = Field(..., description="Mã món ăn từ menu (VD: M02)")
+    item_name: str = Field(..., description="Tên món ăn")
+    unit_price: float = Field(..., description="Đơn giá", ge=0.0)
     quantity: int = Field(..., description="Số lượng món", gt=0)
-    # Lưu lại đơn giá tại thời điểm đặt để đổi giá menu không làm sai hóa đơn cũ
-    price: int = Field(..., description="Đơn giá lúc đặt (VNĐ)", ge=0)
-    note: Optional[str] = Field(default="", description="Ghi chú thêm (VD: ít đá, không cay)")
+    subtotal: Optional[float] = Field(default=None, description="Thành tiền món này", ge=0.0)
+    note: Optional[str] = Field(default="", description="Ghi chú món ăn")
 
-    @property
-    def amount(self) -> int:
-        """Tính tổng tiền của món ăn (số lượng * đơn giá)"""
-        return self.quantity * self.price
+    @model_validator(mode='after')
+    def auto_calculate_subtotal(self):
+        """Nếu JSON không truyền subtotal hoặc bằng 0 thì tự tính: đơn giá * số lượng."""
+        if self.subtotal is None or self.subtotal == 0:
+            self.subtotal = self.unit_price * self.quantity
+        return self

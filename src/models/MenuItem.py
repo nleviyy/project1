@@ -44,10 +44,8 @@ class MenuItem:
             for key, value in kwargs.items():
                 if hasattr(self, key):
                     setattr(self, key, value)
-            # Chạy lại post_init để kiểm tra toàn bộ điều kiện hợp lệ
             self.__post_init__()
         except Exception as e:
-            # Khôi phục trạng thái cũ nếu có bất kỳ lỗi nào
             for key, value in old_state.items():
                 setattr(self, key, value)
             raise ValueError(f"Cập nhật thất bại, đã khôi phục dữ liệu ban đầu. Lỗi: {e}")
