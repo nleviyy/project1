@@ -1,10 +1,13 @@
-import time
-import streamlit as st
-from kitchen import KitchenManager
-from src.models.OrderItem import OrderItem
-from src.models.Order import Order
 import json
-import os
+import time
+from pathlib import Path
+
+import streamlit as st
+
+from src.KitchenManage import KitchenManager
+from src.core.Cart import Cart
+from src.models.MenuCatalog import MenuCatalog
+
 # ==========================================
 # 1. CÀI ĐẶT STREAMLIT
 # ==========================================
@@ -277,72 +280,27 @@ div[data-testid="stTextArea"] textarea {
 
 
 # ==========================================
-# 3. CLASS GIỎ HÀNG
+# 3. KHỞI TẠO GIỎ HÀNG VÀ THỰC ĐƠN
 # ==========================================
 
-class GioHang:
+MENU_PATH = Path(__file__).resolve().parents[2] / "data" / "menu.json"
+with MENU_PATH.open(encoding="utf-8") as menu_file:
+    menu_data = json.load(menu_file)
+if not isinstance(menu_data, list):
+    raise ValueError(f"Menu data at {MENU_PATH} must be a JSON list.")
 
-    def __init__(self):
-        self.danh_sach_mon = {}
-        self.ban_ngoi = "Chưa chọn bàn"
+menu_catalog = MenuCatalog()
+menu_catalog.load_from_dict(menu_data)
+MENU = menu_catalog.get_all_items()
+if len(MENU) != len(menu_data):
+    raise ValueError(f"Menu data at {MENU_PATH} contains invalid or duplicate records.")
+MENU_BY_ID = {item.id: item for item in MENU}
 
-    def cap_nhat_mon(
-        self,
-        mon_id,
-        ten_mon,
-        gia,
-        so_luong,
-        hinh_anh,
-        ghi_chu="",
-        prep_time=0,
-    ):
-        if so_luong > 0:
-            self.danh_sach_mon[mon_id] = {
-                "ten": ten_mon,
-                "gia": gia,
-                "sl": so_luong,
-                "img": hinh_anh,
-                "ghi_chu": ghi_chu.strip(),
-                "prep_time": prep_time,
-            }
-        else:
-            self.danh_sach_mon.pop(mon_id, None)
-
-    def tinh_tong_tien(self):
-        return sum(
-            mon["gia"] * mon["sl"]
-            for mon in self.danh_sach_mon.values()
-        )
-
-    def xoa_sach_gio_hang(self):
-        self.danh_sach_mon.clear()
-        self.ban_ngoi = "Chưa chọn bàn"
-
-
-# ==========================================
-# 4. KHỞI TẠO GIỎ HÀNG
-# ==========================================
-
-if "gio_hang" not in st.session_state:
-    st.session_state.gio_hang = GioHang()
-
-gio_hang = st.session_state.gio_hang
-
-
-# ==========================================
-# 5. DỮ LIỆU MENU
-# ==========================================
-
-@st.cache_data
-def load_menu():
-    file_path = "menu.json"
-    if os.path.exists(file_path):
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    else:
-        st.error(f"❌ Không tìm thấy file `{file_path}`! Vui lòng kiểm tra lại thư mục.")
-        return []
-MENU = load_menu()
+if "cart" not in st.session_state:
+    st.session_state.cart = Cart()
+if "cart_revision" not in st.session_state:
+    st.session_state.cart_revision = 0
+cart = st.session_state.cart
 
 # ==========================================
 # 6. TIÊU ĐỀ QUÁN
@@ -379,15 +337,18 @@ st.sidebar.divider()
 
 st.sidebar.subheader("🛒 Giỏ hàng của bạn")
 
-st.sidebar.write(
-    f"Đang chọn: "
-    f"**{len(gio_hang.danh_sach_mon)} món**"
-)
-
-st.sidebar.write(
-    f"Tổng tiền: "
-    f"**{gio_hang.tinh_tong_tien():,} đ**"
-)
+cart_items = cart.get_order_items()
+st.sidebar.write(f"Đang chọn: **{cart.count_lines()} món**")
+st.sidebar.write(f"Tổng tiền: **{cart.calculate_total():,} đ**")
+undo_col, redo_col = st.sidebar.columns(2)
+if undo_col.button("↶ Undo", disabled=not cart.can_undo(), use_container_width=True):
+    cart.undo()
+    st.session_state.cart_revision += 1
+    st.rerun()
+if redo_col.button("↷ Redo", disabled=not cart.can_redo(), use_container_width=True):
+    cart.redo()
+    st.session_state.cart_revision += 1
+    st.rerun()
 
 
 # ==========================================
@@ -408,17 +369,11 @@ if trang_hien_tai == TRANG_THUC_DON:
         unsafe_allow_html=True,
     )
 
+    cart_by_id = {item["menu_item_id"]: item for item in cart_items}
     for mon in MENU:
-
-        mon_id = mon["id"]
-
-        thong_tin_cu = gio_hang.danh_sach_mon.get(
-            mon_id,
-            {},
-        )
-
-        so_luong_cu = thong_tin_cu.get("sl", 0)
-        ghi_chu_cu = thong_tin_cu.get("ghi_chu", "")
+        existing = cart_by_id.get(mon.id, {})
+        so_luong_cu = existing.get("quantity", 0)
+        ghi_chu_cu = existing.get("note", "")
 
         with st.container(border=True):
 
@@ -436,7 +391,7 @@ if trang_hien_tai == TRANG_THUC_DON:
     border-radius: 22px;
     background: linear-gradient(
         135deg,
-        {mon["color"]},
+        {mon.color},
         #171923
     );
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
@@ -445,10 +400,10 @@ if trang_hien_tai == TRANG_THUC_DON:
                     unsafe_allow_html=True,
                 )
 
-                st.image(
-                    mon["image"],
-                    width=230,
-                )
+                if mon.image:
+                    st.image(mon.image, width=230)
+                else:
+                    st.markdown("## 🍽️")
 
                 st.markdown(
                     """
@@ -461,20 +416,20 @@ if trang_hien_tai == TRANG_THUC_DON:
             with cot_thong_tin:
                 st.markdown(
                     f"""
-<div class="food-category">{mon["category"]}</div>
+<div class="food-category">{mon.category}</div>
 
-<div class="food-card-title">{mon["name"]}</div>
+<div class="food-card-title">{mon.name}</div>
 
 <div class="food-price">
-    💰 {mon["price"]:,} đ
+    💰 {mon.price:,} đ
 </div>
 
 <div class="food-description">
-    ⏱️ Thời gian chế biến: khoảng {mon["prep_time"]} phút / phần
+    ⏱️ Thời gian chế biến: khoảng {mon.prep_time} phút / phần
 </div>
 
 <div class="food-description">
-    {mon["description"]}
+    {mon.description}
 </div>
 """,
                     unsafe_allow_html=True,
@@ -489,7 +444,8 @@ if trang_hien_tai == TRANG_THUC_DON:
                     max_value=20,
                     value=so_luong_cu,
                     step=1,
-                    key=f"so_luong_{mon_id}",
+                    disabled=not mon.is_available,
+                    key=f"quantity_{mon.id}_{st.session_state.cart_revision}",
                 )
 
                 ghi_chu_moi = st.text_area(
@@ -500,18 +456,36 @@ if trang_hien_tai == TRANG_THUC_DON:
                         "không hành, không cay..."
                     ),
                     height=100,
-                    key=f"ghi_chu_{mon_id}",
+                    disabled=not mon.is_available,
+                    key=f"note_{mon.id}_{st.session_state.cart_revision}",
                 )
 
-                gio_hang.cap_nhat_mon(
-                    mon_id=mon_id,
-                    ten_mon=mon["name"],
-                    gia=mon["price"],
-                    so_luong=so_luong_moi,
-                    hinh_anh=mon["image"],
-                    ghi_chu=ghi_chu_moi,
-                    prep_time=mon["prep_time"],
-                )
+                if not mon.is_available:
+                    st.warning("Món này hiện đã hết.")
+                if st.button(
+                    "Cập nhật giỏ hàng",
+                    key=f"apply_{mon.id}_{st.session_state.cart_revision}",
+                    disabled=not mon.is_available,
+                    use_container_width=True,
+                ):
+                    current = next(
+                        (
+                            item for item in cart.get_order_items()
+                            if item["menu_item_id"] == mon.id
+                        ),
+                        None,
+                    )
+                    if not mon.is_available:
+                        st.error(f"{mon.name} hiện đã hết.")
+                    elif so_luong_moi == 0:
+                        if current is not None:
+                            cart.remove_item(mon.id)
+                    elif current is None:
+                        cart.add_item(mon, so_luong_moi, ghi_chu_moi)
+                    else:
+                        cart.update_item(mon.id, so_luong_moi, ghi_chu_moi)
+                    st.session_state.cart_revision += 1
+                    st.rerun()
 
 
 # ==========================================
@@ -529,7 +503,8 @@ elif trang_hien_tai == TRANG_GIO_HANG:
         unsafe_allow_html=True,
     )
 
-    if not gio_hang.danh_sach_mon:
+    cart_items = cart.get_order_items()
+    if not cart_items:
 
         st.warning(
             "⚠️ Giỏ hàng đang trống! "
@@ -540,37 +515,67 @@ elif trang_hien_tai == TRANG_GIO_HANG:
 
         st.subheader("📋 Chi tiết các món đã chọn")
 
-        for mon_id, thong_tin in gio_hang.danh_sach_mon.items():
-
-            thanh_tien = (
-                thong_tin["gia"] * thong_tin["sl"]
-            )
-
-            ghi_chu = (
-                thong_tin.get("ghi_chu", "").strip()
-                or "Không có yêu cầu thêm"
-            )
-
+        for item in cart_items:
+            menu_item = MENU_BY_ID.get(item["menu_item_id"])
             st.markdown(
                 f"""
 <div class="cart-item">
-    <b>🍽️ {thong_tin["ten"]}</b><br>
-    Số lượng: {thong_tin["sl"]}<br>
-    Thành tiền: {thanh_tien:,} đ<br>
-    📝 Yêu cầu: {ghi_chu}
+    <b>🍽️ {item["item_name"]}</b><br>
+    Đơn giá: {item["unit_price"]:,} đ<br>
+    Thành tiền: {item["subtotal"]:,} đ
 </div>
 """,
                 unsafe_allow_html=True,
             )
+            quantity_col, note_col, update_col, remove_col = st.columns(
+                [1, 2, 1, 1],
+                vertical_alignment="bottom",
+            )
+            with quantity_col:
+                quantity = st.number_input(
+                    "Số lượng",
+                    min_value=1,
+                    max_value=20,
+                    value=item["quantity"],
+                    step=1,
+                    key=f"cart_quantity_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                )
+            with note_col:
+                note = st.text_input(
+                    "Ghi chú",
+                    value=item.get("note", ""),
+                    key=f"cart_note_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                )
+            with update_col:
+                if st.button(
+                    "Lưu sửa",
+                    key=f"cart_update_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                    use_container_width=True,
+                ):
+                    if menu_item is None or not menu_item.is_available:
+                        st.error(f"{item['item_name']} hiện đã hết hoặc không có trong menu.")
+                    else:
+                        cart.update_item(item["menu_item_id"], quantity, note)
+                        st.session_state.cart_revision += 1
+                        st.rerun()
+            with remove_col:
+                if st.button(
+                    "Xóa",
+                    key=f"cart_remove_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                    use_container_width=True,
+                ):
+                    cart.remove_item(item["menu_item_id"])
+                    st.session_state.cart_revision += 1
+                    st.rerun()
 
         st.divider()
 
         st.subheader(
             f"💰 Tổng cộng: "
-            f"{gio_hang.tinh_tong_tien():,} VNĐ"
+            f"{cart.calculate_total():,} VNĐ"
         )
 
-        gio_hang.ban_ngoi = st.selectbox(
+        ban_ngoi = st.selectbox(
             "🪑 Bạn chọn ngồi ở đâu?",
             [
                 "Bàn số 1",
@@ -581,49 +586,31 @@ elif trang_hien_tai == TRANG_GIO_HANG:
         )
 
         if st.button("🚀 XÁC NHẬN ĐẶT MÓN", type="primary", use_container_width=True):
-            with st.spinner("Đang gửi thông tin xuống bếp..."):
-                time.sleep(1)
-            # BƯỚC 1: Đóng gói từ Giỏ hàng sang danh sách OrderItem
-            danh_sach_order_items = []
-            tong_thoi_gian_nau = 0
-            for mon_id, info in gio_hang.danh_sach_mon.items():
-                item = OrderItem(
-                    menu_item_id=mon_id,
-                    item_name=info["ten"],
-                    unit_price=float(info["gia"]),
-                    quantity=int(info["sl"]),
-                    subtotal=float(info["gia"] * info["sl"]),
-                    note=info.get("ghi_chu", "")
+            unavailable_items = [
+                item["item_name"]
+                for item in cart_items
+                if (
+                    item["menu_item_id"] not in MENU_BY_ID
+                    or not MENU_BY_ID[item["menu_item_id"]].is_available
                 )
-                danh_sach_order_items.append(item)
-                tong_thoi_gian_nau += info.get("prep_time", 5) * info["sl"]
-            # BƯỚC 2: Tạo đối tượng Order chính thức (Trạng thái PENDING)
-            ma_don = f"ORD-{int(time.time())}"
-            don_hang_moi = Order(
-                id=ma_don,
-                table_id=gio_hang.ban_ngoi,
-                status="PENDING",
-                items=danh_sach_order_items,
-                notes=f"Đơn đặt tại {gio_hang.ban_ngoi}"
-            )
-            # Gán thêm thời gian nấu để KitchenManager tính toán
-            don_hang_moi.prep_time = tong_thoi_gian_nau 
-            # BƯỚC 3: Kết nối với KitchenManager chuẩn qua hàm add_order và estimate_wait_time
-            kitchen: KitchenManager = st.session_state.kitchen
-            
-            # Tính thời gian chờ thực tế dựa trên Order vừa tạo
-            thoi_gian_doi = kitchen.estimate_wait_time(don_hang_moi)
-            
-            # Đẩy Order vào hàng đợi của Bếp
-            kitchen.add_order(don_hang_moi)
-            # BƯỚC 4: Thông báo thành công
-            st.success(f"🎉 Đã tạo đơn **{don_hang_moi.id}** cho **{don_hang_moi.table_id}**!")
-            st.success(f"✅ Bếp đã tiếp nhận đơn hàng! Thời gian lên món dự kiến: **{thoi_gian_doi} phút**.")
-            st.balloons()
-            # Dọn dẹp giỏ hàng
-            gio_hang.xoa_sach_gio_hang()
-            for mon in MENU:
-                st.session_state.pop(f"so_luong_{mon['id']}", None)
-                st.session_state.pop(f"ghi_chu_{mon['id']}", None)
-            time.sleep(2)
-            st.rerun()
+            ]
+            if unavailable_items:
+                st.error(
+                    "Không thể xác nhận đơn vì món đã hết hoặc không còn trong menu: "
+                    + ", ".join(unavailable_items)
+                )
+            else:
+                with st.spinner("Đang gửi thông tin xuống bếp..."):
+                    time.sleep(1)
+                    thoi_gian_doi = st.session_state.kitchen.receive_order(
+                        table_id=ban_ngoi,
+                        items=cart_items,
+                    )
+                st.success(
+                    f"✅ Đơn đã được tiếp nhận. Thời gian lên món dự kiến: "
+                    f"**{thoi_gian_doi} phút**."
+                )
+                st.balloons()
+                cart.clear()
+                st.session_state.cart_revision += 1
+                st.rerun()

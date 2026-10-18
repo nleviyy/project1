@@ -5,7 +5,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from kitchen import KitchenManager, Order, OrderStatus
+from KitchenManage import KitchenManager, Order, OrderStatus
 from redo_undo import Cart, CartItem
 
 

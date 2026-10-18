@@ -1,4 +1,4 @@
-from kitchen import KitchenManager, Order
+from KitchenManage import KitchenManager, Order
 
 
 def test_order_prep_time_uses_each_items_quantity():
