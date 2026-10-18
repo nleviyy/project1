@@ -22,7 +22,8 @@ class Payment(BaseModel):
     @model_validator(mode='after')
     def calculate_final_amount(self):
         """Tự động tính toán số tiền cần trả sau giảm giá nếu chưa gán"""
-        # Có thể dùng để kiểm tra tính hợp lệ số tiền khách đưa
+        if self.amount_paid == 0:
+            self.amount_paid = int(self.amount * (1 - self.discount_rate))
         return self
 
     @property

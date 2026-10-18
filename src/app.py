@@ -36,9 +36,9 @@ TABLE_STATUS_MAP = {
 }
 
 ORDER_STATUS_MAP = {
-    "PENDING": ("Chờ xác nhận"),
-    "PREPARING": ("Đang chế biến"),
-    "SERVED": ("Đã lên món"),
+    "PENDING": ("Chờ xác nhận", "⏳"),
+    "PREPARING": ("Đang chế biến", "🍳"),
+    "SERVED": ("Đã lên món", "🍽️"),
     "COMPLETED": ("Hoàn thành", "✅"),
     "CANCELLED": ("Đã hủy", "❌"),
 }
