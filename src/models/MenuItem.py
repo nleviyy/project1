@@ -1,23 +1,69 @@
-import sys
+from dataclasses import dataclass, field, asdict
 from typing import Optional
-from pydantic import BaseModel, Field, ConfigDict
 
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8')
+@dataclass
+class MenuItem:
+    id: str
+    name: str
+    category: str
+    price: float
+    unit: str
+    is_available: bool = True
+    description: Optional[str] = ""
+    prep_time: Optional[int] = 0
 
-class MenuItem(BaseModel):
-    model_config = ConfigDict(
-        validate_assignment=True,
-        str_strip_whitespace=True
-    )
+    def __post_init__(self):
+        if not self.id or len(str(self.id).strip()) < 2:
+            raise ValueError("ID món ăn phải có ít nhất 2 ký tự.")
+        if not self.name or len(str(self.name).strip()) < 1:
+            raise ValueError("Tên món không được để trống.")
+        if not self.category or len(str(self.category).strip()) < 1:
+            raise ValueError("Phân loại (category) không được để trống.")
+        try:
+            self.price = float(self.price)
+        except (ValueError, TypeError):
+            raise ValueError("Đơn giá phải là số hợp lệ.")
+        if self.price < 0:
+            raise ValueError("Đơn giá phải lớn hơn hoặc bằng 0.")
+        if not self.unit or len(str(self.unit).strip()) < 1:
+            raise ValueError("Đơn vị tính không được để trống.")
+        if self.prep_time is not None:
+            self.prep_time = int(self.prep_time)
+            if self.prep_time < 0:
+                raise ValueError("Thời gian chế biến không được âm.")
+        
+        self.id = str(self.id).strip()
+        self.name = str(self.name).strip()
+        self.category = str(self.category).strip()
+        self.unit = str(self.unit).strip()
 
-    id: str = Field(..., min_length=2)
-    name: str = Field(..., min_length=1)
-    category: str = Field(..., min_length=1)
-    price: float = Field(..., gt=0)
-    unit: str = Field(..., min_length=1)
-    is_available: bool = Field(default=True)
-    description: Optional[str] = Field(default="")
-    prep_time: Optional[int] = Field(default=0, ge=0)
+    def update(self, **kwargs):
+        """Cập nhật dữ liệu an toàn: Chỉ áp dụng khi toàn bộ dữ liệu mới hợp lệ."""
+        old_state = asdict(self)
+        try:
+            for key, value in kwargs.items():
+                if hasattr(self, key):
+                    setattr(self, key, value)
+            # Chạy lại post_init để kiểm tra toàn bộ điều kiện hợp lệ
+            self.__post_init__()
+        except Exception as e:
+            # Khôi phục trạng thái cũ nếu có bất kỳ lỗi nào
+            for key, value in old_state.items():
+                setattr(self, key, value)
+            raise ValueError(f"Cập nhật thất bại, đã khôi phục dữ liệu ban đầu. Lỗi: {e}")
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "MenuItem":
+        return cls(
+            id=str(data.get("id", data.get("item_id", ""))),
+            name=str(data.get("name", "")),
+            category=str(data.get("category", data.get("item_type", "Chưa phân loại"))),
+            price=float(data.get("price", data.get("unit_price", 0))),
+            unit=str(data.get("unit", "phần")),
+            is_available=bool(data.get("is_available", data.get("status", True))),
+            description=data.get("description", ""),
+            prep_time=int(data.get("prep_time", 0))
+        )

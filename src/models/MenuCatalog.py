@@ -7,11 +7,11 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-if CURRENT_DIR not in sys.path:
-    sys.path.append(CURRENT_DIR)
+try:
+    from .MenuItem import MenuItem
+except ImportError:
+    from MenuItem import MenuItem
 
-from MenuItem import MenuItem
 
 
 class MenuCatalog:
@@ -83,11 +83,19 @@ class MenuCatalog:
             "item_type": "category"
         }
 
+        # Tạo bản sao dữ liệu hiện tại để tránh cập nhật dở dang một phần khi có lỗi (Atomic Update)
+        current_data = item.to_dict() if hasattr(item, "to_dict") else item.model_dump()
+
+        for k, v in kwargs.items():
+            actual_key = key_mapping.get(k, k)
+            if actual_key in current_data:
+                current_data[actual_key] = v
+
         try:
-            for k, v in kwargs.items():
-                actual_key = key_mapping.get(k, k)
-                if hasattr(item, actual_key):
-                    setattr(item, actual_key, v)
+            # Tạo đối tượng tạm thời để validate toàn bộ dữ liệu mới
+            validated_item = MenuItem(**current_data)
+            # Chỉ ghi đè khi toàn bộ các trường đều hợp lệ
+            self._items[item_id] = validated_item
             return True
         except Exception as e:
             print(f"[Lỗi cập nhật] Dữ liệu cập nhật món ID '{item_id}' không hợp lệ: {e}")
@@ -123,3 +131,15 @@ class MenuCatalog:
             item for item in self._items.values()
             if item.category.lower() == target_type
         ]
+
+    def filter_by_category(self, category: str) -> List[MenuItem]:
+        """Bí danh cho filter_by_type để đồng nhất với trường 'category'."""
+        return self.filter_by_type(category)
+
+    def get_categories(self) -> List[str]:
+        """Lấy danh sách các phân loại món ăn hiện có."""
+        return list(dict.fromkeys(item.category for item in self._items.values()))
+
+    def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
+        """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""
+        return [item for item in self._items.values() if item.is_available == is_available]
