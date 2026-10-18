@@ -208,6 +208,22 @@ class TestCartBasic(unittest.TestCase):
         again = CartItem.from_dict(item.to_dict())
         self.assertEqual(again.to_dict(), item.to_dict())
 
+    def test_cart_preserves_prep_time_for_kitchen_estimate(self):
+        self.cart.add_item(
+            {
+                "id": "M01",
+                "name": "Phở bò",
+                "price": 50000,
+                "prep_time": 7,
+                "is_available": True,
+            },
+            quantity=3,
+        )
+        self.assertEqual(self.cart.get_order_items()[0]["prep_time"], 7)
+        self.cart.undo()
+        self.cart.redo()
+        self.assertEqual(self.cart.get_order_items()[0]["prep_time"], 7)
+
 
 class TestUndoRedo(unittest.TestCase):
     def setUp(self):

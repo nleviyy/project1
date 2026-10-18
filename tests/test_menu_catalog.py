@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import pytest
 from src.models.MenuItem import MenuItem
 from src.models.MenuCatalog import MenuCatalog
@@ -17,6 +20,7 @@ def test_menu_item_valid():
     assert item.name == "Cà phê đen đá"
     assert item.price == 25000
     assert item.is_available is True
+    assert isinstance(item.price, int)
 
 def test_menu_item_validation_error():
     with pytest.raises(ValueError):
@@ -26,6 +30,16 @@ def test_menu_item_validation_error():
             category="Đồ uống",
             price=-5000, # Giá âm không hợp lệ
             unit="ly"
+        )
+
+def test_menu_item_rejects_fractional_vnd_price():
+    with pytest.raises(ValueError, match="số nguyên"):
+        MenuItem(
+            id="M01",
+            name="Món thử",
+            category="Đồ ăn",
+            price=12500.5,
+            unit="phần",
         )
 
 
@@ -71,3 +85,16 @@ def test_menu_catalog_crud_and_search():
     assert catalog.remove_item("M01") is True
     assert catalog.get_item("M01") is None
     assert catalog.remove_item("M01") is False
+
+
+def test_menu_catalog_loads_integer_priced_items_from_json():
+    menu_path = Path(__file__).resolve().parent.parent / "data" / "menu.json"
+    with menu_path.open(encoding="utf-8") as menu_file:
+        menu_data = json.load(menu_file)
+
+    catalog = MenuCatalog()
+    catalog.load_from_dict(menu_data)
+
+    items = catalog.get_all_items()
+    assert len(items) == len(menu_data)
+    assert all(type(item.price) is int for item in items)

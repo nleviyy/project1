@@ -1,14 +1,13 @@
 from typing import List, Optional, Literal, Union, Dict, Any
 from datetime import datetime
 from pydantic import BaseModel, Field
-from OrderItem import OrderItem
+from .OrderItem import OrderItem
 
 StatusType = Literal["PENDING", "PREPARING", "SERVED", "COMPLETED", "CANCELLED"]
 
 
 class Order(BaseModel):
     id: str = Field(..., description="Mã đơn hàng (VD: ORD-20261014-001)")
-    # Hỗ trợ cả số nguyên (1, 2) hoặc chuỗi ("Bàn số 1", "Mang về")
     table_id: Union[int, str] = Field(..., description="Bàn đặt món")
     status: StatusType = Field(default="PENDING", description="Trạng thái hiện tại")
     created_at: str = Field(
@@ -32,7 +31,7 @@ class Order(BaseModel):
     }
 
     @property
-    def total_amount(self) -> float:
+    def total_amount(self) -> int:
         """Tổng tiền toàn bộ đơn hàng tính từ các items."""
         return sum(item.subtotal for item in self.items)
 
@@ -81,8 +80,6 @@ class Order(BaseModel):
         """Hủy đơn hàng (Chỉ được hủy khi PENDING hoặc PREPARING)."""
         return self.change_status("CANCELLED")
 
-    # ---------- Hàm Factory tạo đơn trực tiếp từ Giỏ hàng ----------
-
     @classmethod
     def from_cart(cls, order_id: str, table_id: Union[int, str], cart_items: Dict[str, Any], notes: str = "") -> "Order":
         """Chuyển đổi dữ liệu từ Giỏ hàng Streamlit sang đối tượng Order."""
@@ -92,9 +89,9 @@ class Order(BaseModel):
                 OrderItem(
                     menu_item_id=item_id,
                     item_name=item_info.get("ten", ""),
-                    unit_price=float(item_info.get("gia", 0)),
+                    unit_price=int(item_info.get("gia", 0)),
                     quantity=int(item_info.get("sl", 1)),
-                    subtotal=float(item_info.get("gia", 0) * item_info.get("sl", 1)),
+                    subtotal=int(item_info.get("gia", 0) * item_info.get("sl", 1)),
                     note=item_info.get("ghi_chu", "")
                 )
             )

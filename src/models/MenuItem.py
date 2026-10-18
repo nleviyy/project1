@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass, asdict
 from typing import Optional
 
 @dataclass
@@ -6,11 +6,13 @@ class MenuItem:
     id: str
     name: str
     category: str
-    price: float
+    price: int
     unit: str
     is_available: bool = True
     description: Optional[str] = ""
     prep_time: Optional[int] = 0
+    image: Optional[str] = ""
+    color: Optional[str] = "#68452f"
 
     def __post_init__(self):
         if not self.id or len(str(self.id).strip()) < 2:
@@ -20,9 +22,12 @@ class MenuItem:
         if not self.category or len(str(self.category).strip()) < 1:
             raise ValueError("Phân loại (category) không được để trống.")
         try:
-            self.price = float(self.price)
+            price = float(self.price)
         except (ValueError, TypeError):
             raise ValueError("Đơn giá phải là số hợp lệ.")
+        if not price.is_integer():
+            raise ValueError("Đơn giá phải là số nguyên (VNĐ).")
+        self.price = int(price)
         if self.price < 0:
             raise ValueError("Đơn giá phải lớn hơn hoặc bằng 0.")
         if not self.unit or len(str(self.unit).strip()) < 1:
@@ -59,9 +64,11 @@ class MenuItem:
             id=str(data.get("id", data.get("item_id", ""))),
             name=str(data.get("name", "")),
             category=str(data.get("category", data.get("item_type", "Chưa phân loại"))),
-            price=float(data.get("price", data.get("unit_price", 0))),
+            price=data.get("price", data.get("unit_price", 0)),
             unit=str(data.get("unit", "phần")),
             is_available=bool(data.get("is_available", data.get("status", True))),
             description=data.get("description", ""),
-            prep_time=int(data.get("prep_time", 0))
+            prep_time=int(data.get("prep_time", 0)),
+            image=data.get("image", ""),
+            color=data.get("color", "#68452f"),
         )

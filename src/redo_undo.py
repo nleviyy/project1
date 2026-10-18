@@ -1,17 +1,25 @@
 class CartItem:
-    def __init__(self, menu_item_id, item_name, unit_price, quantity, note=""):
+    def __init__(
+        self,
+        menu_item_id,
+        item_name,
+        unit_price,
+        quantity,
+        note="",
+        prep_time=0,
+    ):
         self.menu_item_id = menu_item_id
         self.item_name = item_name
         self.unit_price = unit_price
         self.quantity = quantity
         self.note = note
+        self.prep_time = prep_time
 
     def calculate_subtotal(self):
-
         return self.unit_price * self.quantity
 
     def to_dict(self):
-        return {
+        item = {
             "menu_item_id": self.menu_item_id,
             "item_name": self.item_name,
             "unit_price": self.unit_price,
@@ -19,6 +27,9 @@ class CartItem:
             "subtotal": self.calculate_subtotal(),
             "note": self.note,
         }
+        if self.prep_time:
+            item["prep_time"] = self.prep_time
+        return item
 
     @classmethod
     def from_dict(cls, data):
@@ -28,6 +39,7 @@ class CartItem:
             data["unit_price"],
             data["quantity"],
             data.get("note", ""),
+            data.get("prep_time", 0),
         )
 
 
@@ -79,14 +91,16 @@ class Cart:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
         if not menu_item.get("is_available", True):
             raise ValueError("Món '" + str(menu_item["name"]) + "' đã hết")
-        if menu_item["price"] < 0:
-            raise ValueError("Đơn giá không được âm")
+        price = menu_item["price"]
+        if isinstance(price, bool) or not isinstance(price, int) or price < 0:
+            raise ValueError("Đơn giá phải là số nguyên VNĐ không âm")
 
         self._save_for_undo()
         existing = self._find(menu_item["id"])
         if existing is None:
             self._items.append(CartItem(menu_item["id"], menu_item["name"],
-                                        menu_item["price"], quantity, note))
+                                        price, quantity, note,
+                                        menu_item.get("prep_time", 0)))
         else:
             existing.quantity += quantity
             if note != "":

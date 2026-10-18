@@ -1,9 +1,10 @@
-import random
 import time
-
 import streamlit as st
 from kitchen import KitchenManager
-
+from src.models.OrderItem import OrderItem
+from src.models.Order import Order
+import json
+import os
 # ==========================================
 # 1. CÀI ĐẶT STREAMLIT
 # ==========================================
@@ -293,6 +294,7 @@ class GioHang:
         so_luong,
         hinh_anh,
         ghi_chu="",
+        prep_time=0,
     ):
         if so_luong > 0:
             self.danh_sach_mon[mon_id] = {
@@ -301,6 +303,7 @@ class GioHang:
                 "sl": so_luong,
                 "img": hinh_anh,
                 "ghi_chu": ghi_chu.strip(),
+                "prep_time": prep_time,
             }
         else:
             self.danh_sach_mon.pop(mon_id, None)
@@ -330,69 +333,16 @@ gio_hang = st.session_state.gio_hang
 # 5. DỮ LIỆU MENU
 # ==========================================
 
-MENU = [
-    {
-        "id": "M01",
-        "name": "Cà phê sữa đá",
-        "price": 29000,
-        "category": "Đồ uống",
-        "description": (
-            "Cà phê đậm vị kết hợp cùng sữa đặc béo thơm, "
-            "dùng kèm đá mát lạnh."
-        ),
-        "image": (
-            "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd"
-            "?auto=format&fit=crop&w=700&q=85"
-        ),
-        "color": "#68452f",
-    },
-    {
-        "id": "M02",
-        "name": "Trà đào cam sả",
-        "price": 39000,
-        "category": "Đồ uống",
-        "description": (
-            "Trà đào thanh mát, kết hợp vị cam chua nhẹ "
-            "và hương sả thơm dịu."
-        ),
-        "image": (
-            "https://images.unsplash.com/photo-1556679343-c7306c1976bc"
-            "?auto=format&fit=crop&w=700&q=85"
-        ),
-        "color": "#80452f",
-    },
-    {
-        "id": "M03",
-        "name": "Bánh mì chảo đặc biệt",
-        "price": 55000,
-        "category": "Món ăn",
-        "description": (
-            "Bánh mì nóng giòn ăn kèm trứng, xúc xích "
-            "và nước sốt đậm đà."
-        ),
-        "image": (
-            "https://cdn-i.doisongphapluat.com.vn/media/nguyen-thi-linh/2024/03/13/banh-my-viet-nam-dung-dau-danh-sach-top-100-mon-banh-sandwich-ngon-nhat-the-gioi-dspl1.png"
-            "?auto=format&fit=crop&w=700&q=85"
-        ),
-        "color": "#713f28",
-    },
-    {
-        "id": "M04",
-        "name": "Khoai tây chiên",
-        "price": 30000,
-        "category": "Ăn vặt",
-        "description": (
-            "Khoai tây chiên vàng giòn, thích hợp ăn nhẹ "
-            "hoặc dùng kèm món chính."
-        ),
-        "image": (
-            "https://images.unsplash.com/photo-1576107232684-1279f390859f"
-            "?auto=format&fit=crop&w=700&q=85"
-        ),
-        "color": "#5b3c55",
-    },
-]
-
+@st.cache_data
+def load_menu():
+    file_path = "menu.json"
+    if os.path.exists(file_path):
+        with open(file_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    else:
+        st.error(f"❌ Không tìm thấy file `{file_path}`! Vui lòng kiểm tra lại thư mục.")
+        return []
+MENU = load_menu()
 
 # ==========================================
 # 6. TIÊU ĐỀ QUÁN
@@ -520,6 +470,10 @@ if trang_hien_tai == TRANG_THUC_DON:
 </div>
 
 <div class="food-description">
+    ⏱️ Thời gian chế biến: khoảng {mon["prep_time"]} phút / phần
+</div>
+
+<div class="food-description">
     {mon["description"]}
 </div>
 """,
@@ -556,6 +510,7 @@ if trang_hien_tai == TRANG_THUC_DON:
                     so_luong=so_luong_moi,
                     hinh_anh=mon["image"],
                     ghi_chu=ghi_chu_moi,
+                    prep_time=mon["prep_time"],
                 )
 
 
@@ -625,39 +580,50 @@ elif trang_hien_tai == TRANG_GIO_HANG:
             ],
         )
 
-        # Nút xác nhận đặt món (đã sửa lỗi thụt đầu dòng và bỏ code trùng lặp)
-        if st.button(
-            "🚀 XÁC NHẬN ĐẶT MÓN",
-            type="primary",
-            use_container_width=True,
-        ):
+        if st.button("🚀 XÁC NHẬN ĐẶT MÓN", type="primary", use_container_width=True):
             with st.spinner("Đang gửi thông tin xuống bếp..."):
                 time.sleep(1)
-
-            # Lấy đối tượng bếp từ session_state
-            kitchen = st.session_state.kitchen
-            
-            # Gửi đơn và nhận thời gian chờ dự kiến từ kitchen.py
-            thoi_gian_doi = kitchen.receive_order(
+            # BƯỚC 1: Đóng gói từ Giỏ hàng sang danh sách OrderItem
+            danh_sach_order_items = []
+            tong_thoi_gian_nau = 0
+            for mon_id, info in gio_hang.danh_sach_mon.items():
+                item = OrderItem(
+                    menu_item_id=mon_id,
+                    item_name=info["ten"],
+                    unit_price=float(info["gia"]),
+                    quantity=int(info["sl"]),
+                    subtotal=float(info["gia"] * info["sl"]),
+                    note=info.get("ghi_chu", "")
+                )
+                danh_sach_order_items.append(item)
+                tong_thoi_gian_nau += info.get("prep_time", 5) * info["sl"]
+            # BƯỚC 2: Tạo đối tượng Order chính thức (Trạng thái PENDING)
+            ma_don = f"ORD-{int(time.time())}"
+            don_hang_moi = Order(
+                id=ma_don,
                 table_id=gio_hang.ban_ngoi,
-                items=gio_hang.danh_sach_mon
+                status="PENDING",
+                items=danh_sach_order_items,
+                notes=f"Đơn đặt tại {gio_hang.ban_ngoi}"
             )
-
-            st.success(
-                f"🎉 Đã chốt đơn cho **{gio_hang.ban_ngoi}**!"
-            )
-            st.success(
-                f"✅ Bếp đã tiếp nhận đơn hàng! "
-                f"Thời gian lên món dự kiến: **{thoi_gian_doi} phút**."
-            )
-
+            # Gán thêm thời gian nấu để KitchenManager tính toán
+            don_hang_moi.prep_time = tong_thoi_gian_nau 
+            # BƯỚC 3: Kết nối với KitchenManager chuẩn qua hàm add_order và estimate_wait_time
+            kitchen: KitchenManager = st.session_state.kitchen
+            
+            # Tính thời gian chờ thực tế dựa trên Order vừa tạo
+            thoi_gian_doi = kitchen.estimate_wait_time(don_hang_moi)
+            
+            # Đẩy Order vào hàng đợi của Bếp
+            kitchen.add_order(don_hang_moi)
+            # BƯỚC 4: Thông báo thành công
+            st.success(f"🎉 Đã tạo đơn **{don_hang_moi.id}** cho **{don_hang_moi.table_id}**!")
+            st.success(f"✅ Bếp đã tiếp nhận đơn hàng! Thời gian lên món dự kiến: **{thoi_gian_doi} phút**.")
             st.balloons()
+            # Dọn dẹp giỏ hàng
             gio_hang.xoa_sach_gio_hang()
-
-            # Xóa các lựa chọn số lượng/ghi chú cũ
             for mon in MENU:
                 st.session_state.pop(f"so_luong_{mon['id']}", None)
                 st.session_state.pop(f"ghi_chu_{mon['id']}", None)
-
             time.sleep(2)
             st.rerun()

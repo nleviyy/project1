@@ -1,4 +1,3 @@
-import os
 import sys
 from typing import Dict, List, Optional, Any
 
@@ -7,12 +6,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
-try:
-    from .MenuItem import MenuItem
-except ImportError:
-    from MenuItem import MenuItem
-
-
+from .MenuItem import MenuItem
 
 class MenuCatalog:
     def __init__(self):
@@ -39,11 +33,13 @@ class MenuCatalog:
                     "id": str(key),
                     "name": info.get("name", info.get("Name", "")),
                     "category": info.get("category", info.get("item_type", info.get("Item_type", "Chưa phân loại"))),
-                    "price": float(info.get("price", info.get("unit_price", info.get("Unit_price", 1)))),
+                    "price": info.get("price", info.get("unit_price", info.get("Unit_price", 1))),
                     "unit": info.get("unit", info.get("Unit", "phần")),
                     "is_available": info.get("is_available", info.get("status", info.get("Status_of_menuItem", True))),
                     "description": info.get("description", info.get("Description", "")),
-                    "prep_time": int(info.get("prep_time", info.get("Prep_time", 0)))
+                    "prep_time": int(info.get("prep_time", info.get("Prep_time", 0))),
+                    "image": info.get("image", ""),
+                    "color": info.get("color", "#68452f"),
                 }
                 item = MenuItem(**item_data)
                 self._items[item.id] = item
@@ -51,10 +47,7 @@ class MenuCatalog:
                 print(f"[Cảnh báo] Bỏ qua món ID {key} do dữ liệu không hợp lệ: {e}")
 
     def to_dict(self) -> list:
-        return [
-            item.model_dump() if hasattr(item, "model_dump") else item.dict()
-            for item in self._items.values()
-        ]
+        return [item.to_dict() for item in self._items.values()]
 
     def to_list(self) -> list:
         return self.to_dict()

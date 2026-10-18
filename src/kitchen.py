@@ -1,6 +1,6 @@
 from collections import deque
 from datetime import datetime
-
+from uuid import uuid4
 
 def now_time():
     return datetime.now().isoformat(timespec="seconds")
@@ -54,7 +54,28 @@ class Order:
         self.updated_at = now_time()
 
     def calculate_prep_time(self):
-        return self._prep_time
+        if not self.items:
+            return self._prep_time
+
+        items = self.items.values() if isinstance(self.items, dict) else self.items
+        total_prep_time = 0
+        for item in items:
+            if isinstance(item, dict):
+                quantity = item.get("sl", item.get("quantity", 1))
+                prep_time = item.get("prep_time", 0)
+            else:
+                quantity = getattr(item, "quantity", 1)
+                prep_time = getattr(item, "prep_time", 0)
+
+            quantity = int(quantity)
+            prep_time = int(prep_time)
+            if quantity <= 0:
+                raise ValueError("Số lượng món phải lớn hơn 0.")
+            if prep_time < 0:
+                raise ValueError("Thời gian chế biến không được âm.")
+            total_prep_time += quantity * prep_time
+
+        return total_prep_time
 
 class KitchenManager:
     def __init__(self):
@@ -69,6 +90,18 @@ class KitchenManager:
             raise ValueError("Chỉ nhận đơn ở trạng thái '"
                              + OrderStatus.get_label(OrderStatus.PENDING) + "'")
         self._queue.append(order)      # append = thêm vào cuối hàng
+
+    def receive_order(self, table_id, items, notes=""):
+        """Create and queue an order from cart items; return its estimated wait in minutes."""
+        order = Order(
+            order_id=f"ORD-{uuid4().hex[:12].upper()}",
+            table_id=table_id,
+            items=items,
+            notes=notes,
+        )
+        order.calculate_prep_time()
+        self.add_order(order)
+        return self.estimate_wait_time(order)
 
     def start_next_order(self):
         if self._current_order is not None:
