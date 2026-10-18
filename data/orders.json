@@ -106,5 +106,47 @@
         "discount_amount": 0,
         "final_amount": 58000,
         "notes": "Khách quen bàn 8"
+    },
+    {
+        "id": "ORD-20261018-002",
+        "table_id": 8,
+        "created_at": "2026-10-18T18:18:50",
+        "updated_at": "2026-10-18T18:18:50",
+        "status": "COMPLETED",
+        "items": [
+            {
+                "menu_item_id": "M02",
+                "item_name": "Cà phê sữa đá",
+                "unit_price": 29000,
+                "quantity": 2,
+                "subtotal": 58000,
+                "note": "Ít ngọt"
+            }
+        ],
+        "total_amount": 58000,
+        "discount_amount": 0,
+        "final_amount": 58000,
+        "notes": "Khách quen bàn 8"
+    },
+    {
+        "id": "ORD-20261018-003",
+        "table_id": 8,
+        "created_at": "2026-10-18T18:27:36",
+        "updated_at": "2026-10-18T18:27:36",
+        "status": "COMPLETED",
+        "items": [
+            {
+                "menu_item_id": "M02",
+                "item_name": "Cà phê sữa đá",
+                "unit_price": 29000,
+                "quantity": 2,
+                "subtotal": 58000,
+                "note": "Ít ngọt"
+            }
+        ],
+        "total_amount": 58000,
+        "discount_amount": 0,
+        "final_amount": 58000,
+        "notes": "Khách quen bàn 8"
     }
 ]
