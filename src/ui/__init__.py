@@ -2,7 +2,7 @@ import random
 import time
 
 import streamlit as st
-
+from kitchen import KitchenManager
 
 # ==========================================
 # 1. CÀI ĐẶT STREAMLIT
@@ -13,6 +13,10 @@ st.set_page_config(
     page_icon="🍔",
     layout="wide",
 )
+
+# Khởi tạo KitchenManager vào session_state
+if "kitchen" not in st.session_state:
+    st.session_state.kitchen = KitchenManager()
 
 
 # ==========================================
@@ -376,7 +380,7 @@ MENU = [
         "id": "M04",
         "name": "Khoai tây chiên",
         "price": 30000,
-        "category": "Không ngon",
+        "category": "Ăn vặt",
         "description": (
             "Khoai tây chiên vàng giòn, thích hợp ăn nhẹ "
             "hoặc dùng kèm món chính."
@@ -621,43 +625,39 @@ elif trang_hien_tai == TRANG_GIO_HANG:
             ],
         )
 
+        # Nút xác nhận đặt món (đã sửa lỗi thụt đầu dòng và bỏ code trùng lặp)
         if st.button(
             "🚀 XÁC NHẬN ĐẶT MÓN",
             type="primary",
             use_container_width=True,
         ):
+            with st.spinner("Đang gửi thông tin xuống bếp..."):
+                time.sleep(1)
 
-            with st.spinner(
-                "Đang gửi thông tin xuống bếp..."
-            ):
-                time.sleep(2)
-
-            thoi_gian_doi = random.randint(5, 15)
-
-            st.success(
-                f"🎉 Đã chốt đơn cho "
-                f"**{gio_hang.ban_ngoi}**!"
+            # Lấy đối tượng bếp từ session_state
+            kitchen = st.session_state.kitchen
+            
+            # Gửi đơn và nhận thời gian chờ dự kiến từ kitchen.py
+            thoi_gian_doi = kitchen.receive_order(
+                table_id=gio_hang.ban_ngoi,
+                items=gio_hang.danh_sach_mon
             )
 
             st.success(
-                "✅ Bếp đã tiếp nhận đơn hàng! "
-                f"Thời gian lên món dự kiến: "
-                f"**{thoi_gian_doi} phút**."
+                f"🎉 Đã chốt đơn cho **{gio_hang.ban_ngoi}**!"
+            )
+            st.success(
+                f"✅ Bếp đã tiếp nhận đơn hàng! "
+                f"Thời gian lên món dự kiến: **{thoi_gian_doi} phút**."
             )
 
             st.balloons()
-
             gio_hang.xoa_sach_gio_hang()
 
+            # Xóa các lựa chọn số lượng/ghi chú cũ
             for mon in MENU:
-                st.session_state.pop(
-                    f"so_luong_{mon['id']}",
-                    None,
-                )
+                st.session_state.pop(f"so_luong_{mon['id']}", None)
+                st.session_state.pop(f"ghi_chu_{mon['id']}", None)
 
-                st.session_state.pop(
-                    f"ghi_chu_{mon['id']}",
-                    None,
-                )
-
+            time.sleep(2)
             st.rerun()
