@@ -1,4 +1,7 @@
 """
-Package core: Xử lý logic nghiệp vụ và hướng đối tượng OOP (Phụ trách: Anh)
-- OrderManager, TableManager, MenuManager...
+Package core: Xử lý logic nghiệp vụ và hướng đối tượng OOP.
+- OrderService: Quản lý vòng đời đơn hàng, xác nhận đơn, tránh thanh toán trùng.
 """
+from .OrderService import OrderService
+
+__all__ = ["OrderService"]
