@@ -4,27 +4,19 @@ from typing import Any
 
 
 class CartItem:
-    def __init__(
-        self,
-        menu_item_id: str,
-        item_name: str,
-        unit_price: int,
-        quantity: int,
-        note: str = "",
-        prep_time: int = 0,
-    ) -> None:
+    def __init__(self, menu_item_id, item_name, unit_price, quantity, note=""):
         self.menu_item_id = menu_item_id
         self.item_name = item_name
         self.unit_price = unit_price
         self.quantity = quantity
         self.note = note
-        self.prep_time = prep_time
 
-    def calculate_subtotal(self) -> int:
+    def calculate_subtotal(self):
+
         return self.unit_price * self.quantity
 
-    def to_dict(self) -> dict[str, Any]:
-        item = {
+    def to_dict(self):
+        return {
             "menu_item_id": self.menu_item_id,
             "item_name": self.item_name,
             "unit_price": self.unit_price,
@@ -32,162 +24,127 @@ class CartItem:
             "subtotal": self.calculate_subtotal(),
             "note": self.note,
         }
-        if self.prep_time:
-            item["prep_time"] = self.prep_time
-        return item
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> CartItem:
+    def from_dict(cls, data):
         return cls(
             data["menu_item_id"],
             data["item_name"],
             data["unit_price"],
             data["quantity"],
             data.get("note", ""),
-            data.get("prep_time", 0),
         )
 
 
 class Cart:
-    def __init__(self) -> None:
-        self._items: list[CartItem] = []
-        self.undo_stack: list[list[dict[str, Any]]] = []
-        self.redo_stack: list[list[dict[str, Any]]] = []
+    def __init__(self):
+        self._items = []         
+        self.undo_stack = []
+        self.redo_stack = []
 
-    def _snapshot(self) -> list[dict[str, Any]]:
+    def _snapshot(self):
         return [item.to_dict() for item in self._items]
 
-    def _restore(self, snapshot: list[dict[str, Any]]) -> None:
+    def _restore(self, snapshot):
         self._items = [CartItem.from_dict(data) for data in snapshot]
 
-    def _save_for_undo(self) -> None:
+    def _save_for_undo(self):
         self.undo_stack.append(self._snapshot())
-        self.redo_stack.clear()
+        self.redo_stack.clear()           
 
-    def undo(self) -> bool:
-        if not self.undo_stack:
+    def undo(self):
+        if len(self.undo_stack) == 0:
             return False
-        self.redo_stack.append(self._snapshot())
-        self._restore(self.undo_stack.pop())
+        self.redo_stack.append(self._snapshot())   
+        self._restore(self.undo_stack.pop())       
         return True
 
-    def redo(self) -> bool:
-        if not self.redo_stack:
+    def redo(self):
+        if len(self.redo_stack) == 0:
             return False
-        self.undo_stack.append(self._snapshot())
-        self._restore(self.redo_stack.pop())
+        self.undo_stack.append(self._snapshot())   
+        self._restore(self.redo_stack.pop())       
         return True
 
-    def can_undo(self) -> bool:
-        return bool(self.undo_stack)
+    def can_undo(self):
+        return len(self.undo_stack) > 0
 
-    def can_redo(self) -> bool:
-        return bool(self.redo_stack)
+    def can_redo(self):
+        return len(self.redo_stack) > 0
 
-    def _find(self, menu_item_id: str) -> CartItem | None:
-        return next(
-            (item for item in self._items if item.menu_item_id == menu_item_id),
-            None,
-        )
+    def _find(self, menu_item_id):
+        for item in self._items:
+            if item.menu_item_id == menu_item_id:
+                return item
+        return None
 
-    @staticmethod
-    def _menu_values(menu_item: Any) -> dict[str, Any]:
-        if hasattr(menu_item, "to_dict"):
-            return menu_item.to_dict()
-        if isinstance(menu_item, dict):
-            return menu_item
-        raise TypeError("menu_item must be a MenuItem or a dictionary")
+    def add_item(self, menu_item, quantity=1, note=""):
 
-    def add_item(self, menu_item: Any, quantity: int = 1, note: str = "") -> None:
-        item_data = self._menu_values(menu_item)
-        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+        if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
-        if not item_data.get("is_available", True):
-            raise ValueError(f"Món '{item_data['name']}' đã hết")
+        if not menu_item.get("is_available", True):
+            raise ValueError("Món '" + str(menu_item["name"]) + "' đã hết")
+        if menu_item["price"] < 0:
+            raise ValueError("Đơn giá không được âm")
 
-        price = item_data["price"]
-        if isinstance(price, bool) or not isinstance(price, int) or price < 0:
-            raise ValueError("Đơn giá phải là số nguyên VNĐ không âm")
-
-        existing = self._find(item_data["id"])
         self._save_for_undo()
+        existing = self._find(menu_item["id"])
         if existing is None:
-            self._items.append(
-                CartItem(
-                    item_data["id"],
-                    item_data["name"],
-                    price,
-                    quantity,
-                    note,
-                    item_data.get("prep_time", 0),
-                )
-            )
+            self._items.append(CartItem(menu_item["id"], menu_item["name"],
+                                        menu_item["price"], quantity, note))
         else:
             existing.quantity += quantity
-            if note:
+            if note != "":
                 existing.note = note
 
-    def remove_item(self, menu_item_id: str) -> None:
+    def remove_item(self, menu_item_id):
         item = self._find(menu_item_id)
         if item is None:
-            raise ValueError(f"Món {menu_item_id} không có trong giỏ")
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         self._items.remove(item)
 
-    def update_quantity(self, menu_item_id: str, quantity: int) -> None:
-        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+    def update_quantity(self, menu_item_id, quantity):
+        if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
         item = self._find(menu_item_id)
         if item is None:
-            raise ValueError(f"Món {menu_item_id} không có trong giỏ")
-        if item.quantity == quantity:
-            return
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.quantity = quantity
 
-    def set_note(self, menu_item_id: str, note: str) -> None:
+    def set_note(self, menu_item_id, note):
         item = self._find(menu_item_id)
         if item is None:
-            raise ValueError(f"Món {menu_item_id} không có trong giỏ")
-        if item.note == note:
-            return
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.note = note
 
-    def update_item(self, menu_item_id: str, quantity: int, note: str) -> None:
-        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
-        item = self._find(menu_item_id)
-        if item is None:
-            raise ValueError(f"Món {menu_item_id} không có trong giỏ")
-        if item.quantity == quantity and item.note == note:
-            return
-        self._save_for_undo()
-        item.quantity = quantity
-        item.note = note
-
-    def clear(self) -> None:
-        self._items.clear()
+    def clear(self):
+        self._items = []
         self.undo_stack.clear()
         self.redo_stack.clear()
 
-    def get_order_items(self) -> list[dict[str, Any]]:
+    def get_order_items(self):
         return self._snapshot()
 
-    def count_lines(self) -> int:
+    def count_lines(self):
         return len(self._items)
 
-    def is_empty(self) -> bool:
-        return not self._items
+    def is_empty(self):
+        return len(self._items) == 0
 
-    def calculate_total(self) -> int:
-        return sum(item.calculate_subtotal() for item in self._items)
+    def calculate_total(self):
+        total = 0
+        for item in self._items:
+            total += item.calculate_subtotal()
+        return total
 
-    def to_text(self) -> str:
-        if self.is_empty():
+    def to_text(self):
+        if len(self._items) == 0:
             return "(giỏ hàng trống)"
         lines = []
         for item in self._items:
-            money = f"{item.calculate_subtotal():,}".replace(",", ".")
-            lines.append(f"{item.item_name} x{item.quantity} = {money}")
+            money = "{:,}".format(item.calculate_subtotal()).replace(",", ".")
+            lines.append("{} x{} = {}".format(item.item_name, item.quantity, money))
         return "; ".join(lines)
