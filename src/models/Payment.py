@@ -1,30 +1,44 @@
 from typing import Optional, Literal, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 PaymentMethod = Literal["CASH", "BANK_TRANSFER", "CREDIT_CARD", "E_WALLET"]
 PaymentStatus = Literal["SUCCESS", "FAILED", "PENDING", "REFUNDED"]
 
-
 class Payment(BaseModel):
-    id: str
+    id: str = Field(..., alias="payment_id")
     order_id: str
-    table_id: int
+    table_id: str 
     payment_time: str = Field(default_factory=lambda: datetime.now().isoformat())
-    amount_paid: float = Field(..., ge=0.0)
+    amount: int = Field(..., ge=0, description="Tổng tiền gốc của hóa đơn (VNĐ)")
+    discount_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="Tỷ lệ giảm giá (VD: 0.1 tương ứng 10%)")
+    amount_paid: int = Field(..., ge=0, description="Số tiền thực tế khách trả (VNĐ)")
     method: PaymentMethod
     status: PaymentStatus = Field(default="SUCCESS")
     cashier_name: str
     transaction_code: Optional[str] = None
     note: Optional[str] = ""
 
+    @model_validator(mode='after')
+    def calculate_final_amount(self):
+        """Tự động tính toán số tiền cần trả sau giảm giá nếu chưa gán"""
+        # Có thể dùng để kiểm tra tính hợp lệ số tiền khách đưa
+        return self
+
     @property
     def is_successful(self) -> bool:
         return self.status == "SUCCESS"
 
+    def calculate_change(self, cash_given: int) -> int:
+        """Tính tiền thối lại cho khách khi thanh toán tiền mặt"""
+        final_due = int(self.amount * (1 - self.discount_rate))
+        if cash_given < final_due:
+            raise ValueError("Số tiền khách đưa không đủ thanh toán.")
+        return cash_given - final_due
+
     @classmethod
     def calculate_revenue(cls, payments: List["Payment"]) -> Dict[str, Any]:
-        total_revenue = 0.0
+        total_revenue = 0
         paid_order_ids = set()
         processed_payment_ids = set()
 
