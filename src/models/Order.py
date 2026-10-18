@@ -1,9 +1,18 @@
-from typing import List, Optional, Literal, Union, Dict, Any
+from typing import ClassVar, List, Optional, Literal, Union, Dict, Any
 from datetime import datetime
+from enum import Enum
 from pydantic import BaseModel, Field
 from .OrderItem import OrderItem
 
 StatusType = Literal["PENDING", "PREPARING", "SERVED", "COMPLETED", "CANCELLED"]
+
+
+class OrderStatus(str, Enum):
+    PENDING = "PENDING"
+    PREPARING = "PREPARING"
+    SERVED = "SERVED"
+    COMPLETED = "COMPLETED"
+    CANCELLED = "CANCELLED"
 
 
 class Order(BaseModel):
@@ -20,9 +29,9 @@ class Order(BaseModel):
     )
     items: List[OrderItem] = Field(default_factory=list, description="Danh sách món đã đặt")
     notes: Optional[str] = Field(default="", description="Ghi chú toàn đơn")
+    discount_amount: int = Field(default=0, ge=0, description="Tiền giảm giá (VNĐ)")
 
-    # Bản đồ quy tắc chuyển trạng thái hợp lệ
-    VALID_TRANSITIONS: dict = {
+    VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = {
         "PENDING": ["PREPARING", "CANCELLED"],
         "PREPARING": ["SERVED", "CANCELLED"],
         "SERVED": ["COMPLETED"],
@@ -35,6 +44,34 @@ class Order(BaseModel):
         """Tổng tiền toàn bộ đơn hàng tính từ các items."""
         return sum(item.subtotal for item in self.items)
 
+    @property
+    def final_amount(self) -> int:
+        return max(0, self.total_amount - self.discount_amount)
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status == "PENDING"
+
+    @property
+    def is_preparing(self) -> bool:
+        return self.status == "PREPARING"
+
+    @property
+    def is_served(self) -> bool:
+        return self.status == "SERVED"
+
+    @property
+    def is_completed(self) -> bool:
+        return self.status == "COMPLETED"
+
+    @property
+    def is_active(self) -> bool:
+        return self.status in ("PENDING", "PREPARING", "SERVED")
+
+    @property
+    def can_modify(self) -> bool:
+        return self.can_modify_items()
+
     def can_modify_items(self) -> bool:
         """Chỉ cho phép thêm/sửa món khi đơn chưa vào bếp chế biến."""
         return self.status == "PENDING"
@@ -43,24 +80,77 @@ class Order(BaseModel):
         """Thêm món vào đơn hàng (chỉ khi PENDING)."""
         if not self.can_modify_items():
             raise ValueError(f"Không thể sửa món khi đơn đang ở trạng thái '{self.status}'.")
+        for current in self.items:
+            if (
+                current.menu_item_id == item.menu_item_id
+                and current.note == item.note
+                and current.unit_price == item.unit_price
+            ):
+                current.update_quantity(current.quantity + item.quantity)
+                self.updated_at = datetime.now().isoformat()
+                return True
         self.items.append(item)
         self.updated_at = datetime.now().isoformat()
         return True
 
     def change_status(self, new_status: StatusType) -> bool:
         """Kiểm tra và cập nhật trạng thái theo đúng luồng nghiệp vụ."""
+        new_status = new_status.value if isinstance(new_status, OrderStatus) else new_status
         if self.status == new_status:
             return True
 
+        if new_status == "COMPLETED":
+            if self.status == "SERVED":
+                raise ValueError("Đơn hàng chỉ được hoàn tất sau khi thanh toán thành công.")
+            return False
+
         allowed_next_statuses = self.VALID_TRANSITIONS.get(self.status, [])
         if new_status not in allowed_next_statuses:
-            raise ValueError(
-                f"Lỗi chuyển trạng thái: Không thể chuyển từ '{self.status}' sang '{new_status}'."
-            )
+            return False
 
         self.status = new_status
         self.updated_at = datetime.now().isoformat()
         return True
+
+    def can_transition_to(self, new_status: StatusType) -> bool:
+        new_status = new_status.value if isinstance(new_status, OrderStatus) else new_status
+        return new_status in self.VALID_TRANSITIONS.get(self.status, [])
+
+    def _touch(self) -> None:
+        self.updated_at = datetime.now().isoformat()
+
+    def set_discount(self, amount: int) -> None:
+        if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
+            raise ValueError("Tiền giảm giá phải là số nguyên không âm.")
+        self.discount_amount = amount
+        self.updated_at = datetime.now().isoformat()
+
+    def update_item_quantity(self, menu_item_id: str, quantity: int) -> bool:
+        if not self.can_modify_items():
+            raise ValueError(f"Không thể sửa món khi đơn đang ở trạng thái '{self.status}'.")
+        for item in self.items:
+            if item.menu_item_id == menu_item_id:
+                item.update_quantity(quantity)
+                self.updated_at = datetime.now().isoformat()
+                return True
+        return False
+
+    def remove_item(self, menu_item_id: str) -> bool:
+        if not self.can_modify_items():
+            raise ValueError(f"Không thể sửa món khi đơn đang ở trạng thái '{self.status}'.")
+        for index, item in enumerate(self.items):
+            if item.menu_item_id == menu_item_id:
+                del self.items[index]
+                self.updated_at = datetime.now().isoformat()
+                return True
+        return False
+
+    def to_dict(self) -> dict:
+        return self.model_dump(mode="json")
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Order":
+        return cls.model_validate(data)
 
     # ---------- Các hàm chuyển đổi nhanh theo từng công đoạn ----------
 

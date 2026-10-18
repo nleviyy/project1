@@ -16,3 +16,19 @@ class OrderItem(BaseModel):
         if self.subtotal is None or self.subtotal == 0:
             self.subtotal = self.unit_price * self.quantity
         return self
+
+    def update_quantity(self, quantity: int) -> None:
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng phải là số nguyên lớn hơn 0.")
+        self.quantity = quantity
+        self.subtotal = self.unit_price * quantity
+
+    def update_note(self, note: str) -> None:
+        self.note = note
+
+    def to_dict(self) -> dict:
+        return self.model_dump(mode="json")
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "OrderItem":
+        return cls.model_validate(data)

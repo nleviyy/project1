@@ -1,20 +1,37 @@
-from typing import Optional, Literal, List, Dict, Any
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
-from pydantic import BaseModel, Field, model_validator
+from enum import Enum
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-PaymentMethod = Literal["CASH", "BANK_TRANSFER", "CREDIT_CARD", "E_WALLET"]
-PaymentStatus = Literal["SUCCESS", "FAILED", "PENDING", "REFUNDED"]
+
+class PaymentMethod(str, Enum):
+    CASH = "CASH"
+    BANK_TRANSFER = "BANK_TRANSFER"
+    CARD = "CARD"
+
+
+class PaymentStatus(str, Enum):
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    PENDING = "PENDING"
+    REFUNDED = "REFUNDED"
 
 class Payment(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     id: str = Field(..., alias="payment_id", description="Mã giao dịch thanh toán")
     order_id: str = Field(..., description="Mã đơn hàng liên kết")
-    table_id: str = Field(..., description="Mã bàn thanh toán (dạng chuỗi)")
+    table_id: Union[int, str] = Field(..., description="Mã bàn thanh toán")
     payment_time: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Thời gian thanh toán")
-    amount: int = Field(..., ge=0, description="Tổng tiền gốc của hóa đơn (VNĐ)")
+    amount: int = Field(default=0, ge=0, description="Tổng tiền gốc của hóa đơn (VNĐ)")
     discount_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="Tỷ lệ giảm giá (VD: 0.1 tương ứng 10%)")
     amount_paid: int = Field(default=0, ge=0, description="Số tiền thực tế khách trả (VNĐ)")
-    method: PaymentMethod = Field(default="CASH", description="Phương thức thanh toán")
-    status: PaymentStatus = Field(default="SUCCESS", description="Trạng thái giao dịch")
+    method: PaymentMethod = Field(
+        default=PaymentMethod.CASH, description="Phương thức thanh toán"
+    )
+    status: PaymentStatus = Field(
+        default=PaymentStatus.SUCCESS, description="Trạng thái giao dịch"
+    )
     cashier_name: str = Field(..., description="Tên nhân viên thu ngân")
     transaction_code: Optional[str] = Field(default=None, description="Mã giao dịch ngân hàng/điện tử nếu có")
     note: Optional[str] = Field(default="", description="Ghi chú thanh toán")
@@ -23,7 +40,7 @@ class Payment(BaseModel):
     def calculate_final_amount(self):
         """Tự động tính toán số tiền cần trả sau giảm giá nếu amount_paid chưa được gán."""
         final_due = int(self.amount * (1 - self.discount_rate))
-        if self.amount_paid == 0:
+        if self.status == "SUCCESS" and self.amount_paid == 0:
             self.amount_paid = final_due
         return self
 
@@ -38,6 +55,13 @@ class Payment(BaseModel):
         if cash_given < final_due:
             raise ValueError(f"Số tiền khách đưa ({cash_given:,} VNĐ) không đủ thanh toán ({final_due:,} VNĐ).")
         return cash_given - final_due
+
+    def to_dict(self) -> Dict[str, Any]:
+        return self.model_dump(mode="json")
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "Payment":
+        return cls.model_validate(data)
 
     @classmethod
     def calculate_revenue(cls, payments: List["Payment"]) -> Dict[str, Any]:

@@ -1,7 +1,15 @@
 from dataclasses import dataclass, asdict
+from enum import Enum
 from typing import Optional, Set
 
 VALID_TABLE_STATUSES: Set[str] = {"AVAILABLE", "OCCUPIED", "RESERVED"}
+
+
+class TableStatus(str, Enum):
+    AVAILABLE = "AVAILABLE"
+    OCCUPIED = "OCCUPIED"
+    RESERVED = "RESERVED"
+
 
 @dataclass
 class Table:
@@ -108,9 +116,17 @@ class Table:
             status=data.get("status", "AVAILABLE"),
             current_order_id=data.get("current_order_id")
         )
+    @property
     def is_available(self) -> bool:
         """Kiểm tra xem bàn có đang thực sự trống (AVAILABLE) và không có đơn hàng không."""
         return self.status == "AVAILABLE" and self.current_order_id is None
+
+    @property
+    def is_occupied(self) -> bool:
+        return self.status == "OCCUPIED"
+
+    def release(self) -> bool:
+        return self.vacate()
 
     def check_and_occupy(self, order_id: str) -> bool:
         """
@@ -118,7 +134,7 @@ class Table:
         - Nếu bàn đang bận (OCCUPIED) hoặc đã đặt trước (RESERVED), từ chối và báo lỗi.
         - Nếu bàn trống, tiến hành gắn đơn hàng và chuyển sang trạng thái OCCUPIED.
         """
-        if not self.is_available():
+        if not self.is_available:
             raise ValueError(
                 f"Lỗi: Bàn '{self.name}' (ID: {self.id}) hiện đang ở trạng thái '{self.status}' "
                 f"hoặc đã có đơn hàng liên kết. Không thể đặt bàn này!"
