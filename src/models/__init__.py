@@ -28,7 +28,7 @@ def __getattr__(name):
     module_map = {
         "Order": ".Order",
         "OrderItem": ".OrderItem",
-        "OrderStatus": ".OrderStatus",
+        "OrderStatus": ".Order",
         "Table": ".Table",
         "TableStatus": ".Table",
         "Payment": ".Payment",

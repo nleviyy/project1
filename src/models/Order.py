@@ -3,6 +3,7 @@ from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field
 from .OrderItem import OrderItem
+from .Payment import Payment
 
 StatusType = Literal["PENDING", "PREPARING", "SERVED", "COMPLETED", "CANCELLED"]
 
@@ -34,7 +35,7 @@ class Order(BaseModel):
     VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = {
         "PENDING": ["PREPARING", "CANCELLED"],
         "PREPARING": ["SERVED", "CANCELLED"],
-        "SERVED": ["COMPLETED"],
+        "SERVED": [],
         "COMPLETED": [],
         "CANCELLED": []
     }
@@ -162,9 +163,17 @@ class Order(BaseModel):
         """Bếp nấu xong, nhân viên bưng lên bàn (PREPARING -> SERVED)."""
         return self.change_status("SERVED")
 
-    def mark_completed(self) -> bool:
-        """Khách đã thanh toán hóa đơn (SERVED -> COMPLETED)."""
-        return self.change_status("COMPLETED")
+    def mark_completed(self, payment: Payment) -> bool:
+        """Hoàn tất đơn sau khi thanh toán SUCCESS cho đúng đơn hàng."""
+        if payment.order_id != self.id or not payment.is_successful:
+            raise ValueError("Chỉ thanh toán SUCCESS của đúng đơn mới được hoàn tất đơn hàng.")
+        if self.status != "SERVED":
+            raise ValueError(
+                f"Không thể hoàn tất đơn khi đang ở trạng thái '{self.status}'."
+            )
+        self.status = "COMPLETED"
+        self.updated_at = datetime.now().isoformat()
+        return True
 
     def cancel(self) -> bool:
         """Hủy đơn hàng (Chỉ được hủy khi PENDING hoặc PREPARING)."""

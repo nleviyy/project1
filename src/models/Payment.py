@@ -3,7 +3,6 @@ from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
 class PaymentMethod(str, Enum):
     CASH = "CASH"
     BANK_TRANSFER = "BANK_TRANSFER"
@@ -35,6 +34,8 @@ class Payment(BaseModel):
     cashier_name: str = Field(..., description="Tên nhân viên thu ngân")
     transaction_code: Optional[str] = Field(default=None, description="Mã giao dịch ngân hàng/điện tử nếu có")
     note: Optional[str] = Field(default="", description="Ghi chú thanh toán")
+    cash_received: Optional[int] = Field(default=None, ge=0, description="Tiền mặt khách đưa (VNĐ)")
+    change_due: int = Field(default=0, ge=0, description="Tiền thối lại (VNĐ)")
 
     @model_validator(mode='after')
     def calculate_final_amount(self):

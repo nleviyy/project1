@@ -9,6 +9,7 @@ File chạy chính ứng dụng Streamlit:
 import json
 from pathlib import Path
 import streamlit as st
+from src.core.PaymentService import PaymentService
 
 # Thiết lập cấu hình trang Streamlit
 st.set_page_config(
@@ -182,7 +183,78 @@ with tabs[3]:
 
 # Tab 5: Thanh toán
 with tabs[4]:
-    st.subheader("💳 Lịch sử giao dịch thanh toán (`data/payments.json`)")
+    st.subheader("💳 Xử lý thanh toán")
+    served_orders = [
+        order
+        for order in load_json(DATA_DIR / "orders.json")
+        if order.get("status") == "SERVED"
+    ]
+    if served_orders:
+        with st.form("payment_form"):
+            selected_order = st.selectbox(
+                "Đơn đã lên món",
+                served_orders,
+                format_func=lambda order: (
+                    f"{order['id']} · Bàn {order['table_id']} · "
+                    f"{order['final_amount']:,} VNĐ"
+                ),
+            )
+            method = st.selectbox(
+                "Phương thức thanh toán",
+                ["CASH", "BANK_TRANSFER", "CARD"],
+                format_func=lambda value: {
+                    "CASH": "Tiền mặt",
+                    "BANK_TRANSFER": "Chuyển khoản",
+                    "CARD": "Thẻ",
+                }[value],
+            )
+            cashier_name = st.text_input("Tên thu ngân")
+            cash_received = None
+            transaction_code = None
+            transaction_successful = None
+            if method == "CASH":
+                cash_received = st.number_input(
+                    "Tiền khách đưa (VNĐ)",
+                    min_value=0,
+                    value=int(selected_order["final_amount"]),
+                    step=1000,
+                )
+            else:
+                transaction_code = st.text_input("Mã giao dịch")
+                transaction_successful = st.checkbox(
+                    "Cổng thanh toán đã xác nhận giao dịch SUCCESS"
+                )
+            submitted = st.form_submit_button(
+                "Xác nhận thanh toán", type="primary"
+            )
+
+        if submitted:
+            try:
+                result = PaymentService().pay_order(
+                    order_id=selected_order["id"],
+                    method=method,
+                    cashier_name=cashier_name,
+                    cash_received=cash_received,
+                    transaction_code=transaction_code or None,
+                    transaction_successful=transaction_successful,
+                )
+            except ValueError as error:
+                st.error(str(error))
+            else:
+                if result.invoice is None:
+                    st.error("Thanh toán chưa thành công; đơn và bàn chưa được cập nhật.")
+                else:
+                    st.success(
+                        f"Thanh toán thành công. Hóa đơn {result.invoice.id} đã được tạo; "
+                        "đơn hoàn tất và bàn đã được giải phóng."
+                    )
+                    if result.payment.change_due:
+                        st.info(f"Tiền thối lại: {result.payment.change_due:,} VNĐ")
+    else:
+        st.info("Không có đơn nào ở trạng thái Đã lên món để thanh toán.")
+
+    st.divider()
+    st.subheader("Lịch sử giao dịch thanh toán (`data/payments.json`)")
     payments_data = load_json(DATA_DIR / "payments.json")
     if payments_data:
         total_rev = sum(p.get("amount_paid", 0) for p in payments_data if p.get("status") == "SUCCESS")
