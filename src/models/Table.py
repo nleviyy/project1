@@ -75,8 +75,6 @@ class Table:
         """
         target_status = str(new_status).upper().strip()
         target_order_id = str(order_id).strip() if order_id else None
-
-        # Thử nghiệm qua việc khởi tạo đối tượng tạm thời để validate
         try:
             temp_table = Table(
                 id=self.id,
@@ -111,3 +109,19 @@ class Table:
             status=data.get("status", "AVAILABLE"),
             current_order_id=data.get("current_order_id")
         )
+    def is_available(self) -> bool:
+        """Kiểm tra xem bàn có đang thực sự trống (AVAILABLE) và không có đơn hàng không."""
+        return self.status == "AVAILABLE" and self.current_order_id is None
+
+    def check_and_occupy(self, order_id: str) -> bool:
+        """
+        Kiểm tra bàn trước khi đặt:
+        - Nếu bàn đang bận (OCCUPIED) hoặc đã đặt trước (RESERVED), từ chối và báo lỗi.
+        - Nếu bàn trống, tiến hành gắn đơn hàng và chuyển sang trạng thái OCCUPIED.
+        """
+        if not self.is_available():
+            raise ValueError(
+                f"Lỗi: Bàn '{self.name}' (ID: {self.id}) hiện đang ở trạng thái '{self.status}' "
+                f"hoặc đã có đơn hàng liên kết. Không thể đặt bàn này!"
+            )
+        return self.occupy(order_id)
