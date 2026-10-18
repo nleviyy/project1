@@ -8,7 +8,11 @@ from tempfile import TemporaryDirectory
 
 from src.models.OrderItem import OrderItem
 from src.models.Order import Order, OrderStatus
+from src.models.Table import Table, TableStatus
+from src.models.Payment import Payment, PaymentMethod, PaymentStatus
+from src.models.Invoice import Invoice
 from src.core.OrderService import OrderService
+from src.core.TableManager import TableManager
 
 
 # =====================================================================
@@ -164,8 +168,17 @@ class TestOrder:
         assert order.status == OrderStatus.PREPARING
 
         # PREPARING -> SERVED (Hợp lệ)
+        # Tại PREPARING: cấm sửa món (theo chuẩn Mentor)
+        assert order.can_modify is False
+        with pytest.raises(ValueError):
+            order.add_item(OrderItem(menu_item_id="M09", item_name="Món thêm", unit_price=15000, quantity=1))
+
         assert order.change_status(OrderStatus.SERVED) is True
         assert order.is_served is True
+
+        # Khi đã SERVED: cấm hủy đơn (theo chuẩn Mentor)
+        assert order.can_transition_to(OrderStatus.CANCELLED) is False
+        assert order.change_status(OrderStatus.CANCELLED) is False
 
         # SERVED -> COMPLETED (Hợp lệ)
         assert order.change_status(OrderStatus.COMPLETED) is True
@@ -224,7 +237,7 @@ class TestOrderService:
         assert id2 == "ORD-20261016-002"
 
     def test_create_and_confirm_order(self, service_with_tmp_storage):
-        """Kiểm tra tạo đơn và xác nhận đơn."""
+        """Kiểm tra tạo đơn, xác nhận đơn (ở PENDING để vào Kitchen Queue) và chuyển bếp nấu."""
         item = OrderItem(menu_item_id="M01", item_name="Cà phê đen đá", unit_price=25000, quantity=2)
         order = service_with_tmp_storage.create_order(table_id=3, items=[item], notes="Giao nhanh")
 
@@ -232,8 +245,12 @@ class TestOrderService:
         assert order.table_id == 3
         assert order.total_amount == 50000
 
-        # Xác nhận đơn thành công -> chuyển sang PREPARING
+        # 1. Xác nhận đơn: Giữ ở PENDING để sẵn sàng vào hàng đợi bếp (theo chuẩn Mentor)
         assert service_with_tmp_storage.confirm_order(order.id) is True
+        assert order.status == OrderStatus.PENDING
+
+        # 2. Bếp nhận đơn và bắt đầu chế biến: Chuyển sang PREPARING
+        assert service_with_tmp_storage.start_preparing_order(order.id) is True
         assert order.status == OrderStatus.PREPARING
 
     def test_find_order_by_id_and_by_table(self, service_with_tmp_storage):
@@ -300,3 +317,92 @@ class TestOrderService:
         allowed, reason = service_with_tmp_storage.can_checkout(order.id)
         assert allowed is False
         assert "bị hủy" in reason
+
+
+# =====================================================================
+# 4. KIỂM THỬ TASK P1: Table & TableManager
+# =====================================================================
+class TestTableAndTableManager:
+    def test_table_lifecycle(self):
+        """Kiểm tra vòng đời chiếm bàn và giải phóng bàn."""
+        table = Table(id=1, name="Bàn 01", capacity=4)
+        assert table.is_available is True
+        assert table.status == TableStatus.AVAILABLE
+
+        # Chiếm bàn khi có đơn
+        table.occupy("ORD-001")
+        assert table.is_occupied is True
+        assert table.current_order_id == "ORD-001"
+
+        # Giải phóng bàn khi xong
+        table.release()
+        assert table.is_available is True
+        assert table.current_order_id is None
+
+    def test_table_manager_occupy_and_release(self):
+        """Kiểm tra TableManager quản lý danh sách bàn."""
+        with TemporaryDirectory() as tmp_dir:
+            tables_file = Path(tmp_dir) / "tables.json"
+            sample_tables = [
+                {"id": 1, "name": "Bàn 01", "capacity": 2, "status": "AVAILABLE", "current_order_id": None},
+                {"id": 2, "name": "Bàn 02", "capacity": 4, "status": "AVAILABLE", "current_order_id": None},
+            ]
+            with open(tables_file, "w", encoding="utf-8") as f:
+                json.dump(sample_tables, f)
+
+            tm = TableManager(tables_file=str(tables_file), auto_load=True)
+            assert len(tm.get_all_tables()) == 2
+            assert tm.is_table_available(1) is True
+
+            # Chiếm bàn 1
+            assert tm.occupy_table(1, "ORD-999") is True
+            assert tm.is_table_available(1) is False
+
+            # Giải phóng bàn 1
+            assert tm.release_table(1) is True
+            assert tm.is_table_available(1) is True
+
+
+# =====================================================================
+# 5. KIỂM THỬ TASK P1: Payment & Invoice
+# =====================================================================
+class TestPaymentAndInvoice:
+    def test_payment_creation_and_serialization(self):
+        """Kiểm tra tạo giao dịch thanh toán chuẩn số nguyên VNĐ."""
+        pay = Payment(
+            id="PAY-20261018-001",
+            order_id="ORD-001",
+            table_id=1,
+            amount_paid=150000,
+            method=PaymentMethod.CASH,
+            cashier_name="Vy",
+        )
+        assert pay.amount_paid == 150000
+        assert pay.is_successful is True
+        data = pay.to_dict()
+        assert data["amount_paid"] == 150000
+        assert data["method"] == "CASH"
+
+    def test_invoice_creation_and_receipt(self):
+        """Kiểm tra tạo hóa đơn và xuất phiếu in text."""
+        items = [
+            {"menu_item_id": "M01", "item_name": "Cà phê đen đá", "quantity": 2, "subtotal": 50000},
+            {"menu_item_id": "M02", "item_name": "Trà đào cam sả", "quantity": 1, "subtotal": 39000},
+        ]
+        invoice = Invoice(
+            id="INV-20261018-001",
+            order_id="ORD-001",
+            table_id=2,
+            items=items,
+            total_amount=89000,
+            discount_amount=10000,
+            final_amount=79000,
+            payment_method="CASH",
+            cashier_name="Vy",
+        )
+        assert invoice.final_amount == 79000
+        receipt = invoice.generate_text_receipt()
+        assert "HÓA ĐƠN THANH TOÁN" in receipt
+        assert "79,000 VNĐ" in receipt
+        assert "Cà phê đen đá" in receipt
+

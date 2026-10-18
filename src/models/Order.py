@@ -20,7 +20,7 @@ except ImportError:
 
 class OrderStatus:
     """Định nghĩa các hằng số trạng thái đơn hàng theo Data Contract."""
-    PENDING = "PENDING"        # Chờ xác nhận
+    PENDING = "PENDING"        # Chờ xác nhận / Chờ bếp
     PREPARING = "PREPARING"    # Đang chế biến
     SERVED = "SERVED"          # Đã lên món
     COMPLETED = "COMPLETED"    # Đã hoàn thành (đã thanh toán)
@@ -29,12 +29,33 @@ class OrderStatus:
     ALL = {PENDING, PREPARING, SERVED, COMPLETED, CANCELLED}
     TERMINAL = {COMPLETED, CANCELLED}
 
+    LABELS = {
+        PENDING: "Chờ xác nhận",
+        PREPARING: "Đang chế biến",
+        SERVED: "Đã lên món",
+        COMPLETED: "Hoàn thành",
+        CANCELLED: "Đã hủy",
+    }
+
+    VALID_NEXT = {
+        PENDING: [PREPARING, CANCELLED],
+        PREPARING: [SERVED, CANCELLED],
+        SERVED: [COMPLETED],
+        COMPLETED: [],
+        CANCELLED: [],
+    }
+
+    @staticmethod
+    def get_label(status: str) -> str:
+        return OrderStatus.LABELS.get(status, str(status))
+
 
 # Bảng quy tắc chuyển đổi trạng thái hợp lệ (Finite State Machine)
+# Theo chỉ đạo của Mentor: Chỉ cho phép hủy đơn trước trạng thái SERVED
 VALID_STATUS_TRANSITIONS: Dict[str, Set[str]] = {
     OrderStatus.PENDING: {OrderStatus.PREPARING, OrderStatus.CANCELLED},
     OrderStatus.PREPARING: {OrderStatus.SERVED, OrderStatus.CANCELLED},
-    OrderStatus.SERVED: {OrderStatus.COMPLETED, OrderStatus.CANCELLED},
+    OrderStatus.SERVED: {OrderStatus.COMPLETED},  # Đã lên món thì không được hủy trực tiếp
     OrderStatus.COMPLETED: set(),  # Trạng thái kết thúc, không thể đổi tiếp
     OrderStatus.CANCELLED: set(),  # Đã hủy, không thể đổi tiếp
 }
@@ -43,22 +64,28 @@ VALID_STATUS_TRANSITIONS: Dict[str, Set[str]] = {
 class Order:
     """
     Class quản lý thông tin và nghiệp vụ của một Đơn hàng (Order).
-    Hiện thực hóa Sub Task 7.1: Quản lý món trong đơn, thêm/xóa món, cập nhật số lượng,
-    ghi chú, tính tổng tiền và kiểm tra luồng trạng thái đơn hàng.
+    Hiện thực hóa Sub Task 7.1 & kiến trúc thống nhất theo phản hồi Mentor:
+    - Quản lý món trong đơn, thêm/xóa món, cập nhật số lượng, ghi chú.
+    - Tính tổng tiền VNĐ (kiểu int).
+    - Kiểm soát nghiêm ngặt luồng trạng thái (FSM): chỉ cho phép chỉnh sửa món khi ở PENDING.
+    - Hỗ trợ đầy đủ interface cho KitchenManager (order_id, prep_time, set_status).
     """
 
     def __init__(
         self,
-        id: str,
-        table_id: int,
+        id: Optional[str] = None,
+        table_id: int = 1,
         status: str = OrderStatus.PENDING,
         created_at: Optional[str] = None,
         updated_at: Optional[str] = None,
         items: Optional[List[OrderItem]] = None,
         discount_amount: int = 0,
         notes: str = "",
+        prep_time: int = 0,
+        order_id: Optional[str] = None,
     ):
-        self.id: str = str(id).strip()
+        actual_id = str(id if id is not None else (order_id if order_id is not None else "")).strip()
+        self.id: str = actual_id
         self.table_id: int = int(table_id)
         self.status: str = status.upper().strip() if status else OrderStatus.PENDING
         
@@ -72,10 +99,53 @@ class Order:
         self.items: List[OrderItem] = items or []
         self.discount_amount: int = max(0, int(discount_amount))
         self.notes: str = (notes or "").strip()
+        self._prep_time: int = max(0, int(prep_time))
 
         self.total_amount: int = 0
         self.final_amount: int = 0
         self.calculate_total()
+
+    # -------------------------------------------------------------
+    # Helper Properties & Aliases
+    # -------------------------------------------------------------
+    @property
+    def order_id(self) -> str:
+        """Alias cho id để tương thích đồng bộ với KitchenManager."""
+        return self.id
+
+    @order_id.setter
+    def order_id(self, val: str) -> None:
+        self.id = str(val).strip()
+
+    @property
+    def prep_time(self) -> int:
+        return self._prep_time
+
+    @prep_time.setter
+    def prep_time(self, val: int) -> None:
+        self._prep_time = max(0, int(val))
+
+    def calculate_prep_time(self) -> int:
+        """
+        Tính thời gian chế biến ước tính (phút).
+        Nếu có prep_time cấu hình riêng thì ưu tiên, nếu không tính theo số lượng món.
+        """
+        if self._prep_time > 0:
+            return self._prep_time
+        total_items = sum(item.quantity for item in self.items)
+        return max(5, total_items * 3) if total_items > 0 else 0
+
+    def set_status(self, new_status: str) -> None:
+        """
+        Chuyển trạng thái đơn với ngoại lệ ValueError nếu không hợp lệ
+        (Đảm bảo interface tương thích chuẩn với KitchenManager).
+        """
+        target = new_status.upper().strip()
+        if not self.can_transition_to(target):
+            current_lbl = OrderStatus.get_label(self.status)
+            target_lbl = OrderStatus.get_label(target)
+            raise ValueError(f"Không thể chuyển từ '{current_lbl}' sang '{target_lbl}'")
+        self.change_status(target)
 
     # -------------------------------------------------------------
     # Helper Properties kiểm tra trạng thái đơn
@@ -107,9 +177,11 @@ class Order:
 
     @property
     def can_modify(self) -> bool:
-        """Kiểm tra đơn hàng có được phép chỉnh sửa món hay không."""
-        # Chỉ cho phép chỉnh sửa món khi chưa hoàn thành hoặc chưa bị hủy
-        return self.is_active
+        """
+        Kiểm tra đơn hàng có được phép chỉnh sửa món hay không.
+        Theo chỉ đạo của Mentor: Chỉ cho phép chỉnh sửa nội dung đơn khi còn ở PENDING.
+        """
+        return self.status == OrderStatus.PENDING
 
     # -------------------------------------------------------------
     # Quản lý món trong đơn (Thêm, Xóa, Cập nhật số lượng, Ghi chú)

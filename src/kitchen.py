@@ -1,60 +1,24 @@
+import os
+import sys
 from collections import deque
 from datetime import datetime
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+if CURRENT_DIR not in sys.path:
+    sys.path.append(CURRENT_DIR)
+
+# Thống nhất theo chỉ đạo của Mentor: Sử dụng duy nhất Order và OrderStatus từ src.models.Order
+try:
+    from src.models.Order import Order, OrderStatus
+except ImportError:
+    try:
+        from models.Order import Order, OrderStatus
+    except ImportError:
+        from .models.Order import Order, OrderStatus
 
 
 def now_time():
     return datetime.now().isoformat(timespec="seconds")
-
-
-class OrderStatus:
-    PENDING = "PENDING"
-    PREPARING = "PREPARING"
-    SERVED = "SERVED"
-    COMPLETED = "COMPLETED"
-    CANCELLED = "CANCELLED"
-
-    LABELS = {
-        PENDING: "Chờ xác nhận",
-        PREPARING: "Đang chế biến",
-        SERVED: "Đã lên món",
-        COMPLETED: "Hoàn thành",
-        CANCELLED: "Đã hủy",
-    }
-
-    VALID_NEXT = {
-        PENDING: [PREPARING, CANCELLED],
-        PREPARING: [SERVED, CANCELLED],
-        SERVED: [COMPLETED],
-        COMPLETED: [],
-        CANCELLED: [],
-    }
-
-    @staticmethod
-    def get_label(status):
-        return OrderStatus.LABELS.get(status, str(status))
-
-
-class Order:
-    def __init__(self, order_id, table_id=1, items=None, notes="", prep_time=0):
-        self.order_id = order_id
-        self.table_id = table_id
-        self.items = items if items is not None else []
-        self.notes = notes
-        self._prep_time = prep_time         
-        self.status = OrderStatus.PENDING
-        self.created_at = now_time()
-        self.updated_at = self.created_at
-
-    def set_status(self, new_status):
-        allowed = OrderStatus.VALID_NEXT.get(self.status, [])
-        if new_status not in allowed:
-            raise ValueError("Không thể chuyển từ '" + OrderStatus.get_label(self.status)
-                             + "' sang '" + OrderStatus.get_label(new_status) + "'")
-        self.status = new_status
-        self.updated_at = now_time()
-
-    def calculate_prep_time(self):
-        return self._prep_time
 
 class KitchenManager:
     def __init__(self):

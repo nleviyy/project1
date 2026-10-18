@@ -50,10 +50,14 @@ class OrderService:
         orders_file: Optional[str | Path] = None,
         payments_file: Optional[str | Path] = None,
         auto_load: bool = True,
+        table_manager: Optional[Any] = None,
+        kitchen_manager: Optional[Any] = None,
     ):
         self.orders_file: Path = Path(orders_file) if orders_file else (DATA_DIR / "orders.json")
         self.payments_file: Path = Path(payments_file) if payments_file else (DATA_DIR / "payments.json")
         self._orders: Dict[str, Order] = {}
+        self.table_manager = table_manager
+        self.kitchen_manager = kitchen_manager
 
         if auto_load:
             self.load_orders()
@@ -155,15 +159,29 @@ class OrderService:
 
         self._orders[order.id] = order
         self.save_orders()
+
+        # Chiếm bàn nếu có table_manager
+        if self.table_manager is not None:
+            self.table_manager.occupy_table(table_id, order.id)
+
         return order
 
     # -------------------------------------------------------------
-    # 4. Xác nhận đơn (confirm_order)
+    # 4. Xác nhận đơn (confirm_order) & Bắt đầu nấu (start_preparing_order)
     # -------------------------------------------------------------
-    def confirm_order(self, order_id: str) -> bool:
+    def confirm_order(
+        self,
+        order_id: str,
+        kitchen_manager: Optional[Any] = None,
+        auto_start_preparing: bool = False,
+    ) -> bool:
         """
-        Xác nhận đơn hàng: Chuyển trạng thái từ PENDING sang PREPARING (bếp/bar bắt đầu làm).
+        Xác nhận đơn hàng: Đơn giữ trạng thái PENDING và được đưa vào hàng đợi bếp (Kitchen Queue).
+        Theo chỉ đạo của Mentor: Khi xác nhận thành công, đơn giữ ở PENDING và đưa vào cuối Queue bếp;
+        chỉ khi bếp lấy đơn ra chế biến thì mới chuyển sang PREPARING.
         :param order_id: Mã đơn hàng cần xác nhận.
+        :param kitchen_manager: Quản lý bếp (tự động đẩy vào Queue).
+        :param auto_start_preparing: Nếu True (cho phép chuyển thẳng sang PREPARING).
         :return: True nếu xác nhận thành công, False nếu thất bại.
         """
         order = self.get_order_by_id(order_id)
@@ -175,6 +193,24 @@ class OrderService:
 
         if len(order.items) == 0:
             raise ValueError(f"Đơn hàng '{order_id}' chưa có món nào, không thể xác nhận.")
+
+        km = kitchen_manager or self.kitchen_manager
+        if km is not None:
+            km.add_order(order)
+
+        if auto_start_preparing:
+            order.change_status(OrderStatus.PREPARING)
+
+        self.save_orders()
+        return True
+
+    def start_preparing_order(self, order_id: str) -> bool:
+        """
+        Bếp bắt đầu chế biến đơn: Chuyển trạng thái từ PENDING sang PREPARING.
+        """
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng với mã: '{order_id}'")
 
         success = order.change_status(OrderStatus.PREPARING)
         if success:
@@ -287,21 +323,43 @@ class OrderService:
         order.status = OrderStatus.COMPLETED
         order._touch()
         self.save_orders()
+
+        # Giải phóng bàn nếu có TableManager
+        if self.table_manager is not None:
+            self.table_manager.release_table(order.table_id)
+
         return True
 
-    def cancel_order(self, order_id: str, reason: str = "") -> bool:
+    def cancel_order(
+        self,
+        order_id: str,
+        reason: str = "",
+        kitchen_manager: Optional[Any] = None,
+    ) -> bool:
         """
-        Hủy một đơn hàng (chỉ cho phép khi đơn chưa hoàn thành).
+        Hủy một đơn hàng:
+        Theo chỉ đạo của Mentor: Chỉ cho phép hủy đơn trước trạng thái SERVED.
+        Nếu đơn đang chế biến trong bếp, cần xử lý việc hủy ở cả đơn hàng và hàng đợi bếp.
         """
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        if order.status == OrderStatus.COMPLETED:
-            raise ValueError(f"Không thể hủy đơn hàng '{order_id}' vì đơn đã được thanh toán hoàn tất.")
+        if order.status in (OrderStatus.SERVED, OrderStatus.COMPLETED):
+            raise ValueError(
+                f"Không thể hủy đơn hàng '{order_id}' vì đơn đang ở trạng thái {order.status} "
+                "(theo quy tắc: chỉ được phép hủy trước khi lên món SERVED)."
+            )
 
         if order.status == OrderStatus.CANCELLED:
             return True  # Đã hủy từ trước
+
+        km = kitchen_manager or self.kitchen_manager
+        if km is not None and hasattr(km, "cancel_order"):
+            try:
+                km.cancel_order(order_id)
+            except Exception:
+                pass
 
         if reason:
             order.notes = f"{order.notes} [Hủy: {reason}]".strip()
@@ -309,6 +367,11 @@ class OrderService:
         order.status = OrderStatus.CANCELLED
         order._touch()
         self.save_orders()
+
+        # Giải phóng bàn nếu có TableManager
+        if self.table_manager is not None:
+            self.table_manager.release_table(order.table_id)
+
         return True
 
     def serve_order(self, order_id: str) -> bool:
