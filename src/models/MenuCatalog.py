@@ -83,7 +83,7 @@ class MenuCatalog:
             "item_type": "category"
         }
 
-        # Tạo bản sao dữ liệu hiện tại để tránh cập nhật dở dang một phần khi có lỗi (Atomic Update)
+        
         current_data = item.to_dict() if hasattr(item, "to_dict") else item.model_dump()
 
         for k, v in kwargs.items():
@@ -92,9 +92,7 @@ class MenuCatalog:
                 current_data[actual_key] = v
 
         try:
-            # Tạo đối tượng tạm thời để validate toàn bộ dữ liệu mới
             validated_item = MenuItem(**current_data)
-            # Chỉ ghi đè khi toàn bộ các trường đều hợp lệ
             self._items[item_id] = validated_item
             return True
         except Exception as e:
@@ -142,4 +140,4 @@ class MenuCatalog:
 
     def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
         """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""
-        return [item for item in self._items.values() if item.is_available == is_available]
+        return [item for item in self._items.values() if item.is_available == is_available]
