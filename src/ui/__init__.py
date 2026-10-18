@@ -633,7 +633,7 @@ else:
         c_btn1, c_btn2, c_btn3 = st.columns([2.2, 1.2, 1.2])
 
         with c_btn1:
-            with st.expander(f"📋 Chi tiết hóa đơn {d['ma']}"):
+            with st.expander(f"Chi tiết hóa đơn {d['ma']}"):
                 st.write(f"**Mã đơn:** `{d['ma']}` | **Bàn:** {d['ban']} | **Thời gian:** {d['gio']}")
                 st.write(f"**Trạng thái:** {stt}")
                 bang_mon = [
