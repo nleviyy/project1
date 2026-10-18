@@ -130,12 +130,25 @@ div[class*="st-key-card_"]>div:first-child{grid-column:1/-1}
 
 /* Đơn đã đặt */
 .oc{margin-bottom:14px;padding:18px 22px;border-radius:18px;background:#fff;box-shadow:0 2px 14px rgba(17,24,39,.06)}
-.oc .oh{display:flex;justify-content:space-between;margin-bottom:8px}
+.oc .oh{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
 .oc .oh span,.oc em{color:var(--mut);font-style:normal}
 .oc .ol{font-size:14px;line-height:1.9}
 .oc .of{display:flex;justify-content:space-between;margin-top:8px;padding-top:10px;border-top:1px dashed var(--line)}
 .oc .of span{color:var(--sub)}
 .oc .of b{color:var(--g)}
+
+/* Badges trạng thái đơn hàng */
+.sbadge{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;line-height:1.4}
+.sbadge-prep{background:#fef3c7;color:#b45309;border:1px solid #fde68a}
+.sbadge-comp{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}
+.sbadge-canc{background:#fee2e2;color:#b91c1c;border:1px solid #fecaca}
+
+div[class*="st-key-btn_pay_"] button{background:#16a34a!important;color:#fff!important;border:none!important;border-radius:10px!important;font-weight:600!important}
+div[class*="st-key-btn_pay_"] button:hover{background:#15803d!important}
+div[class*="st-key-btn_cancel_"] button{background:#fee2e2!important;color:#b91c1c!important;border:1px solid #fca5a5!important;border-radius:10px!important;font-weight:600!important}
+div[class*="st-key-btn_cancel_"] button:hover{background:#fecaca!important}
+div[class*="st-key-btn_reorder_"] button{background:#eff6ff!important;color:#1d4ed8!important;border:1px solid #bfdbfe!important;border-radius:10px!important;font-weight:600!important}
+
 
 @media(min-width:992px){
 div[data-testid="stColumn"]:has(.st-key-cart),div[data-testid="column"]:has(.st-key-cart){position:sticky;top:1rem;align-self:flex-start}
@@ -318,11 +331,49 @@ class GioHang:
         self.mon.clear()
 
 
+MAU_LICH_SU = [
+    {
+        "ma": "DH001",
+        "gio": "11:20",
+        "ban": "Bàn số 2",
+        "phut": 10,
+        "status": "PREPARING",
+        "tong": 113000,
+        "mon": [
+            {"ten": "Cà phê sữa đá", "gia": 29000, "sl": 2, "ghi_chu": "Ít ngọt"},
+            {"ten": "Bánh mì chảo đặc biệt", "gia": 55000, "sl": 1, "ghi_chu": "Trứng lòng đào"},
+        ],
+    },
+    {
+        "ma": "DH002",
+        "gio": "10:45",
+        "ban": "Bàn số 1",
+        "phut": 0,
+        "status": "COMPLETED",
+        "tong": 25000,
+        "mon": [
+            {"ten": "Cà phê đen đá", "gia": 25000, "sl": 1, "ghi_chu": "Không đường"},
+        ],
+    },
+    {
+        "ma": "DH003",
+        "gio": "09:15",
+        "ban": "Mang về (Takeaway)",
+        "phut": 0,
+        "status": "CANCELLED",
+        "tong": 39000,
+        "mon": [
+            {"ten": "Trà đào cam sả", "gia": 39000, "sl": 1, "ghi_chu": "Khách hủy do bận"},
+        ],
+    },
+]
+
 ss = st.session_state
 ss.setdefault("cart", GioHang())
-ss.setdefault("lich_su", [])
+ss.setdefault("lich_su", [dict(x) for x in MAU_LICH_SU])
 ss.setdefault("trang", "menu")
 ss.setdefault("dm", "Tất cả")
+ss.setdefault("loc_don", "ALL")
 cart = ss.cart
 
 
@@ -415,6 +466,7 @@ def khung_gio():
                     "gio": time.strftime("%H:%M"),
                     "ban": ban,
                     "phut": random.randint(5, 15),
+                    "status": "PREPARING",
                     "tong": cart.tong_tien(),
                     "mon": [dict(d) for d in cart.mon.values()],
                 },
@@ -506,18 +558,111 @@ if trang == "menu":
         khung_gio()
 
 else:
-    html('<div class="stt first"><b>Lịch sử đơn</b><span>Mới nhất ở trên cùng</span></div>')
-    if not ss.lich_su:
-        html('<div class="empty"><b>Chưa có đơn nào</b>Các đơn bạn đặt sẽ hiện ở đây.</div>')
-    for d in ss.lich_su:
+    # 1. Header & Bộ lọc trạng thái (Requirement 3: Tabs theo trạng thái)
+    html('<div class="stt first"><b>Lịch sử đơn hàng</b><span>Bộ lọc theo trạng thái</span></div>')
+
+    counts = {
+        "ALL": len(ss.lich_su),
+        "PREPARING": sum(1 for d in ss.lich_su if d.get("status", "PREPARING") == "PREPARING"),
+        "COMPLETED": sum(1 for d in ss.lich_su if d.get("status") == "COMPLETED"),
+        "CANCELLED": sum(1 for d in ss.lich_su if d.get("status") == "CANCELLED"),
+    }
+
+    c_f1, c_f2, c_f3, c_f4 = st.columns(4)
+    with c_f1:
+        if st.button(f"Tất cả ({counts['ALL']})", key="flt_all", type="primary" if ss.loc_don == "ALL" else "secondary", use_container_width=True):
+            ss.loc_don = "ALL"
+            st.rerun()
+    with c_f2:
+        if st.button(f"🟡 Đang chuẩn bị ({counts['PREPARING']})", key="flt_prep", type="primary" if ss.loc_don == "PREPARING" else "secondary", use_container_width=True):
+            ss.loc_don = "PREPARING"
+            st.rerun()
+    with c_f3:
+        if st.button(f"🟢 Hoàn thành ({counts['COMPLETED']})", key="flt_comp", type="primary" if ss.loc_don == "COMPLETED" else "secondary", use_container_width=True):
+            ss.loc_don = "COMPLETED"
+            st.rerun()
+    with c_f4:
+        if st.button(f"🔴 Đã hủy ({counts['CANCELLED']})", key="flt_canc", type="primary" if ss.loc_don == "CANCELLED" else "secondary", use_container_width=True):
+            ss.loc_don = "CANCELLED"
+            st.rerun()
+
+    st.write("")
+
+    # Lọc danh sách theo tab đã chọn
+    ds_hien_thi = [
+        d for d in ss.lich_su
+        if ss.loc_don == "ALL" or d.get("status", "PREPARING") == ss.loc_don
+    ]
+
+    if not ds_hien_thi:
+        html('<div class="empty"><b>Không có đơn nào trong mục này</b>Chọn bộ lọc khác để xem danh sách đơn hàng.</div>')
+
+    for idx, d in enumerate(ds_hien_thi):
+        stt = d.get("status", "PREPARING")
+
+        # 2. Nhãn trạng thái đơn hàng (Requirement 1: Status Badge)
+        badge_html = {
+            "PREPARING": '<span class="sbadge sbadge-prep">🟡 Đang chuẩn bị</span>',
+            "COMPLETED": '<span class="sbadge sbadge-comp">🟢 Đã lên món / Hoàn thành</span>',
+            "CANCELLED": '<span class="sbadge sbadge-canc">🔴 Đã hủy</span>',
+        }.get(stt, '<span class="sbadge sbadge-prep">🟡 Đang chuẩn bị</span>')
+
         dong = "".join(
             f'<div class="ol">{x["sl"]} × {x["ten"]}'
-            + (f' <em>({escape(x["ghi_chu"])})</em>' if x["ghi_chu"] else "")
+            + (f' <em>({escape(x.get("ghi_chu", ""))})</em>' if x.get("ghi_chu") else "")
             + "</div>"
             for x in d["mon"]
         )
-        html(
-            f'<div class="oc"><div class="oh"><b>Đơn {d["ma"]}</b><span>{d["gio"]}, {d["ban"]}</span></div>'
-            f'{dong}<div class="of"><span>Dự kiến lên món sau {d["phut"]} phút</span>'
-            f'<b>{tien(d["tong"])}</b></div></div>'
+
+        desc_time = (
+            f'Dự kiến lên món sau {d.get("phut", 10)} phút'
+            if stt == "PREPARING"
+            else ("✅ Đơn đã hoàn tất & thanh toán" if stt == "COMPLETED" else "❌ Đơn đã hủy")
         )
+
+        html(
+            f'<div class="oc">'
+            f'<div class="oh"><div><b>Đơn {d["ma"]}</b> &nbsp; <span style="font-weight:600;color:var(--ink)">({d["ban"]})</span></div>'
+            f'<div><span style="font-size:12.5px;color:var(--mut);margin-right:8px">🕒 {d["gio"]}</span>{badge_html}</div></div>'
+            f'{dong}'
+            f'<div class="of"><span>{desc_time}</span><b>{tien(d["tong"])}</b></div>'
+            f'</div>'
+        )
+
+        # 3. Nút thao tác trên đơn hàng (Requirement 2: Action Buttons)
+        c_btn1, c_btn2, c_btn3 = st.columns([2.2, 1.2, 1.2])
+
+        with c_btn1:
+            with st.expander(f"📋 Chi tiết hóa đơn {d['ma']}"):
+                st.write(f"**Mã đơn:** `{d['ma']}` | **Bàn:** {d['ban']} | **Thời gian:** {d['gio']}")
+                st.write(f"**Trạng thái:** {stt}")
+                bang_mon = [
+                    {
+                        "Tên món": x["ten"],
+                        "Đơn giá": tien(x.get("gia", 0)),
+                        "Số lượng": x["sl"],
+                        "Ghi chú": x.get("ghi_chu", "") or "-",
+                        "Thành tiền": tien(x.get("gia", 0) * x["sl"]),
+                    }
+                    for x in d["mon"]
+                ]
+                st.dataframe(bang_mon, use_container_width=True)
+                st.markdown(f"**Tổng tiền thanh toán:** `{tien(d['tong'])}`")
+
+        if stt == "PREPARING":
+            with c_btn2:
+                if st.button("💳 Thanh toán", key=f"btn_pay_{d['ma']}_{idx}", use_container_width=True):
+                    d["status"] = "COMPLETED"
+                    st.toast(f"✅ Đã thanh toán đơn {d['ma']} ({tien(d['tong'])})!")
+                    st.rerun()
+            with c_btn3:
+                if st.button("❌ Hủy đơn", key=f"btn_cancel_{d['ma']}_{idx}", use_container_width=True):
+                    d["status"] = "CANCELLED"
+                    st.toast(f"Đã hủy đơn {d['ma']}")
+                    st.rerun()
+        elif stt == "CANCELLED":
+            with c_btn2:
+                if st.button("🔄 Đặt lại", key=f"btn_reorder_{d['ma']}_{idx}", use_container_width=True):
+                    d["status"] = "PREPARING"
+                    st.toast(f"Đã kích hoạt lại đơn {d['ma']}!")
+                    st.rerun()
