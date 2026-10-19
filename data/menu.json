@@ -94,5 +94,41 @@
         "prep_time": 12,
         "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
         "color": "#2f6845"
+    },
+    {
+        "id": "M09",
+        "name": "Súp bí đỏ kem tươi",
+        "category": "Khai vị",
+        "price": 38000,
+        "unit": "chén",
+        "is_available": true,
+        "description": "Súp bí đỏ mịn, béo ngậy kèm kem tươi và hạt bí rang",
+        "prep_time": 10,
+        "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+        "color": "#2f6845"
+    },
+    {
+        "id": "M10",
+        "name": "Bánh flan caramel",
+        "category": "Tráng miệng",
+        "price": 25000,
+        "unit": "cốc",
+        "is_available": true,
+        "description": "Bánh flan mịn, béo ngậy kèm caramel ngọt dịu",
+        "prep_time": 8,
+        "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M11",
+        "name": "Kem dừa xiêm",
+        "category": "Tráng miệng",
+        "price": 30000,
+        "unit": "ly",
+        "is_available": true,
+        "description": "Kem dừa xiêm tươi mát, béo ngậy kèm dừa nạo và nước cốt dừa",
+        "prep_time": 10,
+        "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+        "color": "#5b3c55"
     }
 ]

@@ -2,9 +2,9 @@
     {
         "id": "ORD-20261014-001",
         "table_id": 2,
+        "status": "COMPLETED",
         "created_at": "2026-10-14T20:15:00",
-        "updated_at": "2026-10-14T20:30:00",
-        "status": "SERVED",
+        "updated_at": "2026-10-19T02:51:03",
         "items": [
             {
                 "menu_item_id": "M02",
@@ -23,17 +23,17 @@
                 "note": "Trứng lòng đào"
             }
         ],
-        "total_amount": 113000,
+        "notes": "Khách ngồi gần cửa sổ",
         "discount_amount": 0,
-        "final_amount": 113000,
-        "notes": "Khách ngồi gần cửa sổ"
+        "total_amount": 113000,
+        "final_amount": 113000
     },
     {
         "id": "ORD-20261014-002",
         "table_id": 5,
+        "status": "SERVED",
         "created_at": "2026-10-14T21:00:00",
-        "updated_at": "2026-10-14T21:10:00",
-        "status": "PREPARING",
+        "updated_at": "2026-10-19T03:27:21.137162",
         "items": [
             {
                 "menu_item_id": "M03",
@@ -60,17 +60,17 @@
                 "note": ""
             }
         ],
-        "total_amount": 287000,
+        "notes": "Tiệc sinh nhật, áp dụng voucher 17k",
         "discount_amount": 17000,
-        "final_amount": 270000,
-        "notes": "Tiệc sinh nhật, áp dụng voucher 17k"
+        "total_amount": 287000,
+        "final_amount": 270000
     },
     {
         "id": "ORD-20261014-003",
         "table_id": 1,
+        "status": "COMPLETED",
         "created_at": "2026-10-14T18:30:00",
         "updated_at": "2026-10-14T19:20:00",
-        "status": "COMPLETED",
         "items": [
             {
                 "menu_item_id": "M01",
@@ -81,17 +81,17 @@
                 "note": "Không đường"
             }
         ],
-        "total_amount": 25000,
+        "notes": "Khách mang về một phần",
         "discount_amount": 0,
-        "final_amount": 25000,
-        "notes": "Khách mang về một phần"
+        "total_amount": 25000,
+        "final_amount": 25000
     },
     {
         "id": "ORD-20261018-001",
         "table_id": 8,
+        "status": "COMPLETED",
         "created_at": "2026-10-18T16:23:36",
         "updated_at": "2026-10-18T16:23:36",
-        "status": "COMPLETED",
         "items": [
             {
                 "menu_item_id": "M02",
@@ -102,9 +102,31 @@
                 "note": "Ít ngọt"
             }
         ],
-        "total_amount": 58000,
+        "notes": "Khách quen bàn 8",
         "discount_amount": 0,
-        "final_amount": 58000,
-        "notes": "Khách quen bàn 8"
+        "total_amount": 58000,
+        "final_amount": 58000
+    },
+    {
+        "id": "ORD-20261019-001",
+        "table_id": 1,
+        "status": "SERVED",
+        "created_at": "2026-10-19T03:27:04",
+        "updated_at": "2026-10-19T10:36:31.007Z",
+        "items": [
+            {
+                "menu_item_id": "M06",
+                "item_name": "Bò lúc lắc khoai tây",
+                "unit_price": 69000,
+                "quantity": 3,
+                "subtotal": 207000,
+                "note": "",
+                "prep_time": 18
+            }
+        ],
+        "notes": "",
+        "discount_amount": 0,
+        "total_amount": 207000,
+        "final_amount": 207000
     }
 ]

@@ -49,6 +49,10 @@ class Order(BaseModel):
     def final_amount(self) -> int:
         return max(0, self.total_amount - self.discount_amount)
 
+    def calculate_prep_time(self) -> int:
+        """Estimate preparation duration from each item's quantity and prep time."""
+        return sum(item.quantity * item.prep_time for item in self.items)
+
     @property
     def is_pending(self) -> bool:
         return self.status == "PENDING"
@@ -147,7 +151,10 @@ class Order(BaseModel):
         return False
 
     def to_dict(self) -> dict:
-        return self.model_dump(mode="json")
+        data = self.model_dump(mode="json")
+        data["total_amount"] = self.total_amount
+        data["final_amount"] = self.final_amount
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "Order":

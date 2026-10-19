@@ -3,19 +3,28 @@ from typing import Any
 
 
 class CartItem:
-    def __init__(self, menu_item_id, item_name, unit_price, quantity, note=""):
+    def __init__(
+        self,
+        menu_item_id,
+        item_name,
+        unit_price,
+        quantity,
+        note="",
+        prep_time=0,
+    ):
         self.menu_item_id = menu_item_id
         self.item_name = item_name
         self.unit_price = unit_price
         self.quantity = quantity
         self.note = note
+        self.prep_time = prep_time
 
     def calculate_subtotal(self):
 
         return self.unit_price * self.quantity
 
     def to_dict(self):
-        return {
+        data = {
             "menu_item_id": self.menu_item_id,
             "item_name": self.item_name,
             "unit_price": self.unit_price,
@@ -23,6 +32,9 @@ class CartItem:
             "subtotal": self.calculate_subtotal(),
             "note": self.note,
         }
+        if self.prep_time:
+            data["prep_time"] = self.prep_time
+        return data
 
     @classmethod
     def from_dict(cls, data):
@@ -32,6 +44,7 @@ class CartItem:
             data["unit_price"],
             data["quantity"],
             data.get("note", ""),
+            data.get("prep_time", 0),
         )
 
 
@@ -81,16 +94,27 @@ class Cart:
 
         if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
-        if not menu_item.get("is_available", True):
-            raise ValueError("Món '" + str(menu_item["name"]) + "' đã hết")
-        if menu_item["price"] < 0:
+        if isinstance(menu_item, dict):
+            get_value = menu_item.get
+        else:
+            get_value = lambda key, default=None: getattr(menu_item, key, default)
+
+        item_id = get_value("id")
+        item_name = get_value("name")
+        unit_price = get_value("price")
+        is_available = get_value("is_available", True)
+        prep_time = get_value("prep_time", 0)
+        if not is_available:
+            raise ValueError("Món '" + str(item_name) + "' đã hết")
+        if unit_price < 0:
             raise ValueError("Đơn giá không được âm")
 
         self._save_for_undo()
-        existing = self._find(menu_item["id"])
+        existing = self._find(item_id)
         if existing is None:
-            self._items.append(CartItem(menu_item["id"], menu_item["name"],
-                                        menu_item["price"], quantity, note))
+            self._items.append(
+                CartItem(item_id, item_name, unit_price, quantity, note, prep_time)
+            )
         else:
             existing.quantity += quantity
             if note != "":
@@ -117,6 +141,16 @@ class Cart:
         if item is None:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
+        item.note = note
+
+    def update_item(self, menu_item_id, quantity, note):
+        if not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng phải là số nguyên lớn hơn 0.")
+        item = self._find(menu_item_id)
+        if item is None:
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
+        self._save_for_undo()
+        item.quantity = quantity
         item.note = note
 
     def clear(self):

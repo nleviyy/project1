@@ -22,5 +22,21 @@
     "cashier_name": "Quỳnh",
     "transaction_code": "MB-FT26101399812",
     "note": "Chuyển khoản VietQR thành công"
+  },
+  {
+    "id": "PAY-F31722D419714787B78975E74302142B",
+    "order_id": "ORD-20261014-001",
+    "table_id": 2,
+    "payment_time": "2026-10-19T02:51:03.111661",
+    "amount": 113000,
+    "discount_rate": 0.0,
+    "amount_paid": 113000,
+    "method": "CASH",
+    "status": "SUCCESS",
+    "cashier_name": "NghimQinh",
+    "transaction_code": null,
+    "note": "",
+    "cash_received": 200000,
+    "change_due": 87000
   }
 ]

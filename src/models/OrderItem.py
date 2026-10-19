@@ -9,6 +9,12 @@ class OrderItem(BaseModel):
     quantity: int = Field(..., description="Số lượng món", gt=0)
     subtotal: Optional[int] = Field(default=None, description="Thành tiền món này (VNĐ)", ge=0)
     note: Optional[str] = Field(default="", description="Ghi chú món ăn")
+    prep_time: int = Field(
+        default=0,
+        description="Thời gian chế biến một món (phút)",
+        ge=0,
+        exclude_if=lambda value: value == 0,
+    )
 
     @model_validator(mode='after')
     def auto_calculate_subtotal(self):

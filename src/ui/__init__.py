@@ -1,287 +1,258 @@
+import html
 import json
-import time
 from pathlib import Path
 
 import streamlit as st
 
-from src.KitchenManage import KitchenManager
+from src.KitchenManage import KitchenManager, OrderStatus
 from src.core.Cart import Cart
+from src.core.OrderService import OrderService
+from src.core.PaymentService import PaymentService
+from src.core.TableManager import TableManager
 from src.models.MenuCatalog import MenuCatalog
-
-# ==========================================
-# 1. CÀI ĐẶT STREAMLIT
-# ==========================================
+from src.models.OrderItem import OrderItem
 
 st.set_page_config(
     page_title="SUPPER MENU QUÁN",
-    page_icon="🍔",
+    page_icon="🍽️",
     layout="wide",
 )
-
-# Khởi tạo KitchenManager vào session_state
-if "kitchen" not in st.session_state:
-    st.session_state.kitchen = KitchenManager()
-
-
-# ==========================================
-# 2. CSS GIAO DIỆN
-# ==========================================
 
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
 
-html,
-body,
-[class*="css"],
-.stApp {
+:root {
+    --navy: #263759;
+    --slate: #545e76;
+    --paper: #f2f1ec;
+    --ink: #26344f;
+    --muted: #737b8b;
+}
+
+html, body, [class*="css"], .stApp {
     font-family: "Be Vietnam Pro", sans-serif !important;
 }
 
-/* Nền toàn trang */
 .stApp {
-    background:
-        radial-gradient(
-            circle at top left,
-            rgba(73, 50, 103, 0.78) 0%,
-            transparent 34%
-        ),
-        radial-gradient(
-            circle at bottom right,
-            rgba(22, 78, 99, 0.78) 0%,
-            transparent 34%
-        ),
-        linear-gradient(
-            135deg,
-            #0f172a,
-            #111827,
-            #1e1b4b
-        );
-
-    background-attachment: fixed;
+    background-color: #e6e5e2;
+    background-image:
+        linear-gradient(90deg, rgba(38,55,89,.035) 1px, transparent 1px),
+        linear-gradient(rgba(38,55,89,.035) 1px, transparent 1px);
+    background-size: 44px 44px;
+    color: var(--ink);
 }
 
-/* Tên quán */
-.brand-title {
-    margin: 8px 0 28px 0;
-    color: #ffffff;
-    font-family: "Playfair Display", serif !important;
-    font-size: 42px;
-    font-weight: 700;
-    letter-spacing: 1px;
-    text-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+.block-container {
+    max-width: 1120px;
+    padding-top: 2rem;
+    padding-bottom: 4rem;
 }
 
-.brand-title span {
-    color: #ffc857;
-}
-
-/* Header menu */
-.menu-header {
-    padding: 32px 38px;
-    margin: 12px 0 32px 0;
-    border-radius: 28px;
-    background:
-        linear-gradient(
-            135deg,
-            rgba(255, 123, 84, 0.96),
-            rgba(142, 45, 226, 0.92)
-        );
-    box-shadow:
-        0 18px 40px rgba(0, 0, 0, 0.35),
-        inset 0 1px 0 rgba(255, 255, 255, 0.25);
-}
-
-.menu-title {
-    margin: 0;
-    color: #ffffff;
-    font-family: "Playfair Display", serif !important;
-    font-size: 46px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
-}
-
-.menu-subtitle {
-    margin-top: 12px;
-    color: #fff9ef;
-    font-size: 17px;
-    font-weight: 500;
-}
-
-/* Tên món */
-.food-card-title {
-    margin: 10px 0 14px 0;
-    color: #ffffff;
-    font-size: 30px;
-    font-weight: 800;
-    line-height: 1.25;
-    letter-spacing: -0.6px;
-    text-shadow: 0 3px 12px rgba(0, 0, 0, 0.45);
-}
-
-.food-card-title::after {
-    content: "";
-    display: block;
-    width: 75px;
-    height: 4px;
-    margin-top: 10px;
-    border-radius: 10px;
-    background: linear-gradient(
-        90deg,
-        #ffc857,
-        #ff7b54
-    );
-}
-
-/* Nhóm món */
-.food-category {
-    display: inline-block;
-    padding: 6px 14px;
-    border: 1px solid rgba(255, 255, 255, 0.25);
-    border-radius: 20px;
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.14);
-    font-size: 13px;
-    font-weight: 700;
-}
-
-/* Giá */
-.food-price {
-    display: inline-block;
-    padding: 9px 18px;
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.1rem 1.5rem;
+    margin-bottom: 1.25rem;
     border-radius: 24px;
-    color: #8a5900;
-    background: linear-gradient(
-        135deg,
-        #fff4c2,
-        #ffd166
-    );
-    font-size: 18px;
+    background: var(--paper);
+    box-shadow: 0 10px 28px rgba(38,55,89,.10);
+}
+
+.brand {
+    display: inline-flex;
+    align-items: center;
+    gap: .65rem;
+    color: var(--navy);
+    font-size: 1.25rem;
     font-weight: 800;
-    box-shadow: 0 5px 12px rgba(0, 0, 0, 0.15);
+    letter-spacing: -.04em;
+    white-space: nowrap;
 }
 
-/* Mô tả */
-.food-description {
-    margin-top: 17px;
-    color: #f1f1f1;
-    font-size: 16px;
-    line-height: 1.7;
+.brand-mark {
+    display: inline-flex !important;
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 5.4rem !important;
+    height: 2.2rem !important;
+    align-items: center !important;
+    justify-content: center !important;
+    padding: 0 .8rem !important;
+    border-radius: 12px;
+    color: white;
+    background: var(--navy);
+    font-size: .95rem;
+    line-height: 1;
+    letter-spacing: -.02em;
+    white-space: nowrap;
 }
 
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background:
-        linear-gradient(
-            180deg,
-            #171923 0%,
-            #242633 100%
-        );
+.page-intro {
+    margin: 1.6rem 0 1rem;
 }
 
-section[data-testid="stSidebar"] h1 {
-    color: #ffffff !important;
-    font-size: 25px !important;
-    font-weight: 800 !important;
+.page-intro h1 {
+    margin: 0;
+    color: var(--navy);
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 800;
+    letter-spacing: -.05em;
 }
 
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: #ffffff !important;
-    font-size: 19px !important;
-    font-weight: 700 !important;
+.page-intro p {
+    margin: .35rem 0 0;
+    color: var(--muted);
 }
 
-section[data-testid="stSidebar"] label p,
-section[data-testid="stSidebar"]
-div[data-testid="stMarkdownContainer"] p {
-    color: #f5f5f5 !important;
-    font-size: 15px !important;
-    font-weight: 500 !important;
-}
-
-/* Ô số lượng */
-div[data-testid="stNumberInput"] input {
-    text-align: center;
-    font-size: 20px;
+.section-title {
+    margin: 1.8rem 0 .8rem;
+    color: var(--navy);
+    font-size: 1.35rem;
     font-weight: 800;
 }
 
-div[data-testid="stNumberInput"] label,
-div[data-testid="stTextArea"] label {
-    color: #ffffff !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
+.food-price {
+    color: var(--navy);
+    font-size: 1.15rem;
+    font-weight: 800;
 }
 
-/* Ô ghi chú */
-div[data-testid="stTextArea"] textarea {
-    min-height: 90px;
-    border-radius: 14px;
-    font-family: "Be Vietnam Pro", sans-serif !important;
-    font-size: 14px;
+.food-meta {
+    color: var(--muted);
+    font-size: .85rem;
 }
 
-/* Tiêu đề giỏ hàng */
-.cart-title {
-    margin: 20px 0 28px 0;
-    color: #ffffff;
-    font-family: "Playfair Display", serif !important;
-    font-size: 40px;
-    font-weight: 700;
-}
-
-/* Món trong giỏ hàng */
-.cart-item {
-    padding: 17px;
-    margin: 10px 0;
-    border: 1px solid rgba(255, 255, 255, 0.16);
+.cart-total {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.2rem;
     border-radius: 16px;
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.09);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
-    line-height: 1.8;
+    color: white;
+    background: var(--navy);
+    font-size: 1.1rem;
+    font-weight: 700;
 }
 
-/* Nút */
+[data-testid="stMain"] .stRadio > label {
+    display: none;
+}
+
+[data-testid="stMain"] div[role="radiogroup"] {
+    gap: .55rem;
+}
+
+[data-testid="stMain"] div[role="radiogroup"] label {
+    padding: .45rem .95rem;
+    border: 1px solid rgba(38,55,89,.12);
+    border-radius: 999px;
+    background: var(--paper);
+    color: var(--navy) !important;
+}
+
+[data-testid="stMain"] div[role="radiogroup"] label p {
+    color: inherit !important;
+}
+
+[data-testid="stMain"] div[role="radiogroup"] label:has(input:checked) {
+    color: white !important;
+    background: var(--navy);
+}
+
+[data-testid="stMain"] div[role="radiogroup"] input {
+    accent-color: var(--navy);
+}
+
+[data-testid="stMain"] [data-testid="stVerticalBlockBorderWrapper"] {
+    border: 0;
+    border-radius: 22px;
+    background: var(--paper);
+    box-shadow: 0 10px 24px rgba(38,55,89,.09);
+}
+
 .stButton > button {
-    border: none;
-    border-radius: 13px;
-    font-family: "Be Vietnam Pro", sans-serif !important;
+    min-height: 2.7rem;
+    border: 0;
+    border-radius: 12px;
+    color: white;
+    background: var(--navy);
     font-weight: 700;
-    transition: all 0.2s ease;
 }
 
 .stButton > button:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+    border: 0;
+    color: white;
+    background: var(--slate);
 }
 
-/* Hiển thị trên điện thoại */
-@media (max-width: 768px) {
-    .brand-title {
-        font-size: 30px;
-    }
+.stButton > button:disabled {
+    color: var(--navy) !important;
+    background: #d6d9e0 !important;
+    opacity: 1 !important;
+}
 
-    .menu-title {
-        font-size: 34px;
-    }
+[data-testid="stExpander"] {
+    border: 1px solid rgba(38,55,89,.12);
+    border-radius: 14px;
+    overflow: hidden;
+    background: var(--paper);
+}
 
-    .food-card-title {
-        font-size: 24px;
+[data-testid="stExpander"] details > summary {
+    color: #fff !important;
+    background: var(--navy) !important;
+}
+
+[data-testid="stExpander"] details > summary p,
+[data-testid="stExpander"] details > summary span,
+[data-testid="stExpander"] details > summary svg {
+    color: #fff !important;
+    fill: #fff !important;
+}
+
+[data-testid="stExpander"] [data-testid="stExpanderDetails"] {
+    background: var(--paper) !important;
+}
+
+[data-testid="stExpander"] label,
+[data-testid="stExpander"] label p {
+    color: var(--navy) !important;
+}
+
+[data-testid="stExpander"] input,
+[data-testid="stExpander"] textarea {
+    color: var(--navy) !important;
+    background: #fff !important;
+    border-color: rgba(38,55,89,.28) !important;
+}
+
+[data-testid="stExpander"] input::placeholder,
+[data-testid="stExpander"] textarea::placeholder {
+    color: var(--muted) !important;
+}
+
+[data-testid="stExpander"] [data-testid="stNumberInput"] button {
+    color: #fff !important;
+    background: var(--navy) !important;
+}
+
+@media (max-width: 700px) {
+    .block-container {
+        padding: 1rem .8rem 3rem;
+    }
+    .app-header {
+        padding: .9rem 1rem;
+        border-radius: 18px;
     }
 }
 </style>
 """,
     unsafe_allow_html=True,
 )
-
-
-# ==========================================
-# 3. KHỞI TẠO GIỎ HÀNG VÀ THỰC ĐƠN
-# ==========================================
 
 MENU_PATH = Path(__file__).resolve().parents[2] / "data" / "menu.json"
 with MENU_PATH.open(encoding="utf-8") as menu_file:
@@ -300,292 +271,268 @@ if "cart" not in st.session_state:
     st.session_state.cart = Cart()
 if "cart_revision" not in st.session_state:
     st.session_state.cart_revision = 0
+if "table_manager" not in st.session_state:
+    st.session_state.table_manager = TableManager()
+else:
+    st.session_state.table_manager.load_tables()
+if "kitchen" not in st.session_state:
+    st.session_state.kitchen = KitchenManager()
+if "order_service" not in st.session_state:
+    st.session_state.order_service = OrderService(
+        table_manager=st.session_state.table_manager,
+        kitchen_manager=st.session_state.kitchen,
+    )
+else:
+    st.session_state.order_service.table_manager = st.session_state.table_manager
+    st.session_state.order_service.kitchen_manager = st.session_state.kitchen
+    st.session_state.order_service.load_orders()
+st.session_state.kitchen.restore_orders(
+    st.session_state.order_service.get_all_orders()
+)
 cart = st.session_state.cart
+table_manager = st.session_state.table_manager
+kitchen = st.session_state.kitchen
+order_service = st.session_state.order_service
 
-# ==========================================
-# 6. TIÊU ĐỀ QUÁN
-# ==========================================
+if "checkout_notice" in st.session_state:
+    st.success(st.session_state.pop("checkout_notice"))
+if "payment_notice" in st.session_state:
+    st.success(st.session_state.pop("payment_notice"))
+if "payment_receipt" in st.session_state:
+    st.code(st.session_state.pop("payment_receipt"))
 
 st.markdown(
-    """
-<div class="brand-title">
-    🍔 SUPPER <span>MENU QUÁN</span>
+    f"""
+<div class="app-header">
+    <div class="brand"><span class="brand-mark">NHÓM 2</span><span> DŨNG COFFE </span></div>
+    <div class="food-meta">{cart.count_lines()} món trong giỏ · {cart.calculate_total():,} VNĐ</div>
 </div>
 """,
     unsafe_allow_html=True,
 )
 
-
-# ==========================================
-# 7. MENU ĐIỀU HƯỚNG
-# ==========================================
-
-TRANG_THUC_DON = "📜  Thực đơn gọi món"
-TRANG_GIO_HANG = "🛒  Giỏ hàng của bạn"
-
-st.sidebar.title("🍽️ Thực đơn lựa chọn")
-
-trang_hien_tai = st.sidebar.radio(
-    "Đi đến:",
-    [
-        TRANG_THUC_DON,
-        TRANG_GIO_HANG,
-    ],
+MENU_PAGE = "📜  Thực đơn"
+CART_PAGE = "🛍️  Giỏ hàng"
+ORDERS_PAGE = "🍳  Đơn hàng & Bếp"
+page = st.radio(
+    "Đi đến",
+    [MENU_PAGE, CART_PAGE, ORDERS_PAGE],
+    horizontal=True,
+    label_visibility="collapsed",
+    key="ordering_page",
 )
 
-st.sidebar.divider()
-
-st.sidebar.subheader("🛒 Giỏ hàng của bạn")
-
-cart_items = cart.get_order_items()
-st.sidebar.write(f"Đang chọn: **{cart.count_lines()} món**")
-st.sidebar.write(f"Tổng tiền: **{cart.calculate_total():,} đ**")
-undo_col, redo_col = st.sidebar.columns(2)
-if undo_col.button("↶ Undo", disabled=not cart.can_undo(), use_container_width=True):
+undo_col, redo_col, _ = st.columns([1, 1, 5])
+if undo_col.button("↶ Hoàn tác", disabled=not cart.can_undo(), use_container_width=True):
     cart.undo()
     st.session_state.cart_revision += 1
     st.rerun()
-if redo_col.button("↷ Redo", disabled=not cart.can_redo(), use_container_width=True):
+if redo_col.button("↷ Làm lại", disabled=not cart.can_redo(), use_container_width=True):
     cart.redo()
     st.session_state.cart_revision += 1
     st.rerun()
 
-
-# ==========================================
-# 8. TRANG THỰC ĐƠN
-# ==========================================
-
-if trang_hien_tai == TRANG_THUC_DON:
-
+if page == MENU_PAGE:
     st.markdown(
         """
-<div class="menu-header">
-    <div class="menu-title">🍽️ Thực đơn hôm nay</div>
-    <div class="menu-subtitle">
-        Chọn số lượng và nhập yêu cầu riêng cho từng món.
-    </div>
+<div class="page-intro">
+    <h1>Collection</h1>
+    <p>Chọn món bạn yêu thích, chúng tôi sẽ chuẩn bị thật ngon.</p>
 </div>
 """,
         unsafe_allow_html=True,
     )
 
-    cart_by_id = {item["menu_item_id"]: item for item in cart_items}
-    for mon in MENU:
-        existing = cart_by_id.get(mon.id, {})
-        so_luong_cu = existing.get("quantity", 0)
-        ghi_chu_cu = existing.get("note", "")
+    categories = ["Tất cả"] + menu_catalog.get_categories()
+    if st.session_state.get("menu_category") not in categories:
+        st.session_state.menu_category = "Tất cả"
+    selected_category = st.radio(
+        "Danh mục món ăn",
+        categories,
+        horizontal=True,
+        label_visibility="collapsed",
+        key="menu_category",
+    )
+    visible_menu = (
+        MENU
+        if selected_category == "Tất cả"
+        else menu_catalog.filter_by_category(selected_category)
+    )
+    cart_by_id = {
+        item["menu_item_id"]: item for item in cart.get_order_items()
+    }
+    menu_columns = st.columns(2, gap="large")
 
-        with st.container(border=True):
-
-            cot_anh, cot_thong_tin, cot_dat_mon = st.columns(
-                [1.5, 4.2, 2.4],
-                vertical_alignment="center",
-            )
-
-            # Hình ảnh
-            with cot_anh:
-                st.markdown(
-                    f"""
-<div style="
-    padding: 12px;
-    border-radius: 22px;
-    background: linear-gradient(
-        135deg,
-        {mon.color},
-        #171923
-    );
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
-">
-""",
-                    unsafe_allow_html=True,
-                )
-
-                if mon.image:
-                    st.image(mon.image, width=230)
+    for index, menu_item in enumerate(visible_menu):
+        with menu_columns[index % 2]:
+            with st.container(border=True):
+                if menu_item.image:
+                    st.image(menu_item.image, use_container_width=True)
                 else:
                     st.markdown("## 🍽️")
 
+                st.caption(
+                    f"{menu_item.category} · "
+                    f"{'Còn món' if menu_item.is_available else 'Tạm hết'}"
+                )
+                st.subheader(menu_item.name)
                 st.markdown(
-                    """
-</div>
-""",
+                    f'<div class="food-price">{menu_item.price:,} VNĐ</div>',
                     unsafe_allow_html=True,
                 )
-
-            # Thông tin món
-            with cot_thong_tin:
                 st.markdown(
-                    f"""
-<div class="food-category">{mon.category}</div>
-
-<div class="food-card-title">{mon.name}</div>
-
-<div class="food-price">
-    💰 {mon.price:,} đ
-</div>
-
-<div class="food-description">
-    ⏱️ Thời gian chế biến: khoảng {mon.prep_time} phút / phần
-</div>
-
-<div class="food-description">
-    {mon.description}
-</div>
-""",
+                    f'<div class="food-meta">⏱ {menu_item.prep_time} phút · '
+                    f'{html.escape(menu_item.unit)}</div>',
                     unsafe_allow_html=True,
                 )
+                st.write(menu_item.description)
 
-            # Chọn số lượng và ghi chú
-            with cot_dat_mon:
-
-                so_luong_moi = st.number_input(
-                    "Số lượng",
-                    min_value=0,
-                    max_value=20,
-                    value=so_luong_cu,
-                    step=1,
-                    disabled=not mon.is_available,
-                    key=f"quantity_{mon.id}_{st.session_state.cart_revision}",
-                )
-
-                ghi_chu_moi = st.text_area(
-                    "Yêu cầu thêm",
-                    value=ghi_chu_cu,
-                    placeholder=(
-                        "Ví dụ: ít đá, ít ngọt, "
-                        "không hành, không cay..."
-                    ),
-                    height=100,
-                    disabled=not mon.is_available,
-                    key=f"note_{mon.id}_{st.session_state.cart_revision}",
-                )
-
-                if not mon.is_available:
-                    st.warning("Món này hiện đã hết.")
                 if st.button(
-                    "Cập nhật giỏ hàng",
-                    key=f"apply_{mon.id}_{st.session_state.cart_revision}",
-                    disabled=not mon.is_available,
+                    "＋ Thêm vào giỏ",
+                    key=f"quick_add_{menu_item.id}_{st.session_state.cart_revision}",
+                    disabled=not menu_item.is_available,
                     use_container_width=True,
                 ):
-                    current = next(
-                        (
-                            item for item in cart.get_order_items()
-                            if item["menu_item_id"] == mon.id
-                        ),
-                        None,
-                    )
-                    if not mon.is_available:
-                        st.error(f"{mon.name} hiện đã hết.")
-                    elif so_luong_moi == 0:
-                        if current is not None:
-                            cart.remove_item(mon.id)
-                    elif current is None:
-                        cart.add_item(mon, so_luong_moi, ghi_chu_moi)
-                    else:
-                        cart.update_item(mon.id, so_luong_moi, ghi_chu_moi)
+                    cart.add_item(menu_item, quantity=1)
                     st.session_state.cart_revision += 1
                     st.rerun()
 
+                current_item = cart_by_id.get(menu_item.id)
+                with st.expander(
+                    "Tùy chỉnh số lượng và ghi chú",
+                    expanded=current_item is not None,
+                ):
+                    quantity = st.number_input(
+                        "Số lượng",
+                        min_value=0,
+                        max_value=20,
+                        value=current_item["quantity"] if current_item else 1,
+                        key=f"menu_quantity_{menu_item.id}_{st.session_state.cart_revision}",
+                        disabled=not menu_item.is_available,
+                    )
+                    note = st.text_input(
+                        "Ghi chú món",
+                        value=current_item.get("note", "") if current_item else "",
+                        placeholder="Ít đá, không hành...",
+                        key=f"menu_note_{menu_item.id}_{st.session_state.cart_revision}",
+                        disabled=not menu_item.is_available,
+                    )
+                    if st.button(
+                        "Lưu lựa chọn",
+                        key=f"save_menu_{menu_item.id}_{st.session_state.cart_revision}",
+                        disabled=not menu_item.is_available,
+                        use_container_width=True,
+                    ):
+                        if not menu_item.is_available:
+                            st.error(f"{menu_item.name} hiện đã hết.")
+                        elif quantity == 0:
+                            if current_item is not None:
+                                cart.remove_item(menu_item.id)
+                        elif current_item is None:
+                            cart.add_item(menu_item, quantity, note)
+                        else:
+                            cart.update_item(menu_item.id, quantity, note)
+                        st.session_state.cart_revision += 1
+                        st.rerun()
 
-# ==========================================
-# 9. TRANG GIỎ HÀNG
-# ==========================================
-
-elif trang_hien_tai == TRANG_GIO_HANG:
-
+elif page == CART_PAGE:
     st.markdown(
         """
-<div class="cart-title">
-    🧾 Kiểm tra đơn hàng
+<div class="page-intro">
+    <h1>My cart</h1>
+    <p>Kiểm tra món ăn và hoàn tất đơn hàng của bạn.</p>
 </div>
 """,
         unsafe_allow_html=True,
     )
-
     cart_items = cart.get_order_items()
     if not cart_items:
-
-        st.warning(
-            "⚠️ Giỏ hàng đang trống! "
-            "Vui lòng quay lại phần Thực đơn để chọn món."
-        )
-
+        st.info("Giỏ hàng đang trống. Hãy quay lại thực đơn để chọn món.")
     else:
-
-        st.subheader("📋 Chi tiết các món đã chọn")
-
+        st.markdown('<div class="section-title">Order Summary</div>', unsafe_allow_html=True)
         for item in cart_items:
             menu_item = MENU_BY_ID.get(item["menu_item_id"])
-            st.markdown(
-                f"""
-<div class="cart-item">
-    <b>🍽️ {item["item_name"]}</b><br>
-    Đơn giá: {item["unit_price"]:,} đ<br>
-    Thành tiền: {item["subtotal"]:,} đ
-</div>
-""",
-                unsafe_allow_html=True,
-            )
-            quantity_col, note_col, update_col, remove_col = st.columns(
-                [1, 2, 1, 1],
-                vertical_alignment="bottom",
-            )
-            with quantity_col:
-                quantity = st.number_input(
-                    "Số lượng",
-                    min_value=1,
-                    max_value=20,
-                    value=item["quantity"],
-                    step=1,
-                    key=f"cart_quantity_{item['menu_item_id']}_{st.session_state.cart_revision}",
+            with st.container(border=True):
+                image_col, details_col, quantity_col, note_col, action_col = st.columns(
+                    [1.2, 2.2, 1, 1.8, 1.1],
+                    vertical_alignment="center",
                 )
-            with note_col:
-                note = st.text_input(
-                    "Ghi chú",
-                    value=item.get("note", ""),
-                    key=f"cart_note_{item['menu_item_id']}_{st.session_state.cart_revision}",
-                )
-            with update_col:
-                if st.button(
-                    "Lưu sửa",
-                    key=f"cart_update_{item['menu_item_id']}_{st.session_state.cart_revision}",
-                    use_container_width=True,
-                ):
-                    if menu_item is None or not menu_item.is_available:
-                        st.error(f"{item['item_name']} hiện đã hết hoặc không có trong menu.")
+                with image_col:
+                    if menu_item and menu_item.image:
+                        st.image(menu_item.image, use_container_width=True)
                     else:
-                        cart.update_item(item["menu_item_id"], quantity, note)
+                        st.markdown("🍽️")
+                with details_col:
+                    st.markdown(f"**{item['item_name']}**")
+                    st.caption(f"{item['unit_price']:,} VNĐ / phần")
+                    st.markdown(f"**{item['subtotal']:,} VNĐ**")
+                with quantity_col:
+                    quantity = st.number_input(
+                        "SL",
+                        min_value=1,
+                        max_value=20,
+                        value=item["quantity"],
+                        key=f"cart_quantity_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                    )
+                with note_col:
+                    note = st.text_input(
+                        "Ghi chú",
+                        value=item.get("note", ""),
+                        key=f"cart_note_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                    )
+                with action_col:
+                    if st.button(
+                        "Lưu",
+                        key=f"cart_update_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                        use_container_width=True,
+                    ):
+                        if menu_item is None or not menu_item.is_available:
+                            st.error(f"{item['item_name']} hiện đã hết hoặc không còn trong menu.")
+                        else:
+                            cart.update_item(item["menu_item_id"], quantity, note)
+                            st.session_state.cart_revision += 1
+                            st.rerun()
+                    if st.button(
+                        "Xóa",
+                        key=f"cart_remove_{item['menu_item_id']}_{st.session_state.cart_revision}",
+                        use_container_width=True,
+                    ):
+                        cart.remove_item(item["menu_item_id"])
                         st.session_state.cart_revision += 1
                         st.rerun()
-            with remove_col:
-                if st.button(
-                    "Xóa",
-                    key=f"cart_remove_{item['menu_item_id']}_{st.session_state.cart_revision}",
-                    use_container_width=True,
-                ):
-                    cart.remove_item(item["menu_item_id"])
-                    st.session_state.cart_revision += 1
-                    st.rerun()
 
-        st.divider()
-
-        st.subheader(
-            f"💰 Tổng cộng: "
-            f"{cart.calculate_total():,} VNĐ"
+        st.markdown(
+            f"""
+<div class="cart-total">
+    <span>Total · {cart.count_lines()} món</span>
+    <span>{cart.calculate_total():,} VNĐ</span>
+</div>
+""",
+            unsafe_allow_html=True,
         )
-
-        ban_ngoi = st.selectbox(
-            "🪑 Bạn chọn ngồi ở đâu?",
-            [
-                "Bàn số 1",
-                "Bàn số 2",
-                "Bàn số 3",
-                "Mang về (Takeaway)",
-            ],
+        estimated_prep_time = sum(
+            item.get("prep_time", 0) * item["quantity"] for item in cart_items
         )
+        st.caption(f"Thời gian chế biến ước tính: khoảng {estimated_prep_time} phút")
+        available_tables = table_manager.get_available_tables()
+        table_options = [*available_tables, "Mang về (Takeaway)"]
+        selected_table = st.selectbox(
+            "Chọn bàn còn trống hoặc mang về",
+            table_options,
+            format_func=lambda table: (
+                f"{table.name} · {table.capacity} chỗ"
+                if not isinstance(table, str)
+                else table
+            ),
+        )
+        if not available_tables:
+            st.info("Hiện không có bàn trống; khách vẫn có thể chọn mang về.")
 
-        if st.button("🚀 XÁC NHẬN ĐẶT MÓN", type="primary", use_container_width=True):
+        if st.button(
+            "Đặt món ngay",
+            type="primary",
+            use_container_width=True,
+        ):
             unavailable_items = [
                 item["item_name"]
                 for item in cart_items
@@ -600,17 +547,209 @@ elif trang_hien_tai == TRANG_GIO_HANG:
                     + ", ".join(unavailable_items)
                 )
             else:
-                with st.spinner("Đang gửi thông tin xuống bếp..."):
-                    time.sleep(1)
-                    thoi_gian_doi = st.session_state.kitchen.receive_order(
-                        table_id=ban_ngoi,
-                        items=cart_items,
-                    )
-                st.success(
-                    f"✅ Đơn đã được tiếp nhận. Thời gian lên món dự kiến: "
-                    f"**{thoi_gian_doi} phút**."
+                selected_table_id = (
+                    selected_table
+                    if isinstance(selected_table, str)
+                    else selected_table.id
                 )
-                st.balloons()
-                cart.clear()
-                st.session_state.cart_revision += 1
+                table_available = isinstance(selected_table, str) or (
+                    table_manager.is_table_available(selected_table_id)
+                )
+                if not table_available:
+                    st.error("Bàn vừa được nhận bởi đơn khác. Vui lòng chọn lại bàn.")
+                else:
+                    try:
+                        order_items = [
+                            OrderItem(
+                                menu_item_id=item["menu_item_id"],
+                                item_name=item["item_name"],
+                                unit_price=item["unit_price"],
+                                quantity=item["quantity"],
+                                subtotal=item["subtotal"],
+                                note=item.get("note", ""),
+                                prep_time=item.get("prep_time", 0),
+                            )
+                            for item in cart_items
+                        ]
+                        order = order_service.create_order(
+                            table_id=selected_table_id,
+                            items=order_items,
+                            check_existing_active=True,
+                        )
+                        order_service.confirm_order(order.id)
+                    except (OSError, ValueError, KeyError) as error:
+                        st.error(f"Không thể xác nhận đơn hàng: {error}")
+                    else:
+                        wait_time = kitchen.estimate_wait_time(order)
+                        st.session_state.checkout_notice = (
+                            f"Đã tạo đơn {order.id} ở trạng thái PENDING và đưa vào "
+                            f"hàng đợi bếp. Thời gian lên món dự kiến: {wait_time} phút."
+                        )
+                        cart.clear()
+                        st.session_state.cart_revision += 1
+                        st.rerun()
+
+else:
+    st.markdown(
+        """
+<div class="page-intro">
+    <h1>Order & Kitchen</h1>
+    <p>Theo dõi hàng đợi, chế biến, phục vụ và thanh toán đơn hàng.</p>
+</div>
+""",
+        unsafe_allow_html=True,
+    )
+
+    current_order = kitchen.get_current_order()
+    waiting_orders = kitchen.get_waiting_orders()
+    order_columns = st.columns(3)
+    order_columns[0].metric("Đang chờ bếp", len(waiting_orders))
+    order_columns[1].metric(
+        "Đang chế biến",
+        current_order.id if current_order else "Không có",
+    )
+    order_columns[2].metric(
+        "Chờ thanh toán",
+        len(order_service.filter_orders_by_status("SERVED")),
+    )
+
+    if current_order:
+        st.markdown("### Đơn đang chế biến")
+        st.write(
+            f"**{current_order.id}** · Bàn {current_order.table_id} · "
+            f"{current_order.final_amount:,} VNĐ"
+        )
+        st.table([item.model_dump(mode="json") for item in current_order.items])
+        if st.button("Đã chế biến xong · Chuyển sang SERVED", type="primary"):
+            try:
+                kitchen.advance_status()
+                kitchen.finish_current_order()
+                if not order_service.save_orders():
+                    raise OSError(f"Không thể lưu đơn '{current_order.id}'.")
+            except (OSError, ValueError) as error:
+                st.error(f"Không thể cập nhật hàng đợi bếp: {error}")
+            else:
                 st.rerun()
+    elif waiting_orders:
+        st.markdown("### Hàng đợi bếp")
+        for position, waiting_order in enumerate(waiting_orders, start=1):
+            estimate = kitchen.estimate_wait_time(waiting_order)
+            st.write(
+                f"{position}. **{waiting_order.id}** · Bàn {waiting_order.table_id} · "
+                f"{waiting_order.calculate_prep_time()} phút chế biến · "
+                f"ước tính chờ {estimate} phút"
+            )
+        if st.button("Bếp bắt đầu đơn tiếp theo", type="primary"):
+            try:
+                started_order = kitchen.start_next_order()
+                if started_order is not None and not order_service.save_orders():
+                    raise OSError(f"Không thể lưu đơn '{started_order.id}'.")
+            except (OSError, ValueError) as error:
+                st.error(f"Không thể bắt đầu chế biến: {error}")
+            else:
+                st.rerun()
+    else:
+        st.info("Hàng đợi bếp hiện đang trống.")
+
+    st.markdown('<div class="section-title">Đơn hàng</div>', unsafe_allow_html=True)
+    all_orders = sorted(
+        order_service.get_all_orders(),
+        key=lambda order: order.created_at,
+        reverse=True,
+    )
+    if all_orders:
+        for order in all_orders:
+            status_label = {
+                OrderStatus.PENDING: "Đang chờ bếp",
+                OrderStatus.PREPARING: "Đang chế biến",
+                OrderStatus.SERVED: "Đã phục vụ · chờ thanh toán",
+                OrderStatus.COMPLETED: "Đã thanh toán · hoàn tất",
+                OrderStatus.CANCELLED: "Đã hủy",
+            }.get(order.status, order.status)
+            with st.expander(
+                f"{order.id} · Bàn {order.table_id} · {status_label} · "
+                f"{order.final_amount:,} VNĐ"
+            ):
+                st.table([item.model_dump(mode="json") for item in order.items])
+                if order.notes:
+                    st.caption(order.notes)
+    else:
+        st.info("Chưa có đơn hàng.")
+
+    st.markdown('<div class="section-title">Thanh toán</div>', unsafe_allow_html=True)
+    served_orders = order_service.filter_orders_by_status("SERVED")
+    if not served_orders:
+        st.info("Chỉ đơn đã SERVED mới có thể thanh toán.")
+    else:
+        selected_order = st.selectbox(
+            "Chọn đơn đã phục vụ",
+            served_orders,
+            format_func=lambda order: (
+                f"{order.id} · Bàn {order.table_id} · {order.final_amount:,} VNĐ"
+            ),
+            key="payment_order",
+        )
+        payment_method = st.selectbox(
+            "Phương thức thanh toán",
+            ["CASH", "BANK_TRANSFER", "CARD"],
+            format_func=lambda method: {
+                "CASH": "Tiền mặt",
+                "BANK_TRANSFER": "Chuyển khoản",
+                "CARD": "Thẻ",
+            }[method],
+            key="ordering_payment_method",
+        )
+        cashier_name = st.text_input("Tên thu ngân", key="ordering_cashier")
+        cash_received = None
+        transaction_code = None
+        transaction_successful = None
+        if payment_method == "CASH":
+            cash_received = st.number_input(
+                "Tiền khách đưa (VNĐ)",
+                min_value=0,
+                value=selected_order.final_amount,
+                step=1000,
+                key=f"cash_received_{selected_order.id}",
+            )
+        else:
+            transaction_code = st.text_input(
+                "Mã giao dịch", key=f"transaction_code_{selected_order.id}"
+            )
+            transaction_successful = st.checkbox(
+                "Cổng thanh toán đã xác nhận giao dịch SUCCESS",
+                key=f"transaction_success_{selected_order.id}",
+            )
+        if st.button("Xác nhận thanh toán", type="primary"):
+            try:
+                result = PaymentService().pay_order(
+                    order_id=selected_order.id,
+                    method=payment_method,
+                    cashier_name=cashier_name,
+                    cash_received=int(cash_received) if cash_received is not None else None,
+                    transaction_code=transaction_code or None,
+                    transaction_successful=transaction_successful,
+                )
+            except ValueError as error:
+                st.error(str(error))
+            else:
+                if result.invoice is None:
+                    st.error(
+                        "Thanh toán chưa thành công; đơn vẫn ở trạng thái SERVED "
+                        "và bàn chưa được giải phóng."
+                    )
+                else:
+                    order_service.load_orders()
+                    table_manager.load_tables()
+                    kitchen.restore_orders(order_service.get_all_orders())
+                    st.session_state.payment_notice = (
+                        f"Thanh toán thành công · hóa đơn {result.invoice.id} · "
+                        f"đơn {result.invoice.order_id} đã COMPLETED."
+                    )
+                    st.session_state.payment_receipt = (
+                        result.invoice.generate_text_receipt()
+                    )
+                    if result.payment.change_due:
+                        st.session_state.payment_notice += (
+                            f" Tiền thối lại: {result.payment.change_due:,} VNĐ."
+                        )
+                    st.rerun()

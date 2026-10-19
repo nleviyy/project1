@@ -116,7 +116,7 @@ class OrderService:
     # -------------------------------------------------------------
     def create_order(
         self,
-        table_id: int,
+        table_id: int | str,
         items: Optional[List[OrderItem]] = None,
         notes: str = "",
         discount_amount: int = 0,
@@ -133,7 +133,7 @@ class OrderService:
         :param check_existing_active: Nếu True, sẽ kiểm tra và không cho phép tạo thêm đơn nếu bàn đang có đơn chưa hoàn thành
         :return: Đối tượng Order vừa tạo
         """
-        if check_existing_active:
+        if check_existing_active and str(table_id).isdigit():
             active_order = self.get_active_order_by_table(table_id)
             if active_order:
                 raise ValueError(
@@ -157,12 +157,20 @@ class OrderService:
             notes=notes,
         )
 
-        self._orders[order.id] = order
-        self.save_orders()
+        occupied_table = False
+        if self.table_manager is not None and str(table_id).isdigit():
+            if not self.table_manager.is_table_available(int(table_id)):
+                raise ValueError(f"Bàn số {table_id} hiện không còn trống.")
+            occupied_table = self.table_manager.occupy_table(int(table_id), order.id)
+            if not occupied_table:
+                raise ValueError(f"Không thể nhận bàn số {table_id}; vui lòng chọn bàn khác.")
 
-        # Chiếm bàn nếu có table_manager
-        if self.table_manager is not None:
-            self.table_manager.occupy_table(table_id, order.id)
+        self._orders[order.id] = order
+        if not self.save_orders():
+            self._orders.pop(order.id, None)
+            if occupied_table:
+                self.table_manager.release_table(int(table_id))
+            raise OSError(f"Không thể lưu đơn hàng '{order.id}'.")
 
         return order
 
@@ -201,7 +209,10 @@ class OrderService:
         if auto_start_preparing:
             order.change_status(OrderStatus.PREPARING)
 
-        self.save_orders()
+        if not self.save_orders():
+            if km is not None:
+                km.cancel_order(order_id)
+            raise OSError(f"Không thể lưu trạng thái đơn hàng '{order_id}'.")
         return True
 
     def start_preparing_order(self, order_id: str) -> bool:

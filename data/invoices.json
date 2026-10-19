@@ -1,0 +1,33 @@
+[
+  {
+    "id": "INV-C70646A91A0D4751A9E4AECE5C3EC48F",
+    "payment_id": "PAY-F31722D419714787B78975E74302142B",
+    "order_id": "ORD-20261014-001",
+    "table_id": 2,
+    "issued_at": "2026-10-19T02:51:03",
+    "items": [
+      {
+        "menu_item_id": "M02",
+        "item_name": "Cà phê sữa đá",
+        "unit_price": 29000,
+        "quantity": 2,
+        "subtotal": 58000,
+        "note": "Ít ngọt"
+      },
+      {
+        "menu_item_id": "M05",
+        "item_name": "Bánh mì chảo đặc biệt",
+        "unit_price": 55000,
+        "quantity": 1,
+        "subtotal": 55000,
+        "note": "Trứng lòng đào"
+      }
+    ],
+    "subtotal": 113000,
+    "discount_amount": 0,
+    "total_amount": 113000,
+    "final_amount": 113000,
+    "payment_method": "CASH",
+    "cashier_name": "NghimQinh"
+  }
+]

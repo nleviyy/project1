@@ -80,7 +80,21 @@ uv run streamlit run src/app.py
 ```
 👉 Trình duyệt sẽ tự động mở địa chỉ: `http://localhost:8501`.
 
-### 5. Chạy bộ kiểm thử (pytest)
+### 5. Chạy giao diện đặt món và xử lý đơn
+```powershell
+uv run streamlit run src/ui/__init__.py --server.port 8503
+```
+Trong giao diện, chọn món ở **Thực đơn**, kiểm tra giỏ và chọn bàn đang trống (hoặc mang về) để tạo đơn `PENDING`. Vào **Đơn hàng & Bếp** để bắt đầu đơn kế tiếp (`PREPARING`), đánh dấu đã phục vụ (`SERVED`), rồi thanh toán. Chỉ thanh toán thành công mới chuyển đơn sang `COMPLETED` và giải phóng bàn. Hàng đợi và trạng thái được khôi phục từ các file JSON dùng chung trong `data/`.
+
+### 6. Chạy giao diện web React
+```powershell
+Set-Location web
+npm install
+npm run dev
+```
+Giao diện web đọc thực đơn, đơn hàng, bàn và lịch sử thanh toán từ các file trong `data/`. Tạo đơn/cập nhật trạng thái bếp sẽ ghi vào `orders.json` và đồng bộ trạng thái bàn trong `tables.json`. Màn hình **Thanh toán** cho phép chọn đơn đã lên món, nhập tên nhân viên thu ngân, phương thức và số tiền khách đưa; Vite gọi `PaymentService` Python để kiểm tra và cập nhật `payments.json`, `invoices.json`, `orders.json` và `tables.json`. Cần môi trường Python của dự án (`uv sync`) khi chạy web. API JSON này được cung cấp bởi Vite cho môi trường phát triển và preview, không thay thế backend cho triển khai production.
+
+### 7. Chạy bộ kiểm thử (pytest)
 ```powershell
 uv run pytest
 ```
