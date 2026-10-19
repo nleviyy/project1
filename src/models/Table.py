@@ -10,6 +10,16 @@ class TableStatus(str, Enum):
     OCCUPIED = "OCCUPIED"
     RESERVED = "RESERVED"
 
+    @staticmethod
+    def get_label(status) -> str:
+        labels = {
+            "AVAILABLE": "Bàn trống",
+            "OCCUPIED": "Đang có khách",
+            "RESERVED": "Đã đặt trước",
+        }
+        val = status.value if isinstance(status, TableStatus) else str(status)
+        return labels.get(val, str(val))
+
 
 @dataclass
 class Table:

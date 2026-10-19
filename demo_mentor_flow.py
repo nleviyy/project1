@@ -33,8 +33,8 @@ from src.models.Payment import Payment, PaymentMethod
 from src.models.Invoice import Invoice
 from src.core.OrderService import OrderService
 from src.core.TableManager import TableManager
-from src.kitchen import KitchenManager
-from src.redo_undo import Cart, CartItem
+from src.core.KitchenManager import KitchenManager
+from src.core.Cart import Cart, CartItem
 
 
 def print_step(step_num: int, title: str):
@@ -184,6 +184,9 @@ def run_demo():
             cashier_name="Nguyễn Lê Vy"
         )
         print(invoice.generate_text_receipt())
+        # Lưu giao dịch thanh toán thành công vào payments_file
+        with open(payments_file, "w", encoding="utf-8") as f:
+            json.dump([{"order_id": cooking_order.id, "status": "SUCCESS", "amount": cooking_order.final_amount}], f)
 
         # -------------------------------------------------------------
         # BƯỚC 7: Hoàn tất đơn hàng, chống thanh toán trùng & giải phóng bàn

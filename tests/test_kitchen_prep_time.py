@@ -1,4 +1,5 @@
-from KitchenManage import KitchenManager, Order
+from src.core.KitchenManager import KitchenManager
+from src.models.KitchenOrder import KitchenOrder as Order
 
 
 def test_order_prep_time_uses_each_items_quantity():

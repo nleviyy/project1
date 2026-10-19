@@ -5,8 +5,11 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from KitchenManage import KitchenManager, Order, OrderStatus
-from redo_undo import Cart, CartItem
+from src.core.KitchenManager import KitchenManager
+from src.models.KitchenOrder import KitchenOrder as Order
+from src.models.Order import OrderStatus
+from src.core.Cart import Cart, CartItem
+
 
 
 # ====================== Hàng đợi bếp (FIFO) ======================

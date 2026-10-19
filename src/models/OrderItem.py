@@ -11,6 +11,30 @@ class OrderItem(BaseModel):
     note: Optional[str] = Field(default="", description="Ghi chú món ăn")
     prep_time: Optional[int] = Field(default=None, description="Thời gian chế biến (phút)", ge=0)
 
+    def __init__(
+        self,
+        menu_item_id: Optional[str] = None,
+        item_name: Optional[str] = None,
+        unit_price: Optional[int] = None,
+        quantity: Optional[int] = None,
+        note: Optional[str] = "",
+        prep_time: Optional[int] = None,
+        **kwargs,
+    ):
+        if menu_item_id is not None and "menu_item_id" not in kwargs:
+            kwargs["menu_item_id"] = menu_item_id
+        if item_name is not None and "item_name" not in kwargs:
+            kwargs["item_name"] = item_name
+        if unit_price is not None and "unit_price" not in kwargs:
+            kwargs["unit_price"] = unit_price
+        if quantity is not None and "quantity" not in kwargs:
+            kwargs["quantity"] = quantity
+        if note and "note" not in kwargs:
+            kwargs["note"] = note
+        if prep_time is not None and "prep_time" not in kwargs:
+            kwargs["prep_time"] = prep_time
+        super().__init__(**kwargs)
+
     @model_validator(mode='after')
     def auto_calculate_subtotal(self):
         """Nếu JSON không truyền subtotal hoặc bằng 0 thì tự tính: đơn giá * số lượng."""

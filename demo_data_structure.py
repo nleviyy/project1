@@ -17,8 +17,9 @@ SRC_DIR = Path(__file__).resolve().parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-from kitchen import KitchenManager, Order
-from redo_undo import Cart
+from src.core.KitchenManager import KitchenManager
+from src.models.KitchenOrder import KitchenOrder as Order
+from src.core.Cart import Cart
 
 
 def print_title(text: str):

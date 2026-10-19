@@ -13,6 +13,18 @@ class CartItem:
         self.note = note
         self.prep_time = prep_time
 
+    @property
+    def item_id(self):
+        return self.menu_item_id
+
+    @property
+    def name(self):
+        return self.item_name
+
+    @property
+    def price(self):
+        return self.unit_price
+
     def calculate_subtotal(self):
 
         return self.unit_price * self.quantity
@@ -84,22 +96,39 @@ class Cart:
                 return item
         return None
 
-    def add_item(self, menu_item, quantity=1, note=""):
-        if not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
+    @property
+    def items(self):
+        return self._items
 
-        if isinstance(menu_item, Mapping):
-            item_id = menu_item["id"]
-            item_name = menu_item["name"]
-            unit_price = menu_item["price"]
-            is_available = menu_item.get("is_available", True)
-            prep_time = menu_item.get("prep_time")
+    def total_amount(self):
+        return self.calculate_total()
+
+    def add_item(self, menu_item, quantity=1, note="", *extra_args):
+        if extra_args:
+            # Legacy call: add_item(item_id, item_name, unit_price, quantity=1, note="")
+            item_id = menu_item
+            item_name = quantity
+            unit_price = note
+            quantity = extra_args[0]
+            note = extra_args[1] if len(extra_args) > 1 else ""
+            prep_time = None
+            is_available = True
         else:
-            item_id = menu_item.id
-            item_name = menu_item.name
-            unit_price = menu_item.price
-            is_available = menu_item.is_available
-            prep_time = menu_item.prep_time
+            if not isinstance(quantity, int) or quantity <= 0:
+                raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
+
+            if isinstance(menu_item, Mapping):
+                item_id = menu_item["id"]
+                item_name = menu_item["name"]
+                unit_price = menu_item["price"]
+                is_available = menu_item.get("is_available", True)
+                prep_time = menu_item.get("prep_time")
+            else:
+                item_id = menu_item.id
+                item_name = menu_item.name
+                unit_price = menu_item.price
+                is_available = menu_item.is_available
+                prep_time = menu_item.prep_time
 
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
