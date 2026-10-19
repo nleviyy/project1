@@ -96,57 +96,91 @@ def main():
     # =========================================================================
     print_title("PHẦN 2: THỬ NGHIỆM MỤC 7.2 (OrderService)")
 
-    # Khởi tạo service (dùng file json mặc định trong thư mục data/)
-    service = OrderService()
+    from tempfile import TemporaryDirectory
+    from src.core.TableManager import TableManager
+    from src.core.KitchenManager import KitchenManager
+    import json
 
-    # 2.1 Sinh mã đơn tự động
-    new_id = service.generate_order_id()
-    print(f"\n[2.1] Tự động sinh mã đơn hàng tiếp theo: {new_id}")
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        orders_file = tmp_path / "orders.json"
+        payments_file = tmp_path / "payments.json"
+        tables_file = tmp_path / "tables.json"
 
-    # 2.2 Tạo đơn qua Service
-    print("\n[2.2] Tạo đơn hàng mới cho Bàn số 8 qua OrderService:")
-    dish = OrderItem(
-        menu_item_id="M02",
-        item_name="Cà phê sữa đá",
-        unit_price=29000,
-        quantity=2,
-        note="Ít ngọt"
-    )
-    new_order = service.create_order(
-        table_id=8,
-        items=[dish],
-        notes="Khách quen bàn 8"
-    )
-    print(f"  + Đã tạo đơn thành công: Mã '{new_order.id}' | Bàn: {new_order.table_id} | Tổng tiền: {new_order.final_amount:,d} VNĐ")
-    print(f"  + Trạng thái ban đầu: {new_order.status}")
+        # Khởi tạo tables mẫu gồm bàn 8
+        tables_data = [
+            {"id": i, "name": f"Bàn {i:02d}", "capacity": 4, "status": "AVAILABLE", "current_order_id": None}
+            for i in range(1, 9)
+        ]
+        with open(tables_file, "w", encoding="utf-8") as f:
+            json.dump(tables_data, f, ensure_ascii=False, indent=2)
 
-    # 2.3 Xác nhận đơn
-    print(f"\n[2.3] Xác nhận đơn '{new_order.id}':")
-    confirm_ok = service.confirm_order(new_order.id)
-    print(f"  + Kết quả xác nhận đơn: {confirm_ok}")
-    print(f"  + Trạng thái sau xác nhận: {new_order.status} (Bếp/Bar bắt đầu làm)")
+        table_mgr = TableManager(tables_file=str(tables_file))
+        kitchen_mgr = KitchenManager()
 
-    # 2.4 Tìm đơn theo mã và theo bàn
-    print(f"\n[2.4] Thử nghiệm tìm kiếm đơn:")
-    found_by_id = service.get_order_by_id(new_order.id)
-    print(f"  + Tìm theo mã '{new_order.id}': Tìm thấy đơn cho Bàn {found_by_id.table_id}")
-    
-    active_order_table8 = service.get_active_order_by_table(8)
-    print(f"  + Tìm đơn đang hoạt động của Bàn 8: Tìm thấy mã đơn '{active_order_table8.id}' (Trạng thái: {active_order_table8.status})")
+        service = OrderService(
+            orders_file=orders_file,
+            payments_file=payments_file,
+            table_manager=table_mgr,
+            kitchen_manager=kitchen_mgr,
+        )
 
-    # 2.5 Kiểm tra đơn đã thanh toán để TRÁNH THANH TOÁN TRÙNG
-    print(f"\n[2.5] Thử nghiệm cơ chế CHỐNG THANH TOÁN TRÙNG:")
-    can_pay, msg = service.can_checkout(new_order.id)
-    print(f"  + Lần 1: Kiểm tra trước thanh toán: Hợp lệ = {can_pay} -> '{msg}'")
+        # 2.1 Sinh mã đơn tự động
+        new_id = service.generate_order_id()
+        print(f"\n[2.1] Tự động sinh mã đơn hàng tiếp theo: {new_id}")
 
-    # Tiến hành hoàn tất / thanh toán đơn
-    service.complete_order(new_order.id)
-    print(f"  + Đã thanh toán đơn '{new_order.id}' -> Trạng thái đổi sang: {new_order.status}")
+        # 2.2 Tạo đơn qua Service
+        print("\n[2.2] Tạo đơn hàng mới cho Bàn số 8 qua OrderService:")
+        dish = OrderItem(
+            menu_item_id="M02",
+            item_name="Cà phê sữa đá",
+            unit_price=29000,
+            quantity=2,
+            note="Ít ngọt"
+        )
+        new_order = service.create_order(
+            table_id=8,
+            items=[dish],
+            notes="Khách quen bàn 8"
+        )
+        print(f"  + Đã tạo đơn thành công: Mã '{new_order.id}' | Bàn: {new_order.table_id} | Tổng tiền: {new_order.final_amount:,d} VNĐ")
+        print(f"  + Trạng thái ban đầu: {new_order.status}")
 
-    # Thử thanh toán lại lần 2 đơn đã thanh toán
-    can_pay_again, msg_again = service.can_checkout(new_order.id)
-    print(f"  + Lần 2: Thử thanh toán lại đơn đã xong: Hợp lệ = {can_pay_again}")
-    print(f"  ===> PHẢN HỒI BẢO VỆ CỦA HỆ THỐNG: '{msg_again}'")
+        # 2.3 Xác nhận đơn
+        print(f"\n[2.3] Xác nhận đơn '{new_order.id}':")
+        confirm_ok = service.confirm_order(new_order.id)
+        print(f"  + Kết quả xác nhận đơn: {confirm_ok}")
+        print(f"  + Trạng thái sau xác nhận: {new_order.status} (Đơn nằm trong Queue bếp)")
+
+        # Bếp chế biến và lên món
+        service.start_preparing_order(new_order.id)
+        service.serve_order(new_order.id)
+
+        # 2.4 Tìm đơn theo mã và theo bàn
+        print(f"\n[2.4] Thử nghiệm tìm kiếm đơn:")
+        found_by_id = service.get_order_by_id(new_order.id)
+        print(f"  + Tìm theo mã '{new_order.id}': Tìm thấy đơn cho Bàn {found_by_id.table_id}")
+        
+        active_order_table8 = service.get_active_order_by_table(8)
+        print(f"  + Tìm đơn đang hoạt động của Bàn 8: Tìm thấy mã đơn '{active_order_table8.id}' (Trạng thái: {active_order_table8.status})")
+
+        # 2.5 Kiểm tra đơn đã thanh toán để TRÁNH THANH TOÁN TRÙNG
+        print(f"\n[2.5] Thử nghiệm cơ chế CHỐNG THANH TOÁN TRÙNG:")
+        can_pay, msg = service.can_checkout(new_order.id)
+        print(f"  + Lần 1: Kiểm tra trước thanh toán: Hợp lệ = {can_pay} -> '{msg}'")
+
+        # Ghi nhận thanh toán thành công vào payments_file
+        with open(payments_file, "w", encoding="utf-8") as f:
+            json.dump([{"order_id": new_order.id, "status": "SUCCESS", "amount": new_order.final_amount}], f)
+
+        # Tiến hành hoàn tất đơn
+        service.complete_order(new_order.id)
+        print(f"  + Đã thanh toán đơn '{new_order.id}' -> Trạng thái đổi sang: {new_order.status}")
+
+        # Thử thanh toán lại lần 2 đơn đã thanh toán
+        can_pay_again, msg_again = service.can_checkout(new_order.id)
+        print(f"  + Lần 2: Thử thanh toán lại đơn đã xong: Hợp lệ = {can_pay_again}")
+        print(f"  ===> PHẢN HỒI BẢO VỆ CỦA HỆ THỐNG: '{msg_again}'")
 
     print("\n" + "=" * 65)
     print("✨ CHÚC MỪNG! TẤT CẢ TÍNH NĂNG 7.1 VÀ 7.2 ĐỀU ĐANG HOẠT ĐỘNG HOÀN HẢO!")

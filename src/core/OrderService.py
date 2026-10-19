@@ -59,8 +59,17 @@ class OrderService:
         self.orders_file: Path = Path(orders_file) if orders_file else (DATA_DIR / "orders.json")
         self.payments_file: Path = Path(payments_file) if payments_file else (DATA_DIR / "payments.json")
         self._orders: Dict[str, Order] = {}
-        self.table_manager = table_manager
-        self.kitchen_manager = kitchen_manager
+        if table_manager is None and orders_file is None:
+            from src.core.TableManager import TableManager
+            self.table_manager = TableManager()
+        else:
+            self.table_manager = table_manager
+
+        if kitchen_manager is None and orders_file is None:
+            from src.core.KitchenManager import KitchenManager
+            self.kitchen_manager = KitchenManager()
+        else:
+            self.kitchen_manager = kitchen_manager
 
         if auto_load:
             self.load_orders()

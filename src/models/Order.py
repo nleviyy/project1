@@ -175,6 +175,16 @@ class Order(BaseModel):
                 return True
         return False
 
+    def update_item_note(self, menu_item_id: str, note: str) -> bool:
+        if not self.can_modify_items():
+            raise ValueError(f"Không thể sửa món khi đơn đang ở trạng thái '{self.status}'.")
+        for item in self.items:
+            if item.menu_item_id == menu_item_id:
+                item.update_note(note)
+                self.updated_at = datetime.now().isoformat()
+                return True
+        return False
+
     def remove_item(self, menu_item_id: str) -> bool:
         if not self.can_modify_items():
             raise ValueError(f"Không thể sửa món khi đơn đang ở trạng thái '{self.status}'.")
