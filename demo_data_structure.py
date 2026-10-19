@@ -1,18 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Chương trình minh họa chạy thử nhánh data_structure (Lan Anh):
-- Hàng đợi Bếp (Queue FIFO) trong src/kitchen.py
-- Giỏ hàng Hoàn tác/Làm lại (Stack Undo/Redo) trong src/redo_undo.py
-"""
 import os
 import sys
 from pathlib import Path
 
-# Đảm bảo in tiếng Việt có dấu chuẩn trên PowerShell Windows
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 
-# Thêm thư mục src vào sys.path
 SRC_DIR = Path(__file__).resolve().parent / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
@@ -31,9 +23,6 @@ def print_title(text: str):
 def main():
     print_title("🎯 MINH HỌA NHÁNH DATA_STRUCTURE (CẤU TRÚC DỮ LIỆU)")
 
-    # =========================================================================
-    # PHẦN 1: HÀNG ĐỢI BẾP (QUEUE FIFO - VÀO TRƯỚC RA TRƯỚC)
-    # =========================================================================
     print_title("PHẦN 1: HÀNG ĐỢI BẾP (src/kitchen.py - QUEUE FIFO)")
     km = KitchenManager()
 
@@ -48,21 +37,16 @@ def main():
     print(f"✅ Đã nhận 3 đơn vào hàng đợi. Tổng đơn đang chờ: {km.count_waiting()} đơn.")
     print(f"⏱️ Thời gian khách đơn 3 (ORD-003) phải chờ dự kiến: {km.estimate_wait_time(d3)} phút (10 + 15 + 8 phút).")
 
-    # Bếp bắt đầu nấu đơn kế tiếp (Đơn ORD-001 vào đầu tiên sẽ được làm đầu tiên)
     order_nau = km.start_next_order()
     print(f"\n🍳 Bếp bắt đầu nấu: Đơn [{order_nau.order_id}] (Bàn {order_nau.table_id})")
     print(f"   Trạng thái đơn: {order_nau.status} | Ghi chú: '{order_nau.notes}'")
     print(f"   Số đơn còn lại trong hàng đợi chờ nấu: {km.count_waiting()} đơn.")
 
-    # Bếp nấu xong và lên món
-    km.advance_status()  # SERVED (Đã lên món)
+    km.advance_status()
     print(f"🍽️ Lên món cho khách: Trạng thái = {order_nau.status}")
     km.finish_current_order()
     print(f"✨ Bếp đã giải phóng chỗ, sẵn sàng nhận nấu đơn tiếp theo!")
 
-    # =========================================================================
-    # PHẦN 2: HOÀN TÁC GIỎ HÀNG (STACK LIFO - UNDO / REDO)
-    # =========================================================================
     print_title("PHẦN 2: GIỎ HÀNG HOÀN TÁC (src/redo_undo.py - STACK UNDO / REDO)")
     cart = Cart()
 
