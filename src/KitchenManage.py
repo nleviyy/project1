@@ -1,10 +1,10 @@
-from collections import deque
-from datetime import datetime
-from uuid import uuid4
+"""Backward-compatible imports for the kitchen business classes."""
 
-def now_time():
-    return datetime.now().isoformat(timespec="seconds")
+from src.core.KitchenManager import KitchenManager
+from src.models.KitchenOrder import KitchenOrder as Order
+from src.models.Order import OrderStatus
 
+<<<<<<< HEAD
 
 class OrderStatus:
     PENDING = "PENDING"
@@ -251,3 +251,6 @@ class KitchenManager:
                 )
             return
         raise TypeError("Đơn hàng không hỗ trợ cập nhật trạng thái.")
+=======
+__all__ = ["KitchenManager", "Order", "OrderStatus"]
+>>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2

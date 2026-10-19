@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import Any
+from collections.abc import Mapping
 
 
 class CartItem:
     def __init__(
+<<<<<<< HEAD
         self,
         menu_item_id,
         item_name,
@@ -11,6 +12,9 @@ class CartItem:
         quantity,
         note="",
         prep_time=0,
+=======
+        self, menu_item_id, item_name, unit_price, quantity, note="", prep_time=None
+>>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2
     ):
         self.menu_item_id = menu_item_id
         self.item_name = item_name
@@ -32,7 +36,11 @@ class CartItem:
             "subtotal": self.calculate_subtotal(),
             "note": self.note,
         }
+<<<<<<< HEAD
         if self.prep_time:
+=======
+        if self.prep_time is not None:
+>>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2
             data["prep_time"] = self.prep_time
         return data
 
@@ -44,7 +52,11 @@ class CartItem:
             data["unit_price"],
             data["quantity"],
             data.get("note", ""),
+<<<<<<< HEAD
             data.get("prep_time", 0),
+=======
+            data.get("prep_time"),
+>>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2
         )
 
 
@@ -91,9 +103,9 @@ class Cart:
         return None
 
     def add_item(self, menu_item, quantity=1, note=""):
-
         if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
+<<<<<<< HEAD
         if isinstance(menu_item, dict):
             get_value = menu_item.get
         else:
@@ -104,6 +116,22 @@ class Cart:
         unit_price = get_value("price")
         is_available = get_value("is_available", True)
         prep_time = get_value("prep_time", 0)
+=======
+
+        if isinstance(menu_item, Mapping):
+            item_id = menu_item["id"]
+            item_name = menu_item["name"]
+            unit_price = menu_item["price"]
+            is_available = menu_item.get("is_available", True)
+            prep_time = menu_item.get("prep_time")
+        else:
+            item_id = menu_item.id
+            item_name = menu_item.name
+            unit_price = menu_item.price
+            is_available = menu_item.is_available
+            prep_time = menu_item.prep_time
+
+>>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
         if unit_price < 0:
@@ -135,6 +163,16 @@ class Cart:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.quantity = quantity
+
+    def update_item(self, menu_item_id, quantity, note=""):
+        if not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
+        item = self._find(menu_item_id)
+        if item is None:
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
+        self._save_for_undo()
+        item.quantity = quantity
+        item.note = note
 
     def set_note(self, menu_item_id, note):
         item = self._find(menu_item_id)

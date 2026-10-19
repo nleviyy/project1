@@ -1,17 +1,39 @@
 """
 Hệ thống Quản lý Đơn hàng & Bàn ăn F&B bằng Python
-Module 1 - Đồ án thực hành
-
-File chạy chính ứng dụng Streamlit:
-    python -m uv run streamlit run src/app.py
+Entry point duy nhất của ứng dụng:
+    python -m streamlit run src/app.py
     hoặc: uv run streamlit run src/app.py
 """
-import json
+import sys
 from pathlib import Path
-import streamlit as st
-from src.core.PaymentService import PaymentService
 
-# Thiết lập cấu hình trang Streamlit
+# Đảm bảo đường dẫn gốc của project có trong sys.path
+BASE_DIR = Path(__file__).resolve().parent.parent
+if str(BASE_DIR) not in sys.path:
+    sys.path.insert(0, str(BASE_DIR))
+
+SRC_DIR = BASE_DIR / "src"
+if str(SRC_DIR) not in sys.path:
+    sys.path.insert(0, str(SRC_DIR))
+
+import streamlit as st
+
+from src.core.Cart import Cart
+from src.core.KitchenManager import KitchenManager
+from src.core.OrderService import OrderService
+from src.core.PaymentService import PaymentService
+from src.core.TableManager import TableManager
+from src.ui import (
+    apply_custom_styles,
+    render_dashboard_component,
+    render_kitchen_component,
+    render_ordering_component,
+    render_orders_component,
+    render_payment_component,
+    render_tables_component,
+)
+
+# 1. Cấu hình trang Streamlit (Duy nhất cho toàn ứng dụng)
 st.set_page_config(
     page_title="F&B Order & Table Management",
     page_icon="🍽️",
@@ -19,41 +41,79 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-DATA_DIR = BASE_DIR / "data"
+# 2. Áp dụng CSS giao diện hiện đại & đồng bộ
+apply_custom_styles()
 
-def load_json(file_path: Path):
-    """Đọc dữ liệu JSON an toàn."""
-    if file_path.exists():
-        with open(file_path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    return []
 
-# Mappings chuẩn hóa hiển thị giao diện
-TABLE_STATUS_MAP = {
-    "AVAILABLE": ("Trống", "🟢"),
-    "OCCUPIED": ("Có khách", "🔴"),
-    "RESERVED": ("Đã đặt trước", "🟡"),
-}
+# 3. Khởi tạo trạng thái dịch vụ nghiệp vụ (Singleton trong session)
+def get_services():
+    """Khởi tạo và lưu trữ các service nghiệp vụ trong st.session_state."""
+    if "table_manager" not in st.session_state:
+        st.session_state.table_manager = TableManager()
 
-ORDER_STATUS_MAP = {
-    "PENDING": ("Chờ xác nhận", "⏳"),
-    "PREPARING": ("Đang chế biến", "🍳"),
-    "SERVED": ("Đã lên món", "🍽️"),
-    "COMPLETED": ("Hoàn thành", "✅"),
-    "CANCELLED": ("Đã hủy", "❌"),
-}
+    if "kitchen_manager" not in st.session_state:
+        st.session_state.kitchen_manager = KitchenManager()
 
-PAYMENT_METHOD_MAP = {
-    "CASH": "Tiền mặt",
-    "BANK_TRANSFER": "Chuyển khoản / VietQR",
-    "CARD": "Thẻ POS 💳",
-}
+    if "order_service" not in st.session_state:
+        st.session_state.order_service = OrderService(
+            table_manager=st.session_state.table_manager,
+            kitchen_manager=st.session_state.kitchen_manager,
+        )
 
-# Sidebar
+    if "payment_service" not in st.session_state:
+        st.session_state.payment_service = PaymentService()
+
+    if "cart" not in st.session_state:
+        st.session_state.cart = Cart()
+
+    # Đồng bộ các đơn PENDING/PREPARING vào hàng đợi bếp nếu bếp đang trống
+    km = st.session_state.kitchen_manager
+    os_service = st.session_state.order_service
+    if km.is_empty():
+        active_orders = [
+            order for order in os_service.get_all_orders()
+            if order.status in ("PENDING", "PREPARING")
+        ]
+        active_orders.sort(key=lambda o: str(o.created_at))
+        for ord_obj in active_orders:
+            if ord_obj.status == "PREPARING" and km.get_current_order() is None:
+                km._current_order = ord_obj
+            elif ord_obj.status == "PENDING":
+                try:
+                    km.add_order(ord_obj)
+                except ValueError:
+                    pass
+
+    return (
+        st.session_state.table_manager,
+        st.session_state.kitchen_manager,
+        st.session_state.order_service,
+        st.session_state.payment_service,
+        st.session_state.cart,
+    )
+
+
+table_manager, kitchen_manager, order_service, payment_service, cart = get_services()
+
+
+# 4. Sidebar: Thông tin hệ thống và chỉ số nhanh
 with st.sidebar:
-    st.title("F&B Management")
-    st.caption("Đồ án Python Module 1")
+    st.markdown("## 🍽️ F&B Management")
+    st.caption("Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn")
+    st.divider()
+
+    # Chỉ số nhanh
+    st.markdown("### ⚡ Trạng thái nhanh")
+    avl_tables = len(table_manager.get_available_tables())
+    total_tables = len(table_manager.get_all_tables())
+    st.write(f"🟢 **Bàn trống:** `{avl_tables}/{total_tables}`")
+
+    waiting_k = kitchen_manager.count_waiting()
+    cur_k = 1 if kitchen_manager.get_current_order() is not None else 0
+    st.write(f"🍳 **Bếp:** `{cur_k}` đang nấu • `{waiting_k}` chờ")
+
+    cart_lines = cart.count_lines()
+    st.write(f"🛒 **Giỏ hàng:** `{cart_lines}` món • `{cart.calculate_total():,} đ`")
     st.divider()
 
     st.subheader("👥 Phân công thành viên")
@@ -65,208 +125,64 @@ with st.sidebar:
     """)
     st.divider()
 
-    st.subheader("📅 Kế hoạch mốc thời gian")
-    st.info("**Thứ Bảy (17/10/2026):** Hoàn thành 50% đồ án\n\n**Thứ Ba (20/10/2026):** Báo cáo tiến độ")
+    st.caption("Python 3.11+ • Clean Architecture: Models - Core - UI")
 
-# Main Content
+
+# 5. Nội dung chính: Tích hợp các Tabs nghiệp vụ
 st.title("🍽️ Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn F&B")
-st.success("Hợp đồng dữ liệu JSON (Data Contract) đã được thống nhất và kiểm thử tự động 100%!")
 
 tabs = st.tabs([
-    "📊 Tổng quan hệ thống",
-    "📋 Thực đơn (menu.json)",
-    "🪑 Sơ đồ bàn (tables.json)",
-    "🧾 Đơn hàng (orders.json)",
-    "💳 Thanh toán (payments.json)"
+    "🛒 Gọi món & Giỏ hàng",
+    "🪑 Sơ đồ bàn",
+    "🍳 Điều phối bếp (KDS)",
+    "🧾 Danh sách đơn hàng",
+    "💳 Thu ngân & Thanh toán",
+    "📊 Tổng quan & Báo cáo",
 ])
 
-# Tab 1: Tổng quan
+# Tab 1: Đặt món
 with tabs[0]:
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.metric("Môi trường", "Python + uv")
-    with c2:
-        st.metric("Giao diện", "Streamlit")
-    with c3:
-        st.metric("Mục tiêu nộp 50%", "17/10/2026")
-    with c4:
-        st.metric("Trạng thái kiểm thử", "51/51 Tests Passed ✅")
+    render_ordering_component(
+        cart=cart,
+        order_service=order_service,
+        table_manager=table_manager,
+        kitchen_manager=kitchen_manager,
+    )
 
-    st.markdown("### 🎯 Tiến độ thực hiện đồ án (Tổng hợp cả nhóm)")
-    st.markdown("""
-    - [x] **Mục 5 (Vy):** Khởi tạo Repo GitHub, cấu hình `uv`, cấu trúc thư mục, `.gitignore` và chốt Schema JSON.
-    - [x] **Mục 1 (Quỳnh):** Hiện thực hóa Data Classes (`MenuItem`, `Order`, `Table`, `Payment`) dựa trên Schema.
-    - [x] **Mục 2 (Anh):** Viết logic OOP quản lý trạng thái (`kitchen.py`, `redo_undo.py`, `OrderService`).
-    - [x] **Mục 3 (Thắng):** Nối giao diện Streamlit với các Class nghiệp vụ để tạo đơn và đổi trạng thái bàn.
-    """)
-
-    st.divider()
-    st.markdown("### 📊 Thống kê nhanh hoạt động nhà hàng")
-    tables_list = load_json(DATA_DIR / "tables.json")
-    orders_list = load_json(DATA_DIR / "orders.json")
-    payments_list = load_json(DATA_DIR / "payments.json")
-
-    occupied = sum(1 for t in tables_list if t.get("status") == "OCCUPIED")
-    active_orders = sum(1 for o in orders_list if o.get("status") not in ("COMPLETED", "CANCELLED"))
-    total_rev = sum(p.get("amount_paid", 0) for p in payments_list if p.get("status") == "SUCCESS")
-
-    k1, k2, k3, k4 = st.columns(4)
-    with k1:
-        st.metric("Tổng số bàn", len(tables_list))
-    with k2:
-        st.metric("Bàn đang phục vụ", f"{occupied} bàn")
-    with k3:
-        st.metric("Đơn chưa thanh toán", f"{active_orders} đơn")
-    with k4:
-        st.metric("Tổng doanh thu", f"{total_rev:,} VNĐ")
-
-# Tab 2: Thực đơn
+# Tab 2: Sơ đồ bàn
 with tabs[1]:
-    st.subheader("📋 Danh mục món ăn (`data/menu.json`)")
-    menu_data = load_json(DATA_DIR / "menu.json")
-    if menu_data:
-        st.dataframe(menu_data, use_container_width=True)
-    else:
-        st.warning("Chưa tìm thấy file data/menu.json")
+    render_tables_component(
+        table_manager=table_manager,
+        order_service=order_service,
+    )
 
-# Tab 3: Sơ đồ bàn
+# Tab 3: Bếp
 with tabs[2]:
-    st.subheader("🪑 Sơ đồ bàn ăn (`data/tables.json`)")
-    tables_data = load_json(DATA_DIR / "tables.json")
-    if tables_data:
-        tot = len(tables_data)
-        occ = sum(1 for t in tables_data if t.get("status") == "OCCUPIED")
-        avl = sum(1 for t in tables_data if t.get("status") == "AVAILABLE")
-        res = sum(1 for t in tables_data if t.get("status") == "RESERVED")
-
-        m1, m2, m3, m4 = st.columns(4)
-        m1.metric("Tổng số bàn", tot)
-        m2.metric("🟢 Bàn trống", avl)
-        m3.metric("🔴 Có khách", occ)
-        m4.metric("🟡 Đã đặt trước", res)
-        st.divider()
-
-        # Hiển thị dạng lưới 3 cột trực quan
-        num_cols = 3
-        cols = st.columns(num_cols)
-        for idx, table in enumerate(tables_data):
-            col_target = cols[idx % num_cols]
-            with col_target:
-                with st.container(border=True):
-                    status_raw = table.get("status", "AVAILABLE")
-                    label, icon = TABLE_STATUS_MAP.get(status_raw, (status_raw, "⚪"))
-                    st.markdown(f"### {icon} {table['name']}")
-                    st.caption(f"Sức chứa: **{table['capacity']}** khách")
-                    st.write(f"Trạng thái: **{label}**")
-                    if table.get("current_order_id"):
-                        st.badge(f"Đơn: {table['current_order_id']}", color="red")
-                    else:
-                        st.caption("Chưa có đơn hàng")
-    else:
-        st.warning("Chưa tìm thấy file data/tables.json")
+    render_kitchen_component(
+        kitchen_manager=kitchen_manager,
+        order_service=order_service,
+    )
 
 # Tab 4: Đơn hàng
 with tabs[3]:
-    st.subheader("🧾 Danh sách đơn hàng (`data/orders.json`)")
-    orders_data = load_json(DATA_DIR / "orders.json")
-    if orders_data:
-        for ord_item in orders_data:
-            st_raw = ord_item.get("status", "PENDING")
-            st_label, st_icon = ORDER_STATUS_MAP.get(st_raw, (st_raw, "⚪"))
-            with st.expander(f"{st_icon} Đơn hàng: **{ord_item['id']}** | Bàn: **{ord_item['table_id']}** | Trạng thái: **{st_label}** | Tổng: **{ord_item['final_amount']:,}đ**"):
-                st.write(f"🕒 **Thời gian tạo:** `{ord_item['created_at']}` | **Cập nhật:** `{ord_item['updated_at']}`")
-                if ord_item.get("notes"):
-                    st.caption(f"📝 Ghi chú: {ord_item['notes']}")
-                st.table(ord_item["items"])
-    else:
-        st.warning("Chưa tìm thấy file data/orders.json")
+    render_orders_component(
+        order_service=order_service,
+        kitchen_manager=kitchen_manager,
+        table_manager=table_manager,
+    )
 
 # Tab 5: Thanh toán
 with tabs[4]:
-    st.subheader("💳 Xử lý thanh toán")
-    served_orders = [
-        order
-        for order in load_json(DATA_DIR / "orders.json")
-        if order.get("status") == "SERVED"
-    ]
-    if served_orders:
-        with st.form("payment_form"):
-            selected_order = st.selectbox(
-                "Đơn đã lên món",
-                served_orders,
-                format_func=lambda order: (
-                    f"{order['id']} · Bàn {order['table_id']} · "
-                    f"{order['final_amount']:,} VNĐ"
-                ),
-            )
-            method = st.selectbox(
-                "Phương thức thanh toán",
-                ["CASH", "BANK_TRANSFER", "CARD"],
-                format_func=lambda value: {
-                    "CASH": "Tiền mặt",
-                    "BANK_TRANSFER": "Chuyển khoản",
-                    "CARD": "Thẻ",
-                }[value],
-            )
-            cashier_name = st.text_input("Tên thu ngân")
-            cash_received = None
-            transaction_code = None
-            transaction_successful = None
-            if method == "CASH":
-                cash_received = st.number_input(
-                    "Tiền khách đưa (VNĐ)",
-                    min_value=0,
-                    value=int(selected_order["final_amount"]),
-                    step=1000,
-                )
-            else:
-                transaction_code = st.text_input("Mã giao dịch")
-                transaction_successful = st.checkbox(
-                    "Cổng thanh toán đã xác nhận giao dịch SUCCESS"
-                )
-            submitted = st.form_submit_button(
-                "Xác nhận thanh toán", type="primary"
-            )
+    render_payment_component(
+        payment_service=payment_service,
+        order_service=order_service,
+        table_manager=table_manager,
+    )
 
-        if submitted:
-            try:
-                result = PaymentService().pay_order(
-                    order_id=selected_order["id"],
-                    method=method,
-                    cashier_name=cashier_name,
-                    cash_received=cash_received,
-                    transaction_code=transaction_code or None,
-                    transaction_successful=transaction_successful,
-                )
-            except ValueError as error:
-                st.error(str(error))
-            else:
-                if result.invoice is None:
-                    st.error("Thanh toán chưa thành công; đơn và bàn chưa được cập nhật.")
-                else:
-                    st.success(
-                        f"Thanh toán thành công. Hóa đơn {result.invoice.id} đã được tạo; "
-                        "đơn hoàn tất và bàn đã được giải phóng."
-                    )
-                    if result.payment.change_due:
-                        st.info(f"Tiền thối lại: {result.payment.change_due:,} VNĐ")
-    else:
-        st.info("Không có đơn nào ở trạng thái Đã lên món để thanh toán.")
-
-    st.divider()
-    st.subheader("Lịch sử giao dịch thanh toán (`data/payments.json`)")
-    payments_data = load_json(DATA_DIR / "payments.json")
-    if payments_data:
-        total_rev = sum(p.get("amount_paid", 0) for p in payments_data if p.get("status") == "SUCCESS")
-        success_count = sum(1 for p in payments_data if p.get("status") == "SUCCESS")
-
-        p1, p2 = st.columns(2)
-        with p1:
-            st.metric("Tổng doanh thu thực nhận", f"{total_rev:,} VNĐ")
-        with p2:
-            st.metric("Giao dịch thành công", f"{success_count}/{len(payments_data)} giao dịch")
-        st.divider()
-
-        st.dataframe(payments_data, use_container_width=True)
-    else:
-        st.warning("Chưa tìm thấy file data/payments.json")
+# Tab 6: Tổng quan
+with tabs[5]:
+    render_dashboard_component(
+        order_service=order_service,
+        table_manager=table_manager,
+        payment_service=payment_service,
+    )

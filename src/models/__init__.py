@@ -13,6 +13,7 @@ __all__ = [
     "MenuCatalog",
     "JSONStorage",
     "Order",
+    "KitchenOrder",
     "OrderItem",
     "OrderStatus",
     "Table",
@@ -27,6 +28,7 @@ __all__ = [
 def __getattr__(name):
     module_map = {
         "Order": ".Order",
+        "KitchenOrder": ".KitchenOrder",
         "OrderItem": ".OrderItem",
         "OrderStatus": ".Order",
         "Table": ".Table",

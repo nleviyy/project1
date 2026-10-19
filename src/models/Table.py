@@ -70,6 +70,10 @@ class Table:
         self.current_order_id = None
         return True
 
+    def release(self) -> bool:
+        """Alias cho vacate."""
+        return self.vacate()
+
     def reserve(self) -> bool:
         """Đặt trước bàn (RESERVED)."""
         self.status = "RESERVED"

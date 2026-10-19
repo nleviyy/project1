@@ -31,11 +31,14 @@ project1/
 │   └── sample_tables.json
 ├── src/                    # Mã nguồn chính của ứng dụng
 │   ├── models/             # Định nghĩa Data Classes & cấu trúc thực thể (Quỳnh)
-│   │   └── __init__.py
+│   │   ├── Order.py
+│   │   └── KitchenOrder.py
 │   ├── core/               # Nghiệp vụ logic, OOP & cấu trúc dữ liệu (Anh)
-│   │   └── __init__.py
+│   │   ├── Cart.py
+│   │   ├── KitchenManager.py
+│   │   └── OrderService.py
 │   ├── ui/                 # Các component giao diện Streamlit (Thắng)
-│   │   └── __init__.py
+│   │   └── __init__.py     # render_ordering_ui()
 │   └── app.py              # File chạy chính của ứng dụng Streamlit
 ├── tests/                  # Bộ kiểm thử tự động với pytest
 │   ├── __init__.py
@@ -79,6 +82,7 @@ uv sync
 uv run streamlit run src/app.py
 ```
 👉 Trình duyệt sẽ tự động mở địa chỉ: `http://localhost:8501`.
+`src/app.py` là entry point duy nhất; các màn hình UI được render từ những component trong `src/ui/`.
 
 ### 5. Chạy giao diện đặt món và xử lý đơn
 ```powershell

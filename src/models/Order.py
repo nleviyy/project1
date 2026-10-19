@@ -15,6 +15,27 @@ class OrderStatus(str, Enum):
     COMPLETED = "COMPLETED"
     CANCELLED = "CANCELLED"
 
+    @staticmethod
+    def get_label(status):
+        value = status.value if isinstance(status, OrderStatus) else status
+        return ORDER_STATUS_LABELS.get(value, str(value))
+
+
+ORDER_STATUS_TRANSITIONS: dict[str, list[str]] = {
+    "PENDING": ["PREPARING", "CANCELLED"],
+    "PREPARING": ["SERVED", "CANCELLED"],
+    "SERVED": [],
+    "COMPLETED": [],
+    "CANCELLED": [],
+}
+ORDER_STATUS_LABELS: dict[str, str] = {
+    "PENDING": "Chờ xác nhận",
+    "PREPARING": "Đang chế biến",
+    "SERVED": "Đã lên món",
+    "COMPLETED": "Hoàn thành",
+    "CANCELLED": "Đã hủy",
+}
+
 
 class Order(BaseModel):
     id: str = Field(..., description="Mã đơn hàng (VD: ORD-20261014-001)")
@@ -32,13 +53,12 @@ class Order(BaseModel):
     notes: Optional[str] = Field(default="", description="Ghi chú toàn đơn")
     discount_amount: int = Field(default=0, ge=0, description="Tiền giảm giá (VNĐ)")
 
-    VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = {
-        "PENDING": ["PREPARING", "CANCELLED"],
-        "PREPARING": ["SERVED", "CANCELLED"],
-        "SERVED": [],
-        "COMPLETED": [],
-        "CANCELLED": []
-    }
+    VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = ORDER_STATUS_TRANSITIONS
+
+    @property
+    def order_id(self) -> str:
+        """Alias cho id để tương thích thống nhất với KitchenManager."""
+        return self.id
 
     @property
     def total_amount(self) -> int:
@@ -49,9 +69,30 @@ class Order(BaseModel):
     def final_amount(self) -> int:
         return max(0, self.total_amount - self.discount_amount)
 
+<<<<<<< HEAD
     def calculate_prep_time(self) -> int:
         """Estimate preparation duration from each item's quantity and prep time."""
         return sum(item.quantity * item.prep_time for item in self.items)
+=======
+    def set_status(self, new_status: Union[StatusType, OrderStatus]) -> bool:
+        """Cập nhật trạng thái thống nhất giữa các tầng."""
+        return self.change_status(new_status)
+
+    def calculate_prep_time(self) -> int:
+        """Tính tổng thời gian chế biến dự kiến cho toàn bộ đơn hàng."""
+        if not self.items:
+            return 0
+        total = 0
+        for item in self.items:
+            if isinstance(item, dict):
+                qty = int(item.get("sl", item.get("quantity", 1)))
+                pt = int(item.get("prep_time", 0) or 0)
+            else:
+                qty = int(getattr(item, "quantity", 1))
+                pt = int(getattr(item, "prep_time", 0) or 0)
+            total += qty * pt
+        return total
+>>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2
 
     @property
     def is_pending(self) -> bool:
@@ -109,7 +150,7 @@ class Order(BaseModel):
                 raise ValueError("Đơn hàng chỉ được hoàn tất sau khi thanh toán thành công.")
             return False
 
-        allowed_next_statuses = self.VALID_TRANSITIONS.get(self.status, [])
+        allowed_next_statuses = ORDER_STATUS_TRANSITIONS.get(self.status, [])
         if new_status not in allowed_next_statuses:
             return False
 
@@ -119,7 +160,7 @@ class Order(BaseModel):
 
     def can_transition_to(self, new_status: StatusType) -> bool:
         new_status = new_status.value if isinstance(new_status, OrderStatus) else new_status
-        return new_status in self.VALID_TRANSITIONS.get(self.status, [])
+        return new_status in ORDER_STATUS_TRANSITIONS.get(self.status, [])
 
     def _touch(self) -> None:
         self.updated_at = datetime.now().isoformat()
