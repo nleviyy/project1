@@ -125,12 +125,19 @@ class OrderService:
         discount_amount: int = 0,
         custom_order_id: Optional[str] = None,
         check_existing_active: bool = True,
+        kitchen_manager: Optional[Any] = None,
     ) -> Order:
         """
-        Tạo, chiếm bàn và xếp đơn PENDING vào hàng đợi bếp như một nghiệp vụ.
+        Tạo, chiếm bàn và xếp đơn PENDING vào hàng đợi bếp qua nghiệp vụ điều phối chung (P0).
 
-        ``check_existing_active`` được giữ để tương thích API cũ; kiểm tra đơn đang
-        hoạt động luôn được áp dụng bất kể giá trị tham số.
+        Luồng xử lý:
+        Chọn bàn → Chọn món → Xác nhận → Tạo Order → Chiếm bàn → Đưa vào Queue
+
+        - Chỉ cho phép đặt món ở bàn AVAILABLE.
+        - Không cho phép một bàn có hai đơn chưa hoàn thành (PENDING, PREPARING, SERVED).
+        - Không tạo đơn nếu giỏ hàng rỗng hoặc có món không còn phục vụ.
+        - Đơn sau khi xác nhận phải ở trạng thái PENDING (không chuyển sang PREPARING).
+        - Nếu có bước thất bại, toàn bộ thao tác được rollback hoàn trả trạng thái ban đầu.
         """
         return self.place_order(
             table_id=table_id,
@@ -138,6 +145,7 @@ class OrderService:
             notes=notes,
             discount_amount=discount_amount,
             custom_order_id=custom_order_id,
+            kitchen_manager=kitchen_manager,
         )
 
     def place_order(

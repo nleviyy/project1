@@ -215,7 +215,9 @@ class Order(BaseModel):
         return True
 
     def cancel(self) -> bool:
-        """Hủy đơn hàng (Chỉ được hủy khi PENDING hoặc PREPARING)."""
+        """Hủy đơn hàng (Trong phạm vi dự án, chỉ cho phép hủy khi PENDING)."""
+        if self.status != "PENDING":
+            return False
         return self.change_status("CANCELLED")
 
     @classmethod
