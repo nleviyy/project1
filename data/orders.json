@@ -128,5 +128,27 @@
         "discount_amount": 0,
         "total_amount": 207000,
         "final_amount": 207000
+    },
+    {
+        "id": "ORD-20261019-002",
+        "table_id": 3,
+        "status": "PREPARING",
+        "created_at": "2026-10-19T23:20:31",
+        "updated_at": "2026-10-19T23:20:45.788427",
+        "items": [
+            {
+                "menu_item_id": "M07",
+                "item_name": "Khoai tây chiên lắc phô mai",
+                "unit_price": 32000,
+                "quantity": 1,
+                "subtotal": 32000,
+                "note": "",
+                "prep_time": 10
+            }
+        ],
+        "notes": "",
+        "discount_amount": 0,
+        "total_amount": 32000,
+        "final_amount": 32000
     }
 ]

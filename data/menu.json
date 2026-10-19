@@ -130,5 +130,114 @@
         "prep_time": 10,
         "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
         "color": "#5b3c55"
+    },
+    {
+        "id": "M12",
+        "name": "Phở Hà Nội",
+        "category": "Món chính",
+        "price":50000 ,
+        "unit": "tô",
+        "is_available": true,
+        "description": "Sự kết hợp tinh tế giữa nước dùng trong thanh hầm từ xương bò, bánh phở mềm dai và các lát thịt bò tươi ngon, thoang thoảng hương quế hồi truyền thống",
+        "prep_time": 25 ,
+        "image": "https://cooponline.vn/tin-tuc/wp-content/uploads/2025/10/Pho-bo-Ha-Noi-anh-dai-dien.png",
+        "color": "#5b3c55"
+    },
+     {
+        "id": "M13",
+        "name": "Bún chả Hà Nội",
+        "category": "Món chính",
+        "price":45000 ,
+        "unit": "mẹt",
+        "is_available": true,
+        "description": "Sự kết hợp tinh tế giữa bún tươi, chả nướng than hoa thơm lừng và nước chấm chua ngọt đặc trưng của thủ đô.",
+        "prep_time": 25 ,
+        "image": "https://i-giadinh.vnecdn.net/2023/04/16/Buoc-11-Thanh-pham-11-7068-1681636164.jpg",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M14",
+        "name": "Nem lụi",
+        "category": "Món chính",
+        "price":35000 ,
+        "unit": "mẹt",
+        "is_available": true,
+        "description": " Thịt heo xay nhuyễn kết hợp với bì thái sợi và mỡ hạt lựu, tẩm ướp gia vị đậm đà rồi bọc quanh cây sả tươi. Nướng chín vàng thơm trên bếp than hồng, ăn kèm bánh tráng, rau sống tươi mát, đồ chua và chấm cùng nước lèo béo bùi chuẩn vị. ",
+        "prep_time": 15,
+        "image": "https://i-giadinh.vnecdn.net/2022/02/18/Buoc-6-5410-1645174529.jpg",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M15",
+        "name": "Mì Quảng",
+        "category": "Món chính",
+        "price":40000 ,
+        "unit": "tô",
+        "is_available": true,
+        "description": "Sợi mì gạo dai mềm hòa quyện cùng nước nhưn (nước dùng) sệt đậm đà, chan xăm xắp chuẩn vị xứ Quảng. Ăn kèm thịt heo, tôm tươi, gà ta, trứng cút, đậu phộng rang bùi béo, bánh tráng nướng giòn rụm và rau sống tươi mát.",
+        "prep_time":15 ,
+        "image": "https://mhotel.vn/wp-content/uploads/2025/11/1238-1665132014.jpg",
+        "color": "#5b3c55"
+    }, 
+    {
+        "id": "M16",
+        "name": "Gỏi cuốn",
+        "category": "Khai vị",
+        "price":26000,
+        "unit": "cuốn",
+        "is_available": true,
+        "description": "Sự kết hợp tươi mát giữa tôm sú luộc đỏ au ngọt thịt, thịt ba chỉ béo ngậy thái mỏng, bún tươi cùng các loại rau thơm, xà lách và hẹ. Tất cả được cuộn gọn gàng trong lớp bánh tráng dẻo dai, chấm kèm tương đậu phộng bùi béo hoặc nước mắm chua ngọt.",
+        "prep_time": 20,
+        "image": "https://down-vn.img.susercontent.com/vn-11134259-7r98o-lwwn6wxdtrkr68",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M17",
+        "name": "Sữa chua nếp cẩm",
+        "category": "Tráng miệng",
+        "price":11000,
+        "unit": "cốc",
+        "is_available": true,
+        "description": "Sự kết hợp hoàn hảo giữa sữa chua dẻo mịn, chua ngọt thanh mát và nếp cẩm Tây Bắc dẻo bùi, thơm nồng vị men nhẹ. Thức quà tráng miệng vừa ngon miệng vừa cực tốt cho sức khỏe và làn da.",
+        "prep_time":10,
+        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSqRtow2FJ6iTCgtHLJCdEKlHJ6UXfxcCf9AY31ObMFD5P_TapVDVJYDhq1&s=10",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M18",
+        "name": "Kem chuối",
+        "category": "Tráng miệng",
+        "price":10,
+        "unit": "que",
+        "is_available": true,
+        "description": "Kem chuối ép truyền thống với vị ngọt tự nhiên của chuối sứ chín cây, quyện cùng nước cốt dừa béo ngậy, phủ thêm đậu phộng rang giòn rụm và dừa nạo sần sật.",
+        "prep_time":10,
+        "image": "https://savourebakery.com/storage/images/san-pham/Kem/Kem-Chuoi-Dua.jpg",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M19",
+        "name": "Tàu hủ trân châu đường đen",
+        "category": "Tráng miệng",
+        "price":12000,
+        "unit": "cốc",
+        "is_available": true,
+        "description": "Món tráng miệng với miếng tàu hủ (pudding đậu nành) siêu mềm mịn, béo ngậy vị sữa. Hòa quyện hoàn hảo cùng lớp sốt đường đen Hàn Quốc ngọt lịm thơm lừng và trân châu đen dẻo dai, nhai cực vui miệng.",
+        "prep_time":10,
+        "image": "https://thucpham.com/wp-content/uploads/2022/01/tau-hu-tran-chau-duong-den-new-1024x576.jpg",
+        "color": "#5b3c55"
+    },
+    {
+        "id": "M20",
+        "name": "Trà Atiso",
+        "category": "Đồ uống",
+        "price":20,
+        "unit": "ly",
+        "is_available": true,
+        "description": "Thức uống giải nhiệt thuần túy từ hoa atiso Đà Lạt tự nhiên, mang vị ngọt hậu nhẹ nhàng và hương thơm mộc mạc đặc trưng. Giúp mát gan, thanh lọc cơ thể và mang lại cảm giác sảng khoái tức thì cho ngày dài năng động.",
+        "prep_time":10,
+        "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT2LZ-YMxb4SynG7LpkL5cW5KlNSVXMiBn0wRfgW3Q4gF9ArKX_EMRHyXE&s=10",
+        "color": "#5b3c55"
     }
+
 ]

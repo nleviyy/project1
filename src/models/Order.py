@@ -69,14 +69,13 @@ class Order(BaseModel):
     def final_amount(self) -> int:
         return max(0, self.total_amount - self.discount_amount)
 
-<<<<<<< HEAD
-    def calculate_prep_time(self) -> int:
-        """Estimate preparation duration from each item's quantity and prep time."""
-        return sum(item.quantity * item.prep_time for item in self.items)
-=======
     def set_status(self, new_status: Union[StatusType, OrderStatus]) -> bool:
         """Cập nhật trạng thái thống nhất giữa các tầng."""
-        return self.change_status(new_status)
+        if not self.change_status(new_status):
+            raise ValueError(
+                f"Không thể chuyển đơn {self.id} sang trạng thái {new_status}."
+            )
+        return True
 
     def calculate_prep_time(self) -> int:
         """Tính tổng thời gian chế biến dự kiến cho toàn bộ đơn hàng."""
@@ -92,7 +91,6 @@ class Order(BaseModel):
                 pt = int(getattr(item, "prep_time", 0) or 0)
             total += qty * pt
         return total
->>>>>>> ea871dd676a571a2fd5bbd6558f66b372f5927f2
 
     @property
     def is_pending(self) -> bool:
