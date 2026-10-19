@@ -92,12 +92,14 @@ def render_kitchen_component(
 
         if st.button(btn_label, type="secondary", disabled=btn_disabled, use_container_width=True):
             try:
-                next_order = kitchen_manager.start_next_order()
+                next_order = kitchen_manager.peek_next_order()
                 if next_order:
                     o_id = getattr(next_order, "id", getattr(next_order, "order_id", "---"))
-                    order_service.start_preparing_order(o_id)
-                    st.toast(f"Bắt đầu nấu đơn {o_id}!")
-                    st.rerun()
+                    if not order_service.start_preparing_order(o_id):
+                        st.error("Không thể bắt đầu đơn; hãy kiểm tra lại thứ tự Queue.")
+                    else:
+                        st.toast(f"Bắt đầu nấu đơn {o_id}!")
+                        st.rerun()
             except Exception as e:
                 st.error(f"Lỗi: {e}")
 

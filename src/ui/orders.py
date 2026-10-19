@@ -101,8 +101,8 @@ def render_orders_component(
                 f"**Khách phải trả:** `{order.final_amount:,} VNĐ`"
             )
 
-            # Nút hủy đơn nếu đơn chưa lên món
-            if order.status in ("PENDING", "PREPARING"):
+            # Chỉ cho hủy đơn trước khi bếp bắt đầu chế biến.
+            if order.status == "PENDING":
                 st.write("")
                 if st.button("❌ Hủy đơn hàng này", key=f"cancel_btn_{order.id}"):
                     try:

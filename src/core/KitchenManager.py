@@ -54,6 +54,23 @@ class KitchenManager:
         self._current_order = order
         return order
 
+    def restore_current_order_to_queue(self, order_id):
+        """Khôi phục đơn về đầu Queue nếu lưu trạng thái PREPARING thất bại."""
+        order = self._current_order
+        if (
+            order is None
+            or self._get_order_id(order) != order_id
+            or order.status != OrderStatus.PREPARING
+        ):
+            return False
+
+        order.status = OrderStatus.PENDING
+        if hasattr(order, "_touch"):
+            order._touch()
+        self._current_order = None
+        self._queue.appendleft(order)
+        return True
+
     def finish_current_order(self):
         if self._current_order is None:
             raise ValueError("Bếp chưa làm đơn nào")
@@ -103,6 +120,8 @@ class KitchenManager:
     def cancel_order(self, order_id):
         current = self._current_order
         if current is not None and self._get_order_id(current) == order_id:
+            if current.status != OrderStatus.PENDING:
+                raise ValueError("Chỉ có thể hủy đơn ở trạng thái PENDING.")
             if hasattr(current, "set_status"):
                 current.set_status(OrderStatus.CANCELLED)
             else:
@@ -111,6 +130,8 @@ class KitchenManager:
             return
         for order in self._queue:
             if self._get_order_id(order) == order_id:
+                if order.status != OrderStatus.PENDING:
+                    raise ValueError("Chỉ có thể hủy đơn ở trạng thái PENDING.")
                 if hasattr(order, "set_status"):
                     order.set_status(OrderStatus.CANCELLED)
                 else:

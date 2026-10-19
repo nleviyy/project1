@@ -1,5 +1,5 @@
 from datetime import datetime
-import os
+import json
 from pathlib import Path
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -23,15 +23,18 @@ try:
     from src.models.Order import Order, OrderStatus
     from src.models.OrderItem import OrderItem
     from src.models.JSONStorage import JSONStorage
+    from src.models.MenuCatalog import MenuCatalog
 except ImportError:
     try:
         from models.Order import Order, OrderStatus
         from models.OrderItem import OrderItem
         from models.JSONStorage import JSONStorage
+        from models.MenuCatalog import MenuCatalog
     except ImportError:
         from ..models.Order import Order, OrderStatus
         from ..models.OrderItem import OrderItem
         from ..models.JSONStorage import JSONStorage
+        from ..models.MenuCatalog import MenuCatalog
 
 
 class OrderService:
@@ -39,7 +42,7 @@ class OrderService:
     Service quản lý toàn bộ luồng nghiệp vụ liên quan đến Đơn hàng (Order).
     Hiện thực hóa Sub Task 7.2:
     - Tạo đơn hàng mới (tự sinh mã chuẩn ORD-YYYYMMDD-XXX).
-    - Xác nhận đơn (chuyển PENDING sang PREPARING).
+    - Điều phối xác nhận đơn, chiếm bàn và xếp hàng bếp.
     - Tìm kiếm đơn theo mã đơn / theo mã bàn (đơn đang hoạt động).
     - Kiểm tra đơn đã thanh toán để TRÁNH THANH TOÁN TRÙNG.
     - Quản lý trạng thái, tính tiền và đồng bộ dữ liệu với file data/orders.json.
@@ -121,24 +124,66 @@ class OrderService:
         notes: str = "",
         discount_amount: int = 0,
         custom_order_id: Optional[str] = None,
-        check_existing_active: bool = False,
+        check_existing_active: bool = True,
     ) -> Order:
         """
-        Tạo đơn hàng mới cho bàn ăn.
-        :param table_id: Mã số bàn ăn
-        :param items: Danh sách món ăn ban đầu (nếu có)
-        :param notes: Ghi chú cho đơn hàng
-        :param discount_amount: Số tiền chiết khấu / voucher ban đầu
-        :param custom_order_id: Mã đơn chỉ định (nếu muốn đặt thủ công)
-        :param check_existing_active: Nếu True, sẽ kiểm tra và không cho phép tạo thêm đơn nếu bàn đang có đơn chưa hoàn thành
-        :return: Đối tượng Order vừa tạo
+        Tạo, chiếm bàn và xếp đơn PENDING vào hàng đợi bếp như một nghiệp vụ.
+
+        ``check_existing_active`` được giữ để tương thích API cũ; kiểm tra đơn đang
+        hoạt động luôn được áp dụng bất kể giá trị tham số.
         """
-        if check_existing_active:
+        return self.place_order(
+            table_id=table_id,
+            items=items,
+            notes=notes,
+            discount_amount=discount_amount,
+            custom_order_id=custom_order_id,
+        )
+
+    def place_order(
+        self,
+        table_id: int,
+        items: Optional[List[OrderItem]] = None,
+        notes: str = "",
+        discount_amount: int = 0,
+        custom_order_id: Optional[str] = None,
+        kitchen_manager: Optional[Any] = None,
+    ) -> Order:
+        """Xác nhận đơn PENDING, chiếm bàn và đưa đơn vào Queue một cách nhất quán."""
+        if not items:
+            raise ValueError("Giỏ hàng đang trống, không thể tạo đơn hàng.")
+
+        table_id = int(table_id)
+        is_takeaway = table_id == 0
+        if not is_takeaway:
+            if self.table_manager is None:
+                raise RuntimeError("OrderService chưa được cấu hình TableManager.")
+            if not self.table_manager.is_table_available(table_id):
+                raise ValueError(
+                    f"Bàn số {table_id} không ở trạng thái AVAILABLE hoặc không tồn tại."
+                )
             active_order = self.get_active_order_by_table(table_id)
             if active_order:
                 raise ValueError(
-                    f"Bàn số {table_id} hiện đang có đơn hàng chưa hoàn thành ({active_order.id}). "
-                    "Không thể tạo thêm đơn mới."
+                    f"Bàn số {table_id} hiện có đơn chưa hoàn thành ({active_order.id})."
+                )
+
+        km = kitchen_manager or self.kitchen_manager
+        if km is None:
+            raise RuntimeError("OrderService chưa được cấu hình KitchenManager.")
+
+        menu = MenuCatalog()
+        menu_path = DATA_DIR / "menu.json"
+        if menu_path.exists():
+            with menu_path.open("r", encoding="utf-8") as menu_file:
+                menu_data = json.load(menu_file)
+            menu.load_from_dict(menu_data)
+
+        for item in items:
+            menu_item = menu.get_item(item.menu_item_id)
+            if menu_item is None or not menu_item.is_available:
+                raise ValueError(
+                    f"Món '{item.item_name}' ({item.menu_item_id}) không còn phục vụ."
                 )
 
         order_id = custom_order_id or self.generate_order_id()
@@ -152,17 +197,47 @@ class OrderService:
             status=OrderStatus.PENDING,
             created_at=now_iso,
             updated_at=now_iso,
-            items=items or [],
+            items=items,
             discount_amount=discount_amount,
             notes=notes,
         )
 
-        self._orders[order.id] = order
-        self.save_orders()
+        table_occupied = False
+        order_queued = False
+        order_registered = False
+        try:
+            if not is_takeaway:
+                if not self.table_manager.occupy_table(table_id, order.id):
+                    raise ValueError(f"Không thể chiếm bàn số {table_id}; vui lòng chọn bàn khác.")
+                table_occupied = True
 
-        # Chiếm bàn nếu có table_manager
-        if self.table_manager is not None:
-            self.table_manager.occupy_table(table_id, order.id)
+            km.add_order(order)
+            order_queued = True
+            self._orders[order.id] = order
+            order_registered = True
+            if not self.save_orders():
+                raise OSError("Không thể lưu đơn hàng.")
+        except Exception as error:
+            rollback_errors = []
+            if order_queued:
+                try:
+                    km.cancel_order(order.id)
+                except Exception as rollback_error:
+                    rollback_errors.append(f"không thể gỡ đơn khỏi Queue: {rollback_error}")
+            if order_registered:
+                self._orders.pop(order.id, None)
+            if table_occupied:
+                try:
+                    if not self.table_manager.release_table(table_id, order.id):
+                        rollback_errors.append("không thể giải phóng bàn đã chiếm")
+                except Exception as rollback_error:
+                    rollback_errors.append(f"không thể giải phóng bàn: {rollback_error}")
+            if rollback_errors:
+                raise RuntimeError(
+                    f"Tạo đơn thất bại ({error}); lỗi khi hoàn tác: "
+                    + "; ".join(rollback_errors)
+                ) from error
+            raise
 
         return order
 
@@ -176,13 +251,12 @@ class OrderService:
         auto_start_preparing: bool = False,
     ) -> bool:
         """
-        Xác nhận đơn hàng: Đơn giữ trạng thái PENDING và được đưa vào hàng đợi bếp (Kitchen Queue).
-        Theo chỉ đạo của Mentor: Khi xác nhận thành công, đơn giữ ở PENDING và đưa vào cuối Queue bếp;
-        chỉ khi bếp lấy đơn ra chế biến thì mới chuyển sang PREPARING.
+        Tương thích API cũ: xác minh đơn đã được place_order() xếp vào Queue.
+        Việc tạo đơn, chiếm bàn và enqueue chỉ thực hiện qua place_order().
         :param order_id: Mã đơn hàng cần xác nhận.
-        :param kitchen_manager: Quản lý bếp (tự động đẩy vào Queue).
-        :param auto_start_preparing: Nếu True (cho phép chuyển thẳng sang PREPARING).
-        :return: True nếu xác nhận thành công, False nếu thất bại.
+        :param kitchen_manager: KitchenManager chứa đơn đã được xếp hàng.
+        :param auto_start_preparing: Không còn hỗ trợ bắt đầu nấu khi xác nhận.
+        :return: True nếu đơn vẫn đang PENDING và đã có trong Queue.
         """
         order = self.get_order_by_id(order_id)
         if not order:
@@ -194,14 +268,22 @@ class OrderService:
         if len(order.items) == 0:
             raise ValueError(f"Đơn hàng '{order_id}' chưa có món nào, không thể xác nhận.")
 
-        km = kitchen_manager or self.kitchen_manager
-        if km is not None:
-            km.add_order(order)
-
         if auto_start_preparing:
-            order.change_status(OrderStatus.PREPARING)
+            raise ValueError(
+                "Xác nhận đơn không bắt đầu chế biến; bếp chỉ chuyển sang PREPARING "
+                "khi nhận đơn từ Queue."
+            )
 
-        self.save_orders()
+        km = kitchen_manager or self.kitchen_manager
+        if km is None:
+            raise RuntimeError("OrderService chưa được cấu hình KitchenManager.")
+
+        queued_orders = km.get_waiting_orders()
+        current_order = km.get_current_order()
+        if order not in queued_orders and current_order is not order:
+            raise ValueError(
+                f"Đơn '{order_id}' chưa được tạo qua luồng đặt món hoàn chỉnh."
+            )
         return True
 
     def start_preparing_order(self, order_id: str) -> bool:
@@ -212,9 +294,34 @@ class OrderService:
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng với mã: '{order_id}'")
 
+        km = self.kitchen_manager
+        if km is not None:
+            current_order = km.get_current_order()
+            if current_order is not None:
+                if current_order.id != order.id:
+                    return False
+            else:
+                waiting_orders = km.get_waiting_orders()
+                if not waiting_orders or waiting_orders[0].id != order.id:
+                    return False
+                km.start_next_order()
+                if self.save_orders():
+                    return True
+                if not km.restore_current_order_to_queue(order.id):
+                    raise RuntimeError(
+                        f"Không thể lưu trạng thái PREPARING hoặc khôi phục đơn "
+                        f"'{order_id}' về Queue."
+                    )
+                raise OSError(
+                    f"Không thể lưu trạng thái PREPARING cho đơn '{order_id}'."
+                )
+
         success = order.change_status(OrderStatus.PREPARING)
         if success:
-            self.save_orders()
+            if not self.save_orders():
+                order.status = OrderStatus.PENDING
+                order._touch()
+                raise OSError(f"Không thể lưu trạng thái PREPARING cho đơn '{order_id}'.")
         return success
 
     # -------------------------------------------------------------
@@ -334,13 +441,29 @@ class OrderService:
             )
 
         # Chuyển trạng thái sang COMPLETED
+        previous_updated_at = order.updated_at
         order.status = OrderStatus.COMPLETED
         order._touch()
-        self.save_orders()
+        if not self.save_orders():
+            order.status = OrderStatus.SERVED
+            order.updated_at = previous_updated_at
+            raise OSError(f"Không thể lưu trạng thái hoàn tất cho đơn '{order_id}'.")
 
         # Giải phóng bàn nếu có TableManager
-        if self.table_manager is not None:
-            self.table_manager.release_table(order.table_id)
+        if (
+            self.table_manager is not None
+            and int(order.table_id) != 0
+            and not self.table_manager.release_table(order.table_id, order.id)
+        ):
+            order.status = OrderStatus.SERVED
+            order._touch()
+            if not self.save_orders():
+                raise RuntimeError(
+                    f"Không thể giải phóng bàn hoặc khôi phục đơn '{order_id}' về SERVED."
+                )
+            raise OSError(
+                f"Không thể giải phóng bàn cho đơn '{order_id}'; đơn vẫn ở trạng thái SERVED."
+            )
 
         return True
 
@@ -352,39 +475,64 @@ class OrderService:
     ) -> bool:
         """
         Hủy một đơn hàng:
-        Theo chỉ đạo của Mentor: Chỉ cho phép hủy đơn trước trạng thái SERVED.
-        Nếu đơn đang chế biến trong bếp, cần xử lý việc hủy ở cả đơn hàng và hàng đợi bếp.
+        Chỉ cho phép hủy đơn đang PENDING; đơn đã bắt đầu chế biến không thể hủy.
         """
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        if order.status in (OrderStatus.SERVED, OrderStatus.COMPLETED):
+        if order.status != OrderStatus.PENDING:
             raise ValueError(
-                f"Không thể hủy đơn hàng '{order_id}' vì đơn đang ở trạng thái {order.status} "
-                "(theo quy tắc: chỉ được phép hủy trước khi lên món SERVED)."
+                f"Chỉ được hủy đơn ở trạng thái PENDING; đơn '{order_id}' "
+                f"hiện ở trạng thái {order.status}."
             )
 
-        if order.status == OrderStatus.CANCELLED:
-            return True  # Đã hủy từ trước
-
         km = kitchen_manager or self.kitchen_manager
-        if km is not None and hasattr(km, "cancel_order"):
-            try:
-                km.cancel_order(order_id)
-            except Exception:
-                pass
+        previous_notes = order.notes
+        if km is not None:
+            km.cancel_order(order_id)
 
         if reason:
             order.notes = f"{order.notes} [Hủy: {reason}]".strip()
+        order.change_status(OrderStatus.CANCELLED)
+        if not self.save_orders():
+            order.status = OrderStatus.PENDING
+            order.notes = previous_notes
+            order._touch()
+            rollback_errors = []
+            if km is not None:
+                try:
+                    km.add_order(order)
+                except Exception as rollback_error:
+                    rollback_errors.append(f"không thể khôi phục Queue: {rollback_error}")
+            if rollback_errors:
+                raise RuntimeError(
+                    "Không thể lưu thao tác hủy và lỗi khi hoàn tác: "
+                    + "; ".join(rollback_errors)
+                )
+            raise OSError(f"Không thể lưu trạng thái hủy cho đơn '{order_id}'.")
 
-        order.status = OrderStatus.CANCELLED
-        order._touch()
-        self.save_orders()
-
-        # Giải phóng bàn nếu có TableManager
-        if self.table_manager is not None:
-            self.table_manager.release_table(order.table_id)
+        if self.table_manager is not None and int(order.table_id) != 0:
+            if not self.table_manager.release_table(order.table_id, order.id):
+                order.status = OrderStatus.PENDING
+                order.notes = previous_notes
+                order._touch()
+                rollback_errors = []
+                if km is not None:
+                    try:
+                        km.add_order(order)
+                    except Exception as rollback_error:
+                        rollback_errors.append(f"không thể khôi phục Queue: {rollback_error}")
+                if not self.save_orders():
+                    rollback_errors.append("không thể khôi phục đơn hàng đã lưu")
+                if rollback_errors:
+                    raise RuntimeError(
+                        "Không thể giải phóng bàn và lỗi khi hoàn tác: "
+                        + "; ".join(rollback_errors)
+                    )
+                raise OSError(
+                    f"Không thể giải phóng bàn cho đơn '{order_id}'; đơn đã được khôi phục."
+                )
 
         return True
 

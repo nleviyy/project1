@@ -6,11 +6,11 @@ Hiện thực hóa yêu cầu của Mentor trong mục 2.2 và B:
 - Chiếm bàn khi có đơn hoạt động và giải phóng bàn khi đơn hoàn thành hoặc bị hủy.
 """
 import json
-import os
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from src.models.Table import Table, TableStatus
+from src.models.JSONStorage import JSONStorage
+from src.models.Table import Table
 
 
 class TableManager:
@@ -46,15 +46,10 @@ class TableManager:
             print(f"Lỗi khi đọc file tables.json: {e}")
             self._tables = {}
 
-    def save_tables(self) -> None:
+    def save_tables(self) -> bool:
         """Lưu danh sách bàn vào file tables.json."""
-        try:
-            self.tables_file.parent.mkdir(parents=True, exist_ok=True)
-            data = [table.to_dict() for table in self._tables.values()]
-            with open(self.tables_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Lỗi khi lưu file tables.json: {e}")
+        data = [table.to_dict() for table in self._tables.values()]
+        return JSONStorage.save_data(str(self.tables_file), data)
 
     def get_all_tables(self) -> List[Table]:
         """Lấy toàn bộ danh sách bàn."""
@@ -84,23 +79,35 @@ class TableManager:
         if not table:
             return False
 
-        if not table.is_available and table.current_order_id != str(order_id):
+        if not table.is_available:
             return False
 
+        previous_status = table.status
+        previous_order_id = table.current_order_id
         table.occupy(order_id)
-        self.save_tables()
+        if not self.save_tables():
+            table.status = previous_status
+            table.current_order_id = previous_order_id
+            return False
         return True
 
-    def release_table(self, table_id: int) -> bool:
+    def release_table(self, table_id: int, order_id: Optional[str] = None) -> bool:
         """
         Giải phóng bàn khi đơn hàng thanh toán xong hoặc bị hủy.
         """
         table = self.get_table(table_id)
         if not table:
             return False
+        if order_id is not None and table.current_order_id != str(order_id):
+            return False
 
+        previous_status = table.status
+        previous_order_id = table.current_order_id
         table.release()
-        self.save_tables()
+        if not self.save_tables():
+            table.status = previous_status
+            table.current_order_id = previous_order_id
+            return False
         return True
 
     def reserve_table(self, table_id: int) -> bool:
@@ -109,8 +116,13 @@ class TableManager:
         if not table or not table.is_available:
             return False
 
+        previous_status = table.status
+        previous_order_id = table.current_order_id
         table.reserve()
-        self.save_tables()
+        if not self.save_tables():
+            table.status = previous_status
+            table.current_order_id = previous_order_id
+            return False
         return True
 
     def vacate_table(self, table_id: int) -> bool:
@@ -119,7 +131,11 @@ class TableManager:
         if not table:
             return False
 
+        previous_status = table.status
+        previous_order_id = table.current_order_id
         table.vacate()
-        self.save_tables()
+        if not self.save_tables():
+            table.status = previous_status
+            table.current_order_id = previous_order_id
+            return False
         return True
-

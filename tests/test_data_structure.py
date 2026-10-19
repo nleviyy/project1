@@ -101,11 +101,12 @@ class TestOrderStatus(unittest.TestCase):
         self.assertEqual(self.order.status, OrderStatus.CANCELLED)
         self.assertEqual(self.kitchen.count_waiting(), 0)
 
-    def test_cancel_current_order_while_preparing(self):
+    def test_cannot_cancel_current_order_while_preparing(self):
         self.kitchen.start_next_order()
-        self.kitchen.cancel_order("A")
-        self.assertEqual(self.order.status, OrderStatus.CANCELLED)
-        self.assertTrue(self.kitchen.is_empty())
+        with self.assertRaises(ValueError):
+            self.kitchen.cancel_order("A")
+        self.assertEqual(self.order.status, OrderStatus.PREPARING)
+        self.assertIs(self.kitchen.get_current_order(), self.order)
 
     def test_cannot_cancel_after_served(self):
         self.kitchen.start_next_order()

@@ -12,6 +12,7 @@ from src.models.Table import Table, TableStatus
 from src.models.Payment import Payment, PaymentMethod, PaymentStatus
 from src.models.Invoice import Invoice
 from src.core.OrderService import OrderService
+from src.core.KitchenManager import KitchenManager
 from src.core.TableManager import TableManager
 
 
@@ -162,6 +163,8 @@ class TestOrder:
         # PENDING -> PREPARING (Hợp lệ)
         assert order.change_status(OrderStatus.PREPARING) is True
         assert order.is_preparing is True
+        assert order.can_transition_to(OrderStatus.CANCELLED) is False
+        assert order.change_status(OrderStatus.CANCELLED) is False
 
         # PREPARING -> COMPLETED (Không hợp lệ, phải qua SERVED)
         assert order.change_status(OrderStatus.COMPLETED) is False
@@ -200,6 +203,23 @@ class TestOrderService:
         with TemporaryDirectory() as tmp_dir:
             orders_path = Path(tmp_dir) / "orders.json"
             payments_path = Path(tmp_dir) / "payments.json"
+            tables_path = Path(tmp_dir) / "tables.json"
+            tables_path.write_text(
+                json.dumps(
+                    [
+                        {
+                            "id": table_id,
+                            "name": f"Bàn {table_id:02d}",
+                            "capacity": 4,
+                            "status": "AVAILABLE",
+                            "current_order_id": None,
+                        }
+                        for table_id in range(1, 9)
+                    ],
+                    ensure_ascii=False,
+                ),
+                encoding="utf-8",
+            )
 
             # Khởi tạo payments.json với 1 đơn đã thanh toán thành công
             payments_data = [
@@ -220,7 +240,9 @@ class TestOrderService:
             service = OrderService(
                 orders_file=orders_path,
                 payments_file=payments_path,
-                auto_load=True
+                auto_load=True,
+                table_manager=TableManager(tables_file=str(tables_path)),
+                kitchen_manager=KitchenManager(),
             )
             yield service
 
@@ -230,7 +252,18 @@ class TestOrderService:
         assert id1 == "ORD-20261016-001"
 
         # Tạo đơn với mã id1
-        service_with_tmp_storage.create_order(table_id=1, custom_order_id=id1)
+        service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+            custom_order_id=id1,
+        )
 
         id2 = service_with_tmp_storage.generate_order_id("20261016")
         assert id2 == "ORD-20261016-002"
@@ -251,6 +284,194 @@ class TestOrderService:
         # 2. Bếp nhận đơn và bắt đầu chế biến: Chuyển sang PREPARING
         assert service_with_tmp_storage.start_preparing_order(order.id) is True
         assert order.status == OrderStatus.PREPARING
+
+    def test_create_order_rejects_empty_cart(self, service_with_tmp_storage):
+        with pytest.raises(ValueError, match="trống"):
+            service_with_tmp_storage.create_order(table_id=1, items=[])
+
+        assert service_with_tmp_storage.get_all_orders() == []
+        assert service_with_tmp_storage.table_manager.is_table_available(1)
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_confirm_order_never_starts_preparing(self, service_with_tmp_storage):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+
+        with pytest.raises(ValueError, match="không bắt đầu chế biến"):
+            service_with_tmp_storage.confirm_order(
+                order.id,
+                auto_start_preparing=True,
+            )
+
+        assert order.status == OrderStatus.PENDING
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 1
+
+    def test_create_order_rejects_unavailable_menu_item(self, service_with_tmp_storage):
+        unavailable_item = OrderItem(
+            menu_item_id="M08",
+            item_name="Salad ức gà sốt mè rang",
+            unit_price=45000,
+            quantity=1,
+        )
+
+        with pytest.raises(ValueError, match="không còn phục vụ"):
+            service_with_tmp_storage.create_order(table_id=1, items=[unavailable_item])
+
+        assert service_with_tmp_storage.get_all_orders() == []
+        assert service_with_tmp_storage.table_manager.is_table_available(1)
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_active_order_check_cannot_be_disabled(self, service_with_tmp_storage):
+        item = OrderItem(
+            menu_item_id="M01",
+            item_name="Cà phê đen đá",
+            unit_price=25000,
+            quantity=1,
+        )
+        service_with_tmp_storage.create_order(table_id=1, items=[item])
+
+        with pytest.raises(ValueError, match="không ở trạng thái AVAILABLE|đơn chưa hoàn thành"):
+            service_with_tmp_storage.create_order(
+                table_id=1,
+                items=[item],
+                check_existing_active=False,
+            )
+
+        assert len(service_with_tmp_storage.get_orders_by_table(1)) == 1
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 1
+
+    def test_create_order_rejects_reserved_table(self, service_with_tmp_storage):
+        service_with_tmp_storage.table_manager.reserve_table(1)
+        item = OrderItem(
+            menu_item_id="M01",
+            item_name="Cà phê đen đá",
+            unit_price=25000,
+            quantity=1,
+        )
+
+        with pytest.raises(ValueError, match="AVAILABLE"):
+            service_with_tmp_storage.create_order(table_id=1, items=[item])
+
+        assert service_with_tmp_storage.get_all_orders() == []
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_table_manager_restores_state_if_table_persistence_fails(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        monkeypatch.setattr(
+            service_with_tmp_storage.table_manager,
+            "save_tables",
+            lambda: False,
+        )
+        item = OrderItem(
+            menu_item_id="M01",
+            item_name="Cà phê đen đá",
+            unit_price=25000,
+            quantity=1,
+        )
+
+        with pytest.raises(ValueError, match="Không thể chiếm bàn"):
+            service_with_tmp_storage.create_order(table_id=1, items=[item])
+
+        assert service_with_tmp_storage.table_manager.is_table_available(1)
+        assert service_with_tmp_storage.get_all_orders() == []
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_create_order_rolls_back_if_queue_rejects_order(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        def reject_order(order):
+            raise ValueError("queue unavailable")
+
+        monkeypatch.setattr(
+            service_with_tmp_storage.kitchen_manager,
+            "add_order",
+            reject_order,
+        )
+        item = OrderItem(
+            menu_item_id="M01",
+            item_name="Cà phê đen đá",
+            unit_price=25000,
+            quantity=1,
+        )
+
+        with pytest.raises(ValueError, match="queue unavailable"):
+            service_with_tmp_storage.create_order(table_id=1, items=[item])
+
+        assert service_with_tmp_storage.get_all_orders() == []
+        assert service_with_tmp_storage.table_manager.is_table_available(1)
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_create_order_rolls_back_if_order_persistence_fails(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        monkeypatch.setattr(service_with_tmp_storage, "save_orders", lambda: False)
+        item = OrderItem(
+            menu_item_id="M01",
+            item_name="Cà phê đen đá",
+            unit_price=25000,
+            quantity=1,
+        )
+
+        with pytest.raises(OSError, match="Không thể lưu đơn hàng"):
+            service_with_tmp_storage.create_order(table_id=1, items=[item])
+
+        assert service_with_tmp_storage.get_all_orders() == []
+        assert service_with_tmp_storage.table_manager.is_table_available(1)
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_cannot_cancel_after_preparation_starts(self, service_with_tmp_storage):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        service_with_tmp_storage.kitchen_manager.start_next_order()
+
+        with pytest.raises(ValueError, match="[Cc]hỉ được hủy.*PENDING"):
+            service_with_tmp_storage.cancel_order(order.id)
+
+        assert order.status == OrderStatus.PREPARING
+        assert service_with_tmp_storage.table_manager.get_table(1).current_order_id == order.id
+
+    def test_start_preparing_restores_queue_if_persistence_fails(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        monkeypatch.setattr(service_with_tmp_storage, "save_orders", lambda: False)
+
+        with pytest.raises(OSError, match="Không thể lưu trạng thái PREPARING"):
+            service_with_tmp_storage.start_preparing_order(order.id)
+
+        assert order.status == OrderStatus.PENDING
+        assert service_with_tmp_storage.kitchen_manager.get_current_order() is None
+        assert service_with_tmp_storage.kitchen_manager.peek_next_order() is order
+        assert service_with_tmp_storage.table_manager.get_table(1).current_order_id == order.id
 
     def test_find_order_by_id_and_by_table(self, service_with_tmp_storage):
         """Kiểm tra tìm đơn theo mã và theo bàn."""
@@ -302,7 +523,17 @@ class TestOrderService:
 
     def test_cancel_order(self, service_with_tmp_storage):
         """Kiểm tra hủy đơn hàng."""
-        order = service_with_tmp_storage.create_order(table_id=4)
+        order = service_with_tmp_storage.create_order(
+            table_id=4,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
         assert service_with_tmp_storage.cancel_order(order.id, reason="Khách đổi ý") is True
         assert order.status == OrderStatus.CANCELLED
         assert "[Hủy: Khách đổi ý]" in order.notes

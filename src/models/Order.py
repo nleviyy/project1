@@ -23,7 +23,7 @@ class OrderStatus(str, Enum):
 
 ORDER_STATUS_TRANSITIONS: dict[str, list[str]] = {
     "PENDING": ["PREPARING", "CANCELLED"],
-    "PREPARING": ["SERVED", "CANCELLED"],
+    "PREPARING": ["SERVED"],
     "SERVED": [],
     "COMPLETED": [],
     "CANCELLED": [],

@@ -207,29 +207,31 @@ def render_ordering_component(
 
                 # 2. Tạo đơn qua OrderService
                 try:
-                    # Nếu là takeaway, gán table_id là 1 hoặc bàn ảo
-                    table_id_to_use = selected_table_id if selected_table_id > 0 else 1
-                    order = order_service.create_order(
+                    table_id_to_use = selected_table_id
+                    order = order_service.place_order(
                         table_id=table_id_to_use,
                         items=order_items_list,
                         notes=order_notes,
+                        kitchen_manager=kitchen_manager,
                     )
-                    # 3. Đưa vào bếp qua confirm_order
-                    order_service.confirm_order(order.id, kitchen_manager=kitchen_manager)
-                    
-                    # 4. Ước tính thời gian chờ
+
+                    # Ước tính thời gian chờ sau khi đơn đã được xếp hàng.
                     wait_time = kitchen_manager.estimate_wait_time(order)
 
-                    # 5. Xóa giỏ hàng
                     cart.clear()
                     st.session_state.cart_rev += 1
 
+                    table_label = (
+                        f"Bàn số: **`{table_id_to_use}`**"
+                        if table_id_to_use > 0
+                        else "**Mang về**"
+                    )
                     st.success(
                         f"🎉 **Đặt món thành công!**\n\n"
                         f"- Mã đơn hàng: **`{order.id}`**\n"
-                        f"- Bàn số: **`{table_id_to_use}`**\n"
+                        f"- {table_label}\n"
                         f"- Thời gian chờ dự kiến: **`{wait_time} phút`**\n"
-                        f"- Đơn đã được chuyển thẳng tới Nhà Bếp!"
+                        f"- Đơn đang chờ trong Queue bếp ở trạng thái **PENDING**."
                     )
                     st.balloons()
                     st.rerun()
