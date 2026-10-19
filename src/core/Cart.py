@@ -1,21 +1,24 @@
 from __future__ import annotations
-from typing import Any
+from collections.abc import Mapping
 
 
 class CartItem:
-    def __init__(self, menu_item_id, item_name, unit_price, quantity, note=""):
+    def __init__(
+        self, menu_item_id, item_name, unit_price, quantity, note="", prep_time=None
+    ):
         self.menu_item_id = menu_item_id
         self.item_name = item_name
         self.unit_price = unit_price
         self.quantity = quantity
         self.note = note
+        self.prep_time = prep_time
 
     def calculate_subtotal(self):
 
         return self.unit_price * self.quantity
 
     def to_dict(self):
-        return {
+        data = {
             "menu_item_id": self.menu_item_id,
             "item_name": self.item_name,
             "unit_price": self.unit_price,
@@ -23,6 +26,9 @@ class CartItem:
             "subtotal": self.calculate_subtotal(),
             "note": self.note,
         }
+        if self.prep_time is not None:
+            data["prep_time"] = self.prep_time
+        return data
 
     @classmethod
     def from_dict(cls, data):
@@ -32,6 +38,7 @@ class CartItem:
             data["unit_price"],
             data["quantity"],
             data.get("note", ""),
+            data.get("prep_time"),
         )
 
 
@@ -78,19 +85,33 @@ class Cart:
         return None
 
     def add_item(self, menu_item, quantity=1, note=""):
-
         if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
-        if not menu_item.get("is_available", True):
-            raise ValueError("Món '" + str(menu_item["name"]) + "' đã hết")
-        if menu_item["price"] < 0:
+
+        if isinstance(menu_item, Mapping):
+            item_id = menu_item["id"]
+            item_name = menu_item["name"]
+            unit_price = menu_item["price"]
+            is_available = menu_item.get("is_available", True)
+            prep_time = menu_item.get("prep_time")
+        else:
+            item_id = menu_item.id
+            item_name = menu_item.name
+            unit_price = menu_item.price
+            is_available = menu_item.is_available
+            prep_time = menu_item.prep_time
+
+        if not is_available:
+            raise ValueError("Món '" + str(item_name) + "' đã hết")
+        if unit_price < 0:
             raise ValueError("Đơn giá không được âm")
 
         self._save_for_undo()
-        existing = self._find(menu_item["id"])
+        existing = self._find(item_id)
         if existing is None:
-            self._items.append(CartItem(menu_item["id"], menu_item["name"],
-                                        menu_item["price"], quantity, note))
+            self._items.append(
+                CartItem(item_id, item_name, unit_price, quantity, note, prep_time)
+            )
         else:
             existing.quantity += quantity
             if note != "":
@@ -111,6 +132,16 @@ class Cart:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.quantity = quantity
+
+    def update_item(self, menu_item_id, quantity, note=""):
+        if not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
+        item = self._find(menu_item_id)
+        if item is None:
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
+        self._save_for_undo()
+        item.quantity = quantity
+        item.note = note
 
     def set_note(self, menu_item_id, note):
         item = self._find(menu_item_id)
