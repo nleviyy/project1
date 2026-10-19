@@ -104,7 +104,7 @@ class TestOrder:
     def test_add_and_merge_items(self):
         """Thêm món và cộng dồn số lượng nếu cùng món và cùng ghi chú."""
         order = Order(id="ORD-20261016-002", table_id=2)
-        
+
         item1 = OrderItem(menu_item_id="M01", item_name="Cà phê đen", unit_price=25000, quantity=1, note="Ít đá")
         order.add_item(item1)
         assert len(order.items) == 1
@@ -180,11 +180,10 @@ class TestOrder:
         assert order.can_transition_to(OrderStatus.CANCELLED) is False
         assert order.change_status(OrderStatus.CANCELLED) is False
 
-        # SERVED -> COMPLETED (Hợp lệ)
-        assert order.change_status(OrderStatus.COMPLETED) is True
-        assert order.is_completed is True
-        assert order.is_active is False
-        assert order.can_modify is False
+        # SERVED -> COMPLETED chỉ hợp lệ sau khi thanh toán SUCCESS.
+        with pytest.raises(ValueError, match="thanh toán thành công"):
+            order.change_status(OrderStatus.COMPLETED)
+        assert order.is_served is True
 
         # Đơn đã COMPLETED thì không được sửa món
         with pytest.raises(ValueError):
@@ -296,15 +295,10 @@ class TestOrderService:
         allowed, _ = service_with_tmp_storage.can_checkout(order_new.id)
         assert allowed is True
 
-        # Sau khi hoàn tất thanh toán lần đầu -> đánh dấu COMPLETED
-        assert service_with_tmp_storage.complete_order(order_new.id) is True
-        assert order_new.status == OrderStatus.COMPLETED
-
-        # Kiểm tra lại: Không thể thanh toán lần 2 (chống thanh toán trùng)
-        assert service_with_tmp_storage.is_order_paid(order_new.id) is True
-        allowed2, reason2 = service_with_tmp_storage.can_checkout(order_new.id)
-        assert allowed2 is False
-        assert "trùng" in reason2
+        # Đơn chưa có thanh toán SUCCESS nên không thể hoàn tất bằng OrderService.
+        with pytest.raises(ValueError, match="chưa thanh toán SUCCESS"):
+            service_with_tmp_storage.complete_order(order_new.id)
+        assert order_new.status == OrderStatus.PENDING
 
     def test_cancel_order(self, service_with_tmp_storage):
         """Kiểm tra hủy đơn hàng."""
@@ -405,4 +399,3 @@ class TestPaymentAndInvoice:
         assert "HÓA ĐƠN THANH TOÁN" in receipt
         assert "79,000 VNĐ" in receipt
         assert "Cà phê đen đá" in receipt
-

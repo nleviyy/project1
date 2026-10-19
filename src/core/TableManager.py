@@ -102,3 +102,24 @@ class TableManager:
         table.release()
         self.save_tables()
         return True
+
+    def reserve_table(self, table_id: int) -> bool:
+        """Đặt trước bàn (chuyển sang RESERVED)."""
+        table = self.get_table(table_id)
+        if not table or not table.is_available:
+            return False
+
+        table.reserve()
+        self.save_tables()
+        return True
+
+    def vacate_table(self, table_id: int) -> bool:
+        """Giải phóng bàn từ trạng thái RESERVED về AVAILABLE."""
+        table = self.get_table(table_id)
+        if not table:
+            return False
+
+        table.vacate()
+        self.save_tables()
+        return True
+

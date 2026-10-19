@@ -1,4 +1,3 @@
-import os
 import sys
 from typing import Dict, List, Optional, Any
 
@@ -7,12 +6,7 @@ if hasattr(sys.stdout, 'reconfigure'):
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-if CURRENT_DIR not in sys.path:
-    sys.path.append(CURRENT_DIR)
-
-from MenuItem import MenuItem
-
+from .MenuItem import MenuItem
 
 class MenuCatalog:
     def __init__(self):
@@ -39,11 +33,13 @@ class MenuCatalog:
                     "id": str(key),
                     "name": info.get("name", info.get("Name", "")),
                     "category": info.get("category", info.get("item_type", info.get("Item_type", "Chưa phân loại"))),
-                    "price": float(info.get("price", info.get("unit_price", info.get("Unit_price", 1)))),
+                    "price": info.get("price", info.get("unit_price", info.get("Unit_price", 1))),
                     "unit": info.get("unit", info.get("Unit", "phần")),
                     "is_available": info.get("is_available", info.get("status", info.get("Status_of_menuItem", True))),
                     "description": info.get("description", info.get("Description", "")),
-                    "prep_time": int(info.get("prep_time", info.get("Prep_time", 0)))
+                    "prep_time": int(info.get("prep_time", info.get("Prep_time", 0))),
+                    "image": info.get("image", ""),
+                    "color": info.get("color", "#68452f"),
                 }
                 item = MenuItem(**item_data)
                 self._items[item.id] = item
@@ -51,10 +47,7 @@ class MenuCatalog:
                 print(f"[Cảnh báo] Bỏ qua món ID {key} do dữ liệu không hợp lệ: {e}")
 
     def to_dict(self) -> list:
-        return [
-            item.model_dump() if hasattr(item, "model_dump") else item.dict()
-            for item in self._items.values()
-        ]
+        return [item.to_dict() for item in self._items.values()]
 
     def to_list(self) -> list:
         return self.to_dict()
@@ -83,11 +76,17 @@ class MenuCatalog:
             "item_type": "category"
         }
 
+        
+        current_data = item.to_dict() if hasattr(item, "to_dict") else item.model_dump()
+
+        for k, v in kwargs.items():
+            actual_key = key_mapping.get(k, k)
+            if actual_key in current_data:
+                current_data[actual_key] = v
+
         try:
-            for k, v in kwargs.items():
-                actual_key = key_mapping.get(k, k)
-                if hasattr(item, actual_key):
-                    setattr(item, actual_key, v)
+            validated_item = MenuItem(**current_data)
+            self._items[item_id] = validated_item
             return True
         except Exception as e:
             print(f"[Lỗi cập nhật] Dữ liệu cập nhật món ID '{item_id}' không hợp lệ: {e}")
@@ -123,3 +122,15 @@ class MenuCatalog:
             item for item in self._items.values()
             if item.category.lower() == target_type
         ]
+
+    def filter_by_category(self, category: str) -> List[MenuItem]:
+        """Bí danh cho filter_by_type để đồng nhất với trường 'category'."""
+        return self.filter_by_type(category)
+
+    def get_categories(self) -> List[str]:
+        """Lấy danh sách các phân loại món ăn hiện có."""
+        return list(dict.fromkeys(item.category for item in self._items.values()))
+
+    def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
+        """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""
+        return [item for item in self._items.values() if item.is_available == is_available]

@@ -28,9 +28,10 @@ def test_menu_schema():
         assert isinstance(item["id"], str)
         assert isinstance(item["name"], str)
         assert isinstance(item["category"], str)
-        assert isinstance(item["price"], (int, float)) and item["price"] >= 0
+        assert isinstance(item["price"], int) and item["price"] >= 0
         assert isinstance(item["unit"], str)
         assert isinstance(item["is_available"], bool)
+        assert isinstance(item["prep_time"], int) and item["prep_time"] >= 0
 
 def test_tables_schema():
     """Kiểm tra cấu trúc và kiểu dữ liệu của tables.json."""

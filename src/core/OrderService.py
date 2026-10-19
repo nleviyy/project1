@@ -311,13 +311,27 @@ class OrderService:
         Đánh dấu đơn hàng là hoàn thành (COMPLETED) sau khi thanh toán thành công.
         Có kiểm tra chống thanh toán trùng lặp.
         """
-        allowed, reason = self.can_checkout(order_id)
-        if not allowed and not force:
-            raise ValueError(f"Không thể hoàn thành đơn hàng '{order_id}': {reason}")
-
         order = self.get_order_by_id(order_id)
         if not order:
             return False
+        if order.status == OrderStatus.COMPLETED:
+            return True
+
+        payments_data = JSONStorage.load_data(str(self.payments_file), default_data=[])
+        has_successful_payment = isinstance(payments_data, list) and any(
+            isinstance(payment, dict)
+            and payment.get("order_id") == order_id
+            and payment.get("status") == "SUCCESS"
+            for payment in payments_data
+        )
+        if not has_successful_payment:
+            raise ValueError(
+                f"Không thể hoàn thành đơn '{order_id}' khi chưa thanh toán SUCCESS."
+            )
+        if order.status != OrderStatus.SERVED:
+            raise ValueError(
+                f"Chỉ có thể hoàn tất đơn '{order_id}' sau khi lên món (SERVED)."
+            )
 
         # Chuyển trạng thái sang COMPLETED
         order.status = OrderStatus.COMPLETED
@@ -379,7 +393,7 @@ class OrderService:
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
-        
+
         success = order.change_status(OrderStatus.SERVED)
         if success:
             self.save_orders()
@@ -390,7 +404,7 @@ class OrderService:
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
-        
+
         order.add_item(item)
         return self.save_orders()
 
@@ -399,7 +413,7 @@ class OrderService:
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
-        
+
         if order.remove_item(menu_item_id):
             return self.save_orders()
         return False
@@ -409,7 +423,7 @@ class OrderService:
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
-        
+
         if order.update_item_quantity(menu_item_id, quantity):
             return self.save_orders()
         return False
