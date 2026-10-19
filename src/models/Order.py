@@ -192,8 +192,6 @@ class Order(BaseModel):
     def from_dict(cls, data: dict) -> "Order":
         return cls.model_validate(data)
 
-    # ---------- Các hàm chuyển đổi nhanh theo từng công đoạn ----------
-
     def mark_preparing(self) -> bool:
         """Bếp tiếp nhận và bắt đầu nấu (PENDING -> PREPARING)."""
         return self.change_status("PREPARING")

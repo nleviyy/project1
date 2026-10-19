@@ -1,8 +1,5 @@
-"""
-Package models: Định nghĩa các cấu trúc dữ liệu và Data Class (Phụ trách: Quỳnh)
-- MenuItem, MenuCatalog, JSONStorage...
-"""
 from importlib import import_module
+
 
 from .MenuItem import MenuItem
 from .MenuCatalog import MenuCatalog
