@@ -21,6 +21,7 @@ from src.ui import (
     render_ordering_component,
     render_orders_component,
     render_payment_component,
+    render_settings_component,
     render_tables_component,
 )
 
@@ -228,9 +229,6 @@ if "checkout_notice" in st.session_state:
     st.success(st.session_state.pop("checkout_notice"))
 if "payment_notice" in st.session_state:
     st.success(st.session_state.pop("payment_notice"))
-if "payment_receipt" in st.session_state:
-    with st.expander("🧾 Xem hóa đơn vừa thanh toán"):
-        st.code(st.session_state.pop("payment_receipt"))
 
 header_left, header_search = st.columns(
     [1.1, 1],
@@ -306,12 +304,10 @@ elif selected_page == "🪑  Quản lý bàn":
         order_service=order_service,
     )
 else:
-    st.title("Cài đặt")
-    with st.container(border=True):
-        st.subheader("Thông tin hệ thống")
-        st.text_input("Tên cửa hàng", value="DŨNG FATFOOD", disabled=True)
-        st.text_input("Thư mục dữ liệu", value=str(PROJECT_ROOT / "data"), disabled=True)
-        st.caption(
-            "Giao diện hiện sử dụng dữ liệu dùng chung trong thư mục data "
-            "và các nghiệp vụ từ service hiện có của dự án."
-        )
+    st.title("Cài đặt hệ thống")
+    render_settings_component(
+        order_service=order_service,
+        table_manager=table_manager,
+        kitchen_manager=kitchen_manager,
+        payment_service=payment_service,
+    )

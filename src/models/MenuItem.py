@@ -1,5 +1,19 @@
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from typing import Optional
+
+
+def _read_value(
+    data: dict,
+    key: str,
+    default: object,
+    alias: Optional[str] = None,
+) -> object:
+    if key in data:
+        return data[key]
+    if alias is not None and alias in data:
+        return data[alias]
+    return default
+
 
 @dataclass
 class MenuItem:
@@ -44,31 +58,44 @@ class MenuItem:
 
     def update(self, **kwargs):
         """Cập nhật dữ liệu an toàn: Chỉ áp dụng khi toàn bộ dữ liệu mới hợp lệ."""
-        old_state = asdict(self)
+        old_state = self.to_dict()
         try:
             for key, value in kwargs.items():
-                if hasattr(self, key):
-                    setattr(self, key, value)
+                if key in old_state:
+                    self.__dict__[key] = value
             self.__post_init__()
         except Exception as e:
-            for key, value in old_state.items():
-                setattr(self, key, value)
+            for key in old_state:
+                self.__dict__[key] = old_state[key]
             raise ValueError(f"Cập nhật thất bại, đã khôi phục dữ liệu ban đầu. Lỗi: {e}")
 
     def to_dict(self) -> dict:
-        return asdict(self)
+        return {
+            "id": self.id,
+            "name": self.name,
+            "category": self.category,
+            "price": self.price,
+            "unit": self.unit,
+            "is_available": self.is_available,
+            "description": self.description,
+            "prep_time": self.prep_time,
+            "image": self.image,
+            "color": self.color,
+        }
 
     @classmethod
     def from_dict(cls, data: dict) -> "MenuItem":
         return cls(
-            id=str(data.get("id", data.get("item_id", ""))),
-            name=str(data.get("name", "")),
-            category=str(data.get("category", data.get("item_type", "Chưa phân loại"))),
-            price=data.get("price", data.get("unit_price", 0)),
-            unit=str(data.get("unit", "phần")),
-            is_available=bool(data.get("is_available", data.get("status", True))),
-            description=data.get("description", ""),
-            prep_time=int(data.get("prep_time", 0)),
-            image=data.get("image", ""),
-            color=data.get("color", "#68452f"),
+            id=str(_read_value(data, "id", "", "item_id")),
+            name=str(_read_value(data, "name", "")),
+            category=str(
+                _read_value(data, "category", "Chưa phân loại", "item_type")
+            ),
+            price=_read_value(data, "price", 0, "unit_price"),
+            unit=str(_read_value(data, "unit", "phần")),
+            is_available=bool(_read_value(data, "is_available", True, "status")),
+            description=_read_value(data, "description", ""),
+            prep_time=int(_read_value(data, "prep_time", 0)),
+            image=_read_value(data, "image", ""),
+            color=_read_value(data, "color", "#68452f"),
         )

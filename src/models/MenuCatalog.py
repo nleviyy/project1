@@ -1,5 +1,7 @@
+import json
+from pathlib import Path
 import sys
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Union
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -8,9 +10,358 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 from .MenuItem import MenuItem
 
+__all__ = ["HashNode", "HashTable", "MenuCatalog"]
+
+
+class HashNode:
+    """Nút (Node) lưu trữ phần tử trong bảng băm theo kỹ thuật Separate Chaining."""
+
+    def __init__(self, key: Any, value: Any):
+        self.key = key
+        self.value = value
+        self.next: Optional["HashNode"] = None
+
+
+class HashTable:
+    def __init__(self, capacity: int = 32):
+        if capacity < 1:
+            capacity = 32
+        self.capacity: int = capacity
+        self.size: int = 0
+        self.buckets: List[Optional[HashNode]] = [None] * self.capacity
+        self._keys_order: List[Any] = []
+
+    def _hash(self, key: Any) -> int:
+        """Hàm băm tự tạo dựa trên mã ASCII của các ký tự trong key."""
+        key_str = str(key)
+        hash_val = 0
+        for char in key_str:
+            hash_val = (hash_val * 31 + ord(char)) % self.capacity
+        return hash_val
+
+    def _resize(self) -> None:
+        """Mở rộng dung lượng bảng băm gấp đôi và rehash lại toàn bộ phần tử."""
+        old_buckets = self.buckets
+        self.capacity *= 2
+        self.buckets = [None] * self.capacity
+        self.size = 0
+        order_backup = list(self._keys_order)
+        self._keys_order.clear()
+
+        for head in old_buckets:
+            current = head
+            while current is not None:
+                self.put(current.key, current.value)
+                current = current.next
+        self._keys_order = [k for k in order_backup if self.contains(k)]
+
+    def put(self, key: Any, value: Any) -> None:
+        """Thêm hoặc cập nhật cặp key-value vào bảng băm."""
+        index = self._hash(key)
+        current = self.buckets[index]
+
+        while current is not None:
+            if current.key == key:
+                current.value = value
+                return
+            current = current.next
+
+        new_node = HashNode(key, value)
+        new_node.next = self.buckets[index]
+        self.buckets[index] = new_node
+        self.size += 1
+        self._keys_order.append(key)
+
+        if self.size / self.capacity >= 0.75:
+            self._resize()
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        """Lấy giá trị theo key, trả về default nếu không tìm thấy."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        while current is not None:
+            if current.key == key:
+                return current.value
+            current = current.next
+        return default
+
+    def remove(self, key: Any) -> bool:
+        """Xóa cặp key-value khỏi bảng băm. Trả về True nếu xóa thành công, False nếu không tìm thấy."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        prev = None
+
+        while current is not None:
+            if current.key == key:
+                if prev is None:
+                    self.buckets[index] = current.next
+                else:
+                    prev.next = current.next
+                self.size -= 1
+                if key in self._keys_order:
+                    self._keys_order.remove(key)
+                return True
+            prev = current
+            current = current.next
+
+        return False
+
+    def pop(self, key: Any, default: Any = None) -> Any:
+        """Xóa và trả về giá trị của key; trả về default nếu không tồn tại."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        prev = None
+
+        while current is not None:
+            if current.key == key:
+                val = current.value
+                if prev is None:
+                    self.buckets[index] = current.next
+                else:
+                    prev.next = current.next
+                self.size -= 1
+                if key in self._keys_order:
+                    self._keys_order.remove(key)
+                return val
+            prev = current
+            current = current.next
+
+        return default
+
+    def contains(self, key: Any) -> bool:
+        """Kiểm tra key có tồn tại trong bảng băm không."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        while current is not None:
+            if current.key == key:
+                return True
+            current = current.next
+        return False
+
+    def clear(self) -> None:
+        """Xóa toàn bộ các phần tử trong bảng băm."""
+        self.buckets = [None] * self.capacity
+        self.size = 0
+        self._keys_order.clear()
+
+    def values(self) -> List[Any]:
+        """Trả về danh sách toàn bộ các giá trị (values) theo thứ tự thêm vào."""
+        return [self.get(k) for k in self._keys_order]
+
+    def keys(self) -> List[Any]:
+        """Trả về danh sách toàn bộ các khóa (keys) theo thứ tự thêm vào."""
+        return list(self._keys_order)
+
+    def items(self) -> List[tuple]:
+        """Trả về danh sách các cặp (key, value) theo thứ tự thêm vào."""
+        return [(k, self.get(k)) for k in self._keys_order]
+
+    def __len__(self) -> int:
+        return self.size
+
+    def __getitem__(self, key: Any) -> Any:
+        val = self.get(key)
+        if val is None and not self.contains(key):
+            raise KeyError(key)
+        return val
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self.put(key, value)
+
+    def __delitem__(self, key: Any) -> None:
+        if not self.remove(key):
+            raise KeyError(key)
+
+    def __contains__(self, key: Any) -> bool:
+        return self.contains(key)
+
+    def __iter__(self):
+        return iter(self.keys())
+
+
+__all__ = ["HashNode", "HashTable", "MenuCatalog"]
+
+
+class HashNode:
+    """Nút (Node) lưu trữ phần tử trong bảng băm theo kỹ thuật Separate Chaining."""
+
+    def __init__(self, key: Any, value: Any):
+        self.key = key
+        self.value = value
+        self.next: Optional["HashNode"] = None
+
+
+class HashTable:
+
+    def __init__(self, capacity: int = 32):
+        if capacity < 1:
+            capacity = 32
+        self.capacity: int = capacity
+        self.size: int = 0
+        self.buckets: List[Optional[HashNode]] = [None] * self.capacity
+
+    def _hash(self, key: Any) -> int:
+        key_str = str(key)
+        hash_val = 0
+        for char in key_str:
+            hash_val = (hash_val * 31 + ord(char)) % self.capacity
+        return hash_val
+
+    def _resize(self) -> None:
+        """Mở rộng dung lượng bảng băm gấp đôi và rehash lại toàn bộ phần tử."""
+        old_buckets = self.buckets
+        self.capacity *= 2
+        self.buckets = [None] * self.capacity
+        self.size = 0
+
+        for head in old_buckets:
+            current = head
+            while current is not None:
+                self.put(current.key, current.value)
+                current = current.next
+
+    def put(self, key: Any, value: Any) -> None:
+        """Thêm hoặc cập nhật cặp key-value vào bảng băm."""
+        index = self._hash(key)
+        current = self.buckets[index]
+
+        # Kiểm tra nếu key đã tồn tại -> cập nhật value
+        while current is not None:
+            if current.key == key:
+                current.value = value
+                return
+            current = current.next
+
+        # Nếu key chưa tồn tại -> thêm node mới vào đầu bucket (O(1))
+        new_node = HashNode(key, value)
+        new_node.next = self.buckets[index]
+        self.buckets[index] = new_node
+        self.size += 1
+
+        # Tự động rehash nếu vượt quá hệ số tải ngưỡng 0.75
+        if self.size / self.capacity >= 0.75:
+            self._resize()
+
+    def get(self, key: Any, default: Any = None) -> Any:
+        """Lấy giá trị theo key, trả về default nếu không tìm thấy."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        while current is not None:
+            if current.key == key:
+                return current.value
+            current = current.next
+        return default
+
+    def remove(self, key: Any) -> bool:
+        """Xóa cặp key-value khỏi bảng băm. Trả về True nếu xóa thành công, False nếu không tìm thấy."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        prev = None
+
+        while current is not None:
+            if current.key == key:
+                if prev is None:
+                    self.buckets[index] = current.next
+                else:
+                    prev.next = current.next
+                self.size -= 1
+                return True
+            prev = current
+            current = current.next
+
+        return False
+
+    def pop(self, key: Any, default: Any = None) -> Any:
+        """Xóa và trả về giá trị của key; trả về default nếu không tồn tại."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        prev = None
+
+        while current is not None:
+            if current.key == key:
+                val = current.value
+                if prev is None:
+                    self.buckets[index] = current.next
+                else:
+                    prev.next = current.next
+                self.size -= 1
+                return val
+            prev = current
+            current = current.next
+
+        return default
+
+    def contains(self, key: Any) -> bool:
+        """Kiểm tra key có tồn tại trong bảng băm không."""
+        index = self._hash(key)
+        current = self.buckets[index]
+        while current is not None:
+            if current.key == key:
+                return True
+            current = current.next
+        return False
+
+    def clear(self) -> None:
+        """Xóa toàn bộ các phần tử trong bảng băm."""
+        self.buckets = [None] * self.capacity
+        self.size = 0
+
+    def values(self) -> List[Any]:
+        """Trả về danh sách toàn bộ các giá trị (values) trong bảng băm."""
+        res: List[Any] = []
+        for head in self.buckets:
+            current = head
+            while current is not None:
+                res.append(current.value)
+                current = current.next
+        return res
+
+    def keys(self) -> List[Any]:
+        """Trả về danh sách toàn bộ các khóa (keys) trong bảng băm."""
+        res: List[Any] = []
+        for head in self.buckets:
+            current = head
+            while current is not None:
+                res.append(current.key)
+                current = current.next
+        return res
+
+    def items(self) -> List[tuple]:
+        """Trả về danh sách các cặp (key, value) trong bảng băm."""
+        res: List[tuple] = []
+        for head in self.buckets:
+            current = head
+            while current is not None:
+                res.append((current.key, current.value))
+                current = current.next
+        return res
+
+    def __len__(self) -> int:
+        return self.size
+
+    def __getitem__(self, key: Any) -> Any:
+        val = self.get(key)
+        if val is None and not self.contains(key):
+            raise KeyError(key)
+        return val
+
+    def __setitem__(self, key: Any, value: Any) -> None:
+        self.put(key, value)
+
+    def __delitem__(self, key: Any) -> None:
+        if not self.remove(key):
+            raise KeyError(key)
+
+    def __contains__(self, key: Any) -> bool:
+        return self.contains(key)
+
+    def __iter__(self):
+        return iter(self.keys())
+
+
 class MenuCatalog:
     def __init__(self):
-        self._items: Dict[str, MenuItem] = {}
+        self._items: HashTable = HashTable()
 
     def load_from_dict(self, data: Any):
         self._items.clear()
@@ -45,6 +396,32 @@ class MenuCatalog:
                 self._items[item.id] = item
             except Exception as e:
                 print(f"[Cảnh báo] Bỏ qua món ID {key} do dữ liệu không hợp lệ: {e}")
+
+    def load_from_file(self, file_path: Optional[Union[str, Path]] = None) -> bool:
+        """Đọc thực đơn trực tiếp từ file JSON."""
+        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        if not target.exists():
+            return False
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.load_from_dict(data)
+            return True
+        except Exception as e:
+            print(f"[Lỗi MenuCatalog] Không thể tải dữ liệu từ '{target}': {e}")
+            return False
+
+    def save_to_file(self, file_path: Optional[Union[str, Path]] = None) -> bool:
+        """Lưu toàn bộ danh mục món ăn hiện tại ra file JSON."""
+        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "w", encoding="utf-8") as f:
+                json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"[Lỗi MenuCatalog] Không thể lưu file '{target}': {e}")
+            return False
 
     def to_dict(self) -> list:
         return [item.to_dict() for item in self._items.values()]
@@ -112,6 +489,47 @@ class MenuCatalog:
             if kw in item.name.lower() or kw in item.id.lower()
         ]
 
+    @staticmethod
+    def _matches_prefix(value: str, keyword: str) -> bool:
+        value = value.casefold()
+        keyword = keyword.casefold()
+        if len(keyword) > len(value):
+            return False
+
+        index = 0
+        while index < len(keyword):
+            if value[index] != keyword[index]:
+                return False
+            index += 1
+        return True
+
+    def autocomplete_items(
+        self,
+        keyword: str,
+        max_results: int = 5,
+    ) -> List[MenuItem]:
+        """Return menu items whose name or ID starts with the entered text."""
+        if not isinstance(keyword, str) or max_results < 1:
+            return []
+
+        query = keyword.strip()
+        if not query:
+            return []
+
+        suggestions: List[MenuItem] = []
+        for item in self._items.values():
+            matches_name = self._matches_prefix(item.name, query)
+            matches_id = self._matches_prefix(item.id, query)
+            is_exact_match = (
+                item.name.casefold() == query.casefold()
+                or item.id.casefold() == query.casefold()
+            )
+            if (matches_name or matches_id) and not is_exact_match:
+                suggestions.append(item)
+                if len(suggestions) >= max_results:
+                    break
+        return suggestions
+
     def filter_by_type(self, item_type: str) -> List[MenuItem]:
         if not item_type or not isinstance(item_type, str):
             return []
@@ -129,7 +547,13 @@ class MenuCatalog:
 
     def get_categories(self) -> List[str]:
         """Lấy danh sách các phân loại món ăn hiện có."""
-        return list(dict.fromkeys(item.category for item in self._items.values()))
+        seen = set()
+        categories = []
+        for item in self._items.values():
+            if item.category not in seen:
+                seen.add(item.category)
+                categories.append(item.category)
+        return categories
 
     def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
         """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""

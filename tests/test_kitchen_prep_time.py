@@ -103,3 +103,22 @@ def test_order_kitchen_payment_and_table_lifecycle(tmp_path):
     assert persisted_order["total_amount"] == 20000
     assert persisted_order["items"][0]["prep_time"] == 5
     assert json.loads(tables_file.read_text(encoding="utf-8"))[0]["status"] == "AVAILABLE"
+
+
+def test_kitchen_restore_orders():
+    kitchen = KitchenManager()
+    order_preparing = Order("ORD-0001", items=[{"quantity": 1, "prep_time": 5}], status="PREPARING")
+    order_pending1 = Order("ORD-0002", items=[{"quantity": 2, "prep_time": 3}], status="PENDING", created_at="2026-10-20T01:00:00")
+    order_pending2 = Order("ORD-0003", items=[{"quantity": 1, "prep_time": 4}], status="PENDING", created_at="2026-10-20T01:05:00")
+    order_completed = Order("ORD-0004", items=[{"quantity": 1, "prep_time": 2}], status="COMPLETED")
+
+    orders_list = [order_completed, order_pending2, order_preparing, order_pending1]
+    kitchen.restore_orders(orders_list)
+
+    assert kitchen.get_current_order() is order_preparing
+    assert kitchen.count_waiting() == 2
+    assert kitchen.peek_next_order() is order_pending1
+    waiting = kitchen.get_waiting_orders()
+    assert waiting[0] is order_pending1
+    assert waiting[1] is order_pending2
+
