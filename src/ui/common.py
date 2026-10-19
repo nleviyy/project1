@@ -63,3 +63,20 @@ def apply_custom_styles():
         """,
         unsafe_allow_html=True,
     )
+
+
+def get_menu_catalog():
+    """Tải và trả về MenuCatalog từ file data/menu.json."""
+    import json
+    from pathlib import Path
+    from src.models.MenuCatalog import MenuCatalog
+
+    menu_file = Path(__file__).resolve().parents[2] / "data" / "menu.json"
+    catalog = MenuCatalog()
+    if menu_file.exists():
+        with open(menu_file, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if isinstance(data, list):
+                catalog.load_from_dict(data)
+    return catalog
+

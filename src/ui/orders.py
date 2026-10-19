@@ -29,6 +29,9 @@ def render_orders_component(
     if table_manager is None:
         table_manager = st.session_state.get("table_manager") or TableManager()
 
+    # Luôn làm mới dữ liệu đơn từ backend storage
+    order_service.load_orders()
+
     st.subheader("🧾 Quản lý danh sách Đơn hàng")
 
     orders = order_service.get_all_orders()
@@ -115,3 +118,24 @@ def render_orders_component(
                         st.rerun()
                     except Exception as e:
                         st.error(f"Lỗi: {e}")
+            elif order.status == "CANCELLED":
+                st.write("")
+                if st.button("🛒 Đặt lại (Tải món vào giỏ hàng mới)", key=f"reorder_btn_{order.id}"):
+                    cart = st.session_state.get("cart")
+                    if cart is not None:
+                        from src.ui.common import get_menu_catalog
+                        catalog = get_menu_catalog()
+                        cart.clear()
+                        loaded_count = 0
+                        for oi in order.items:
+                            m_item = catalog.get_item(oi.menu_item_id)
+                            if m_item and m_item.is_available:
+                                cart.add_item(m_item, quantity=oi.quantity, note=oi.note)
+                                loaded_count += 1
+                        st.session_state.cart_rev = st.session_state.get("cart_rev", 0) + 1
+                        st.success(
+                            f"✅ Đã nạp {loaded_count} món vào giỏ hàng mới! "
+                            "Đơn cũ vẫn giữ nguyên trạng thái ĐÃ HỦY. "
+                            "Vui lòng chuyển sang tab '🛒 Gọi món & Giỏ hàng' để chọn bàn và xác nhận đơn mới."
+                        )
+

@@ -10,8 +10,8 @@
     "id": 2,
     "name": "Bàn 02",
     "capacity": 4,
-    "status": "OCCUPIED",
-    "current_order_id": "ORD-20261014-001"
+    "status": "AVAILABLE",
+    "current_order_id": null
   },
   {
     "id": 3,

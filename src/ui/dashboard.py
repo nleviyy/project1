@@ -30,6 +30,10 @@ def render_dashboard_component(
     if table_manager is None:
         table_manager = st.session_state.get("table_manager") or TableManager()
 
+    # Luôn làm mới dữ liệu từ backend storage
+    table_manager.load_tables()
+    order_service.load_orders()
+
     st.subheader("📊 Tổng quan hoạt động Nhà Hàng & Báo cáo số liệu")
 
     tables = table_manager.get_all_tables()
@@ -53,9 +57,12 @@ def render_dashboard_component(
         st.markdown("### 🪑 Trạng thái bàn ăn")
         avl = sum(1 for t in tables if t.status == "AVAILABLE")
         res = sum(1 for t in tables if t.status == "RESERVED")
+        occ_pct = int((occupied / max(1, len(tables))) * 100)
+        st.progress(occupied / max(1, len(tables)), text=f"Tỷ lệ lấp đầy: {occupied}/{len(tables)} bàn ({occ_pct}%)")
         st.write(f"- 🟢 **Bàn trống sẵn sàng đón khách:** `{avl}` bàn")
         st.write(f"- 🔴 **Bàn đang có khách dùng bữa:** `{occupied}` bàn")
         st.write(f"- 🟡 **Bàn đã được đặt trước:** `{res}` bàn")
+
 
     with c2:
         st.markdown("### 🧾 Trạng thái đơn hàng")
@@ -69,6 +76,18 @@ def render_dashboard_component(
         st.write(f"- 🍽️ **Đã lên món (chờ thanh toán):** `{srv}` đơn")
         st.write(f"- ✅ **Đã thanh toán & hoàn tất:** `{cmp}` đơn")
         st.write(f"- ❌ **Đã hủy:** `{cnc}` đơn")
+
+    st.divider()
+
+    st.markdown("### 💳 Phân bổ Doanh thu theo Phương thức")
+    cash_rev = sum(p.get("amount_paid", 0) for p in payments_data if p.get("status") == "SUCCESS" and p.get("method") == "CASH")
+    bank_rev = sum(p.get("amount_paid", 0) for p in payments_data if p.get("status") == "SUCCESS" and p.get("method") == "BANK_TRANSFER")
+    card_rev = sum(p.get("amount_paid", 0) for p in payments_data if p.get("status") == "SUCCESS" and p.get("method") == "CARD")
+
+    rc1, rc2, rc3 = st.columns(3)
+    rc1.metric("💵 Tiền mặt (CASH)", f"{cash_rev:,} VNĐ")
+    rc2.metric("📱 Chuyển khoản (VietQR)", f"{bank_rev:,} VNĐ")
+    rc3.metric("💳 Quẹt thẻ (POS)", f"{card_rev:,} VNĐ")
 
     st.divider()
     st.markdown("### 🏗️ Kiến trúc Hệ thống Phân tầng (Clean Architecture)")

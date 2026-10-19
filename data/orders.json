@@ -1,152 +1,152 @@
 [
-    {
-        "id": "ORD-20261014-001",
-        "table_id": 2,
-        "created_at": "2026-10-14T20:15:00",
-        "updated_at": "2026-10-14T20:30:00",
-        "status": "SERVED",
-        "items": [
-            {
-                "menu_item_id": "M02",
-                "item_name": "Cà phê sữa đá",
-                "unit_price": 29000,
-                "quantity": 2,
-                "subtotal": 58000,
-                "note": "Ít ngọt"
-            },
-            {
-                "menu_item_id": "M05",
-                "item_name": "Bánh mì chảo đặc biệt",
-                "unit_price": 55000,
-                "quantity": 1,
-                "subtotal": 55000,
-                "note": "Trứng lòng đào"
-            }
-        ],
-        "total_amount": 113000,
-        "discount_amount": 0,
-        "final_amount": 113000,
-        "notes": "Khách ngồi gần cửa sổ"
-    },
-    {
-        "id": "ORD-20261014-002",
-        "table_id": 5,
-        "created_at": "2026-10-14T21:00:00",
-        "updated_at": "2026-10-14T21:10:00",
-        "status": "PREPARING",
-        "items": [
-            {
-                "menu_item_id": "M03",
-                "item_name": "Trà đào cam sả",
-                "unit_price": 39000,
-                "quantity": 3,
-                "subtotal": 117000,
-                "note": "Ít đá"
-            },
-            {
-                "menu_item_id": "M06",
-                "item_name": "Bò lúc lắc khoai tây",
-                "unit_price": 69000,
-                "quantity": 2,
-                "subtotal": 138000,
-                "note": "Bò chín vừa"
-            },
-            {
-                "menu_item_id": "M07",
-                "item_name": "Khoai tây chiên lắc phô mai",
-                "unit_price": 32000,
-                "quantity": 1,
-                "subtotal": 32000,
-                "note": ""
-            }
-        ],
-        "total_amount": 287000,
-        "discount_amount": 17000,
-        "final_amount": 270000,
-        "notes": "Tiệc sinh nhật, áp dụng voucher 17k"
-    },
-    {
-        "id": "ORD-20261014-003",
-        "table_id": 1,
-        "created_at": "2026-10-14T18:30:00",
-        "updated_at": "2026-10-14T19:20:00",
-        "status": "COMPLETED",
-        "items": [
-            {
-                "menu_item_id": "M01",
-                "item_name": "Cà phê đen đá",
-                "unit_price": 25000,
-                "quantity": 1,
-                "subtotal": 25000,
-                "note": "Không đường"
-            }
-        ],
-        "total_amount": 25000,
-        "discount_amount": 0,
-        "final_amount": 25000,
-        "notes": "Khách mang về một phần"
-    },
-    {
-        "id": "ORD-20261018-001",
-        "table_id": 8,
-        "created_at": "2026-10-18T16:23:36",
-        "updated_at": "2026-10-18T16:23:36",
-        "status": "COMPLETED",
-        "items": [
-            {
-                "menu_item_id": "M02",
-                "item_name": "Cà phê sữa đá",
-                "unit_price": 29000,
-                "quantity": 2,
-                "subtotal": 58000,
-                "note": "Ít ngọt"
-            }
-        ],
-        "total_amount": 58000,
-        "discount_amount": 0,
-        "final_amount": 58000,
-        "notes": "Khách quen bàn 8"
-    },
-    {
-        "id": "ORD-20261018-002",
-        "table_id": 8,
-        "created_at": "2026-10-18T18:18:50",
-        "updated_at": "2026-10-18T18:18:50",
-        "status": "COMPLETED",
-        "items": [
-            {
-                "menu_item_id": "M02",
-                "item_name": "Cà phê sữa đá",
-                "unit_price": 29000,
-                "quantity": 2,
-                "subtotal": 58000,
-                "note": "Ít ngọt"
-            }
-        ],
-        "total_amount": 58000,
-        "discount_amount": 0,
-        "final_amount": 58000,
-        "notes": "Khách quen bàn 8"
-    },
-    {
-        "id": "ORD-20261018-003",
-        "table_id": 8,
-        "created_at": "2026-10-18T18:27:36",
-        "updated_at": "2026-10-18T18:27:36",
-        "status": "COMPLETED",
-        "items": [
-            {
-                "menu_item_id": "M02",
-                "item_name": "Cà phê sữa đá",
-                "unit_price": 29000,
-                "quantity": 2,
-                "subtotal": 58000,
-                "note": "Ít ngọt"
-            }
-        ],
-        "total_amount": 58000,
-        "discount_amount": 0,
-        "final_amount": 58000,
-        "notes": "Khách quen bàn 8"
-    }
+  {
+    "id": "ORD-20261014-001",
+    "table_id": 2,
+    "created_at": "2026-10-14T20:15:00",
+    "updated_at": "2026-10-20T00:53:48",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "menu_item_id": "M02",
+        "item_name": "Cà phê sữa đá",
+        "unit_price": 29000,
+        "quantity": 2,
+        "subtotal": 58000,
+        "note": "Ít ngọt"
+      },
+      {
+        "menu_item_id": "M05",
+        "item_name": "Bánh mì chảo đặc biệt",
+        "unit_price": 55000,
+        "quantity": 1,
+        "subtotal": 55000,
+        "note": "Trứng lòng đào"
+      }
+    ],
+    "total_amount": 113000,
+    "discount_amount": 0,
+    "final_amount": 113000,
+    "notes": "Khách ngồi gần cửa sổ"
+  },
+  {
+    "id": "ORD-20261014-002",
+    "table_id": 5,
+    "created_at": "2026-10-14T21:00:00",
+    "updated_at": "2026-10-14T21:10:00",
+    "status": "PREPARING",
+    "items": [
+      {
+        "menu_item_id": "M03",
+        "item_name": "Trà đào cam sả",
+        "unit_price": 39000,
+        "quantity": 3,
+        "subtotal": 117000,
+        "note": "Ít đá"
+      },
+      {
+        "menu_item_id": "M06",
+        "item_name": "Bò lúc lắc khoai tây",
+        "unit_price": 69000,
+        "quantity": 2,
+        "subtotal": 138000,
+        "note": "Bò chín vừa"
+      },
+      {
+        "menu_item_id": "M07",
+        "item_name": "Khoai tây chiên lắc phô mai",
+        "unit_price": 32000,
+        "quantity": 1,
+        "subtotal": 32000,
+        "note": ""
+      }
+    ],
+    "total_amount": 287000,
+    "discount_amount": 17000,
+    "final_amount": 270000,
+    "notes": "Tiệc sinh nhật, áp dụng voucher 17k"
+  },
+  {
+    "id": "ORD-20261014-003",
+    "table_id": 1,
+    "created_at": "2026-10-14T18:30:00",
+    "updated_at": "2026-10-14T19:20:00",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "menu_item_id": "M01",
+        "item_name": "Cà phê đen đá",
+        "unit_price": 25000,
+        "quantity": 1,
+        "subtotal": 25000,
+        "note": "Không đường"
+      }
+    ],
+    "total_amount": 25000,
+    "discount_amount": 0,
+    "final_amount": 25000,
+    "notes": "Khách mang về một phần"
+  },
+  {
+    "id": "ORD-20261018-001",
+    "table_id": 8,
+    "created_at": "2026-10-18T16:23:36",
+    "updated_at": "2026-10-18T16:23:36",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "menu_item_id": "M02",
+        "item_name": "Cà phê sữa đá",
+        "unit_price": 29000,
+        "quantity": 2,
+        "subtotal": 58000,
+        "note": "Ít ngọt"
+      }
+    ],
+    "total_amount": 58000,
+    "discount_amount": 0,
+    "final_amount": 58000,
+    "notes": "Khách quen bàn 8"
+  },
+  {
+    "id": "ORD-20261018-002",
+    "table_id": 8,
+    "created_at": "2026-10-18T18:18:50",
+    "updated_at": "2026-10-18T18:18:50",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "menu_item_id": "M02",
+        "item_name": "Cà phê sữa đá",
+        "unit_price": 29000,
+        "quantity": 2,
+        "subtotal": 58000,
+        "note": "Ít ngọt"
+      }
+    ],
+    "total_amount": 58000,
+    "discount_amount": 0,
+    "final_amount": 58000,
+    "notes": "Khách quen bàn 8"
+  },
+  {
+    "id": "ORD-20261018-003",
+    "table_id": 8,
+    "created_at": "2026-10-18T18:27:36",
+    "updated_at": "2026-10-18T18:27:36",
+    "status": "COMPLETED",
+    "items": [
+      {
+        "menu_item_id": "M02",
+        "item_name": "Cà phê sữa đá",
+        "unit_price": 29000,
+        "quantity": 2,
+        "subtotal": 58000,
+        "note": "Ít ngọt"
+      }
+    ],
+    "total_amount": 58000,
+    "discount_amount": 0,
+    "final_amount": 58000,
+    "notes": "Khách quen bàn 8"
+  }
 ]

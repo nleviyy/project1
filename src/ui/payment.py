@@ -43,6 +43,34 @@ def render_payment_component(
 
     with col_pay:
         st.markdown("### 🧾 Xử lý hóa đơn đơn hàng")
+        paid_inv = st.session_state.get("paid_receipt_invoice")
+        if paid_inv:
+            with st.container(border=True):
+                st.success(
+                    f"🎉 **Thanh toán thành công!**\n\n"
+                    f"- Mã hóa đơn: **`{paid_inv.id}`**\n"
+                    f"- Đơn hàng **`{paid_inv.order_id}`** đã hoàn tất!"
+                )
+                change_due = st.session_state.get("paid_change_due", 0)
+                if change_due:
+                    st.info(f"💵 **Tiền thối lại cho khách:** `{change_due:,} VNĐ`")
+
+                receipt_text = paid_inv.generate_text_receipt()
+                st.text_area("📄 Chi tiết phiếu thu hóa đơn:", receipt_text, height=220)
+                st.download_button(
+                    label="📥 Xuất / Tải hóa đơn (TXT)",
+                    data=receipt_text,
+                    file_name=f"hoadon_{paid_inv.id}.txt",
+                    mime="text/plain",
+                    use_container_width=True,
+                )
+                if st.button("Đóng phiếu thu này", key="btn_close_paid_receipt"):
+                    del st.session_state["paid_receipt_invoice"]
+                    if "paid_change_due" in st.session_state:
+                        del st.session_state["paid_change_due"]
+                    st.rerun()
+            st.divider()
+
         if not served_orders:
             st.info("Hiện không có đơn nào ở trạng thái **Đã lên món (SERVED)** sẵn sàng thanh toán.")
         else:
@@ -93,14 +121,8 @@ def render_payment_component(
                     if result.invoice is None:
                         st.error("Thanh toán chưa thành công; đơn và bàn chưa được cập nhật.")
                     else:
-                        st.success(
-                            f"🎉 **Thanh toán thành công!**\n\n"
-                            f"- Mã hóa đơn: **`{result.invoice.id}`**\n"
-                            f"- Bàn số: **`{selected_order.table_id}`** đã được giải phóng.\n"
-                            f"- Đơn hàng **`{selected_order.id}`** đã hoàn tất!"
-                        )
-                        if result.payment.change_due:
-                            st.info(f"💵 **Tiền thối lại cho khách:** `{result.payment.change_due:,} VNĐ`")
+                        st.session_state["paid_receipt_invoice"] = result.invoice
+                        st.session_state["paid_change_due"] = result.payment.change_due
                         # Đồng bộ lại bộ nhớ order_service và table_manager
                         order_service.load_orders()
                         table_manager.load_tables()
@@ -109,8 +131,9 @@ def render_payment_component(
                     st.error(f"Lỗi thanh toán: {e}")
 
     with col_dash:
-        st.markdown("### 📊 Thống kê & Lịch sử giao dịch")
+        st.markdown("### 📊 Thống kê & Xuất hóa đơn")
         payments_data = _load_data_file("payments.json")
+        invoices_data = _load_data_file("invoices.json")
         success_pays = [p for p in payments_data if p.get("status") == "SUCCESS"]
 
         total_rev = sum(p.get("amount_paid", 0) for p in success_pays)
@@ -121,6 +144,37 @@ def render_payment_component(
         m1.metric("Tổng doanh thu thực nhận", f"{total_rev:,} VNĐ")
         m2.metric("Giao dịch thành công", f"{total_tx}/{len(payments_data)}")
         m3.metric("Trung bình/đơn", f"{avg_tx:,} VNĐ")
+
+        st.divider()
+        st.markdown("##### 🖨️ Tra cứu & Xuất hóa đơn đã lưu")
+        if invoices_data:
+            from src.models.Invoice import Invoice
+            inv_choices = [
+                (i["id"], f"{i['id']} • Đơn {i['order_id']} • {i.get('final_amount', i.get('total_amount', 0)):,} đ ({i.get('issued_at', '')[:16]})")
+                for i in reversed(invoices_data)
+            ]
+            selected_inv_id = st.selectbox(
+                "Chọn hóa đơn cần xem lại / xuất file:",
+                options=[c[0] for c in inv_choices],
+                format_func=lambda x: next((c[1] for c in inv_choices if c[0] == x), x),
+            )
+            raw_inv = next((i for i in invoices_data if i["id"] == selected_inv_id), None)
+            if raw_inv:
+                try:
+                    inv_obj = Invoice.model_validate(raw_inv)
+                    receipt_str = inv_obj.generate_text_receipt()
+                    st.download_button(
+                        label=f"📥 Tải hóa đơn {inv_obj.id}",
+                        data=receipt_str,
+                        file_name=f"hoadon_{inv_obj.id}.txt",
+                        mime="text/plain",
+                        key=f"dl_inv_{inv_obj.id}",
+                        use_container_width=True,
+                    )
+                except Exception:
+                    st.json(raw_inv)
+        else:
+            st.caption("Chưa có hóa đơn nào trong hệ thống.")
 
         st.divider()
         st.markdown("##### 🕒 Lịch sử thanh toán gần nhất")

@@ -22,6 +22,9 @@ def render_tables_component(
     if order_service is None:
         order_service = st.session_state.get("order_service") or OrderService()
 
+    # Luôn làm mới dữ liệu bàn từ backend
+    table_manager.load_tables()
+
     st.subheader("🪑 Sơ đồ bàn ăn nhà hàng")
 
     tables = table_manager.get_all_tables()

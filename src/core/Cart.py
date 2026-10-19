@@ -105,7 +105,6 @@ class Cart:
 
     def add_item(self, menu_item, quantity=1, note="", *extra_args):
         if extra_args:
-            # Legacy call: add_item(item_id, item_name, unit_price, quantity=1, note="")
             item_id = menu_item
             item_name = quantity
             unit_price = note

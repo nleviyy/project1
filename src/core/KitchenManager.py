@@ -55,7 +55,6 @@ class KitchenManager:
         return order
 
     def restore_current_order_to_queue(self, order_id):
-        """Khôi phục đơn về đầu Queue nếu lưu trạng thái PREPARING thất bại."""
         order = self._current_order
         if (
             order is None

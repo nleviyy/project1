@@ -9,19 +9,9 @@ from src.core.KitchenManager import KitchenManager
 from src.core.OrderService import OrderService
 from src.core.TableManager import TableManager
 from src.models.MenuCatalog import MenuCatalog
+from src.models.Order import ORDER_STATUS_LABELS, OrderStatus
 from src.models.OrderItem import OrderItem
-
-
-def _get_menu_catalog() -> MenuCatalog:
-    """Load and cache MenuCatalog from data/menu.json."""
-    menu_file = Path(__file__).resolve().parents[2] / "data" / "menu.json"
-    catalog = MenuCatalog()
-    if menu_file.exists():
-        with open(menu_file, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            if isinstance(data, list):
-                catalog.load_from_dict(data)
-    return catalog
+from src.ui.common import get_menu_catalog
 
 
 def render_ordering_component(
@@ -33,7 +23,7 @@ def render_ordering_component(
 ):
     """Render giao diện chọn món và giỏ hàng kết nối với các class nghiệp vụ."""
     if menu_catalog is None:
-        menu_catalog = _get_menu_catalog()
+        menu_catalog = get_menu_catalog()
     if cart is None:
         if "cart" not in st.session_state:
             st.session_state.cart = Cart()
@@ -44,6 +34,10 @@ def render_ordering_component(
         table_manager = st.session_state.get("table_manager") or TableManager()
     if kitchen_manager is None:
         kitchen_manager = st.session_state.get("kitchen_manager") or KitchenManager()
+
+    # Luôn làm mới danh sách bàn từ backend để phản ánh chính xác trạng thái thực tế
+    table_manager.load_tables()
+
 
     if "cart_rev" not in st.session_state:
         st.session_state.cart_rev = 0
@@ -220,20 +214,55 @@ def render_ordering_component(
 
                     cart.clear()
                     st.session_state.cart_rev += 1
-
-                    table_label = (
-                        f"Bàn số: **`{table_id_to_use}`**"
-                        if table_id_to_use > 0
-                        else "**Mang về**"
-                    )
-                    st.success(
-                        f"🎉 **Đặt món thành công!**\n\n"
-                        f"- Mã đơn hàng: **`{order.id}`**\n"
-                        f"- {table_label}\n"
-                        f"- Thời gian chờ dự kiến: **`{wait_time} phút`**\n"
-                        f"- Đơn đang chờ trong Queue bếp ở trạng thái **PENDING**."
-                    )
-                    st.balloons()
+                    st.session_state["placed_order_info"] = {
+                        "id": order.id,
+                        "table_id": table_id_to_use,
+                        "wait_time": wait_time,
+                    }
                     st.rerun()
                 except Exception as e:
                     st.error(f"Lỗi khi tạo đơn hàng: {e}")
+
+    # ====================================================
+    # PHẦN THEO DÕI TRẠNG THÁI ĐƠN HÀNG (YÊU CẦU ĐẶT MÓN)
+    # ====================================================
+    st.divider()
+    c_recent, c_track = st.columns([1.5, 1.5], gap="large")
+
+    with c_recent:
+        st.markdown("#### 📌 Đơn hàng vừa đặt của bạn")
+        placed_info = st.session_state.get("placed_order_info")
+        if placed_info:
+            recent_order = order_service.get_order_by_id(placed_info["id"])
+            if recent_order:
+                tbl_txt = f"Bàn số {recent_order.table_id}" if recent_order.table_id > 0 else "Mang về"
+                st_label = ORDER_STATUS_LABELS.get(recent_order.status, recent_order.status)
+                with st.container(border=True):
+                    st.success(f"🎉 Đơn hàng **`{recent_order.id}`** đang được xử lý!")
+                    st.write(f"- 🪑 **Địa điểm:** {tbl_txt}")
+                    st.write(f"- ⏱️ **Thời gian chờ dự kiến:** ~`{placed_info.get('wait_time', 15)} phút`")
+                    st.write(f"- 🏷️ **Trạng thái thời gian thực:** `{st_label}` ({recent_order.status})")
+                    st.write(f"- 💰 **Tổng tiền:** `{recent_order.final_amount:,} VNĐ`")
+                    if st.button("Đóng thông báo này", key="btn_close_recent_order"):
+                        del st.session_state["placed_order_info"]
+                        st.rerun()
+            else:
+                st.caption("Không tìm thấy thông tin chi tiết đơn hàng vừa đặt.")
+        else:
+            st.info("Chưa có đơn hàng mới nào vừa được đặt từ phiên làm việc này.")
+
+    with c_track:
+        st.markdown("#### 🔍 Tra cứu trạng thái đơn hàng")
+        with st.container(border=True):
+            track_id = st.text_input("Nhập mã đơn cần tra cứu:", placeholder="VD: ORD-2026...")
+            if track_id:
+                searched_order = order_service.get_order_by_id(track_id.strip())
+                if searched_order:
+                    s_label = ORDER_STATUS_LABELS.get(searched_order.status, searched_order.status)
+                    s_tbl = f"Bàn số {searched_order.table_id}" if searched_order.table_id > 0 else "Mang về"
+                    st.markdown(f"**Mã đơn:** `{searched_order.id}` • **{s_tbl}**")
+                    st.markdown(f"Trạng thái: **`{s_label}`** • Tạo lúc: `{searched_order.created_at}`")
+                    st.caption(f"Số lượng món: {len(searched_order.items)} món • Tổng tiền: {searched_order.final_amount:,} đ")
+                else:
+                    st.warning(f"Không tìm thấy đơn hàng với mã '{track_id}'.")
+

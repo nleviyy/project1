@@ -48,6 +48,7 @@ def render_kitchen_component(
                     unsafe_allow_html=True,
                 )
                 st.caption(f"⏱️ Thời gian chế biến ước tính: **{c_prep} phút**")
+                st.progress(0.75, text=f"Tiến độ: Đang chế biến (~{c_prep} phút)")
                 if c_notes:
                     st.info(f"📝 Ghi chú: {c_notes}")
 
