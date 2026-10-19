@@ -1,89 +1,97 @@
-"""
-Model Payment: Quản lý thông tin và kết quả giao dịch thanh toán.
-Đảm bảo toàn bộ số tiền là số nguyên int (VNĐ), chống thanh toán trùng lặp.
-"""
+from typing import Optional, List, Dict, Any, Union
 from datetime import datetime
-from typing import Any, Dict, Optional
+from enum import Enum
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+class PaymentMethod(str, Enum):
+    CASH = "CASH"
+    BANK_TRANSFER = "BANK_TRANSFER"
+    CARD = "CARD"
 
 
-class PaymentMethod:
-    CASH = "CASH"                    # Tiền mặt
-    BANK_TRANSFER = "BANK_TRANSFER"  # Chuyển khoản (VietQR / Internet Banking)
-    MOMO = "MOMO"                    # Ví MoMo
-    CARD = "CARD"                    # Thẻ ngân hàng / POS
-
-    ALL = {CASH, BANK_TRANSFER, MOMO, CARD}
-
-
-class PaymentStatus:
-    PENDING = "PENDING"
+class PaymentStatus(str, Enum):
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
+    PENDING = "PENDING"
+    REFUNDED = "REFUNDED"
 
-    ALL = {PENDING, SUCCESS, FAILED}
+class Payment(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
 
+    id: str = Field(..., alias="payment_id", description="Mã giao dịch thanh toán")
+    order_id: str = Field(..., description="Mã đơn hàng liên kết")
+    table_id: Union[int, str] = Field(..., description="Mã bàn thanh toán")
+    payment_time: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Thời gian thanh toán")
+    amount: int = Field(default=0, ge=0, description="Tổng tiền gốc của hóa đơn (VNĐ)")
+    discount_rate: float = Field(default=0.0, ge=0.0, le=1.0, description="Tỷ lệ giảm giá (VD: 0.1 tương ứng 10%)")
+    amount_paid: int = Field(default=0, ge=0, description="Số tiền thực tế khách trả (VNĐ)")
+    method: PaymentMethod = Field(
+        default=PaymentMethod.CASH, description="Phương thức thanh toán"
+    )
+    status: PaymentStatus = Field(
+        default=PaymentStatus.SUCCESS, description="Trạng thái giao dịch"
+    )
+    cashier_name: str = Field(..., description="Tên nhân viên thu ngân")
+    transaction_code: Optional[str] = Field(default=None, description="Mã giao dịch ngân hàng/điện tử nếu có")
+    note: Optional[str] = Field(default="", description="Ghi chú thanh toán")
+    cash_received: Optional[int] = Field(default=None, ge=0, description="Tiền mặt khách đưa (VNĐ)")
+    change_due: int = Field(default=0, ge=0, description="Tiền thối lại (VNĐ)")
 
-class Payment:
-    """
-    Đại diện cho một giao dịch thanh toán trong hệ thống.
-    """
-
-    def __init__(
-        self,
-        id: str,
-        order_id: str,
-        table_id: int,
-        amount_paid: int,
-        method: str = PaymentMethod.CASH,
-        status: str = PaymentStatus.SUCCESS,
-        payment_time: Optional[str] = None,
-        cashier_name: str = "Vy",
-        transaction_code: Optional[str] = None,
-        note: str = "",
-    ):
-        self.id: str = str(id).strip()
-        self.order_id: str = str(order_id).strip()
-        self.table_id: int = int(table_id)
-        self.amount_paid: int = int(amount_paid)
-        self.method: str = method.upper().strip()
-        self.status: str = status.upper().strip()
-        self.payment_time: str = payment_time or datetime.now().isoformat(timespec="seconds")
-        self.cashier_name: str = str(cashier_name).strip()
-        self.transaction_code: Optional[str] = str(transaction_code).strip() if transaction_code else None
-        self.note: str = (note or "").strip()
-
-        if self.amount_paid < 0:
-            raise ValueError("Số tiền thanh toán không được âm.")
+    @model_validator(mode='after')
+    def calculate_final_amount(self):
+        """Tự động tính toán số tiền cần trả sau giảm giá nếu amount_paid chưa được gán."""
+        final_due = int(self.amount * (1 - self.discount_rate))
+        if self.status == "SUCCESS" and self.amount_paid == 0:
+            self.amount_paid = final_due
+        return self
 
     @property
     def is_successful(self) -> bool:
-        return self.status == PaymentStatus.SUCCESS
+        """Kiểm tra xem giao dịch có thành công hay không."""
+        return self.status == "SUCCESS"
+
+    def calculate_change(self, cash_given: int) -> int:
+        """Tính tiền thối lại cho khách khi thanh toán tiền mặt."""
+        final_due = int(self.amount * (1 - self.discount_rate))
+        if cash_given < final_due:
+            raise ValueError(f"Số tiền khách đưa ({cash_given:,} VNĐ) không đủ thanh toán ({final_due:,} VNĐ).")
+        return cash_given - final_due
 
     def to_dict(self) -> Dict[str, Any]:
-        return {
-            "id": self.id,
-            "order_id": self.order_id,
-            "table_id": self.table_id,
-            "payment_time": self.payment_time,
-            "amount_paid": int(self.amount_paid),
-            "method": self.method,
-            "status": self.status,
-            "cashier_name": self.cashier_name,
-            "transaction_code": self.transaction_code,
-            "note": self.note,
-        }
+        return self.model_dump(mode="json")
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Payment":
-        return cls(
-            id=str(data.get("id", "")),
-            order_id=str(data.get("order_id", "")),
-            table_id=int(data.get("table_id", 0)),
-            amount_paid=int(data.get("amount_paid", 0)),
-            method=str(data.get("method", PaymentMethod.CASH)),
-            status=str(data.get("status", PaymentStatus.SUCCESS)),
-            payment_time=data.get("payment_time"),
-            cashier_name=str(data.get("cashier_name", "Vy")),
-            transaction_code=data.get("transaction_code"),
-            note=str(data.get("note", "")),
-        )
+        return cls.model_validate(data)
+
+    @classmethod
+    def calculate_revenue(cls, payments: List["Payment"]) -> Dict[str, Any]:
+        """
+        Thuật toán tính doanh thu an toàn:
+        - Chỉ cộng tiền các giao dịch thành công (SUCCESS).
+        - Tránh cộng trùng lặp mã giao dịch (payment_id) và tránh cộng dồn nhiều lần cho cùng một đơn hàng (order_id).
+        - Trả về tổng doanh thu, số lượng đơn đã thanh toán và danh sách mã đơn.
+        """
+        total_revenue = 0
+        paid_order_ids = set()
+        processed_payment_ids = set()
+
+        for payment in payments:
+            if not payment.is_successful:
+                continue
+
+            if payment.id in processed_payment_ids:
+                continue
+
+            if payment.order_id in paid_order_ids:
+                continue
+
+            total_revenue += payment.amount_paid
+            processed_payment_ids.add(payment.id)
+            paid_order_ids.add(payment.order_id)
+
+        return {
+            "total_revenue": total_revenue,
+            "paid_orders_count": len(paid_order_ids),
+            "paid_order_ids": list(paid_order_ids)
+        }

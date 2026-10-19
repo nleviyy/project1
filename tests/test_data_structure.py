@@ -5,7 +5,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from kitchen import KitchenManager, Order, OrderStatus
+from KitchenManage import KitchenManager, Order, OrderStatus
 from redo_undo import Cart, CartItem
 
 
@@ -207,6 +207,22 @@ class TestCartBasic(unittest.TestCase):
         item = CartItem("M01", "Phở bò", 50000, 2, "ít hành")
         again = CartItem.from_dict(item.to_dict())
         self.assertEqual(again.to_dict(), item.to_dict())
+
+    def test_cart_preserves_prep_time_for_kitchen_estimate(self):
+        self.cart.add_item(
+            {
+                "id": "M01",
+                "name": "Phở bò",
+                "price": 50000,
+                "prep_time": 7,
+                "is_available": True,
+            },
+            quantity=3,
+        )
+        self.assertEqual(self.cart.get_order_items()[0]["prep_time"], 7)
+        self.cart.undo()
+        self.cart.redo()
+        self.assertEqual(self.cart.get_order_items()[0]["prep_time"], 7)
 
 
 class TestUndoRedo(unittest.TestCase):
