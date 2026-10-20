@@ -1,6 +1,6 @@
-from collections import deque
 from datetime import datetime
 from math import ceil
+from typing import List, Optional
 
 from src.models.Order import ORDER_STATUS_TRANSITIONS, Order, OrderStatus
 from src.models.OrderItem import OrderItem
@@ -8,7 +8,7 @@ from src.models.OrderItem import OrderItem
 
 class KitchenManager:
     def __init__(self):
-        self._queue: deque[Order] = deque()
+        self._queue: List[Order] = []
         self._current_order = None
         self._next_id = 1
 
@@ -105,7 +105,7 @@ class KitchenManager:
             raise ValueError("Đơn " + str(oid) + " đang làm chưa hoàn tất")
         if not self._queue:
             return None
-        order = self._queue.popleft()
+        order = self._queue.pop(0)
         self._set_status(order, OrderStatus.PREPARING)
         self._current_order = order
         return order
@@ -123,7 +123,7 @@ class KitchenManager:
         order.preparing_started_at = None
         order._touch()
         self._current_order = None
-        self._queue.appendleft(order)
+        self._queue.insert(0, order)
         return True
 
     def restore_order_to_queue(self, order, position):
@@ -217,7 +217,7 @@ class KitchenManager:
                 if sequence.isdigit():
                     self._next_id = max(self._next_id, int(sequence) + 1)
 
-        self._queue = deque()
+        self._queue = []
         self._current_order = preparing_orders[0] if preparing_orders else None
         for order in active_orders:
             if order.status == OrderStatus.PENDING:
