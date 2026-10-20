@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -674,14 +674,36 @@ class OrderService:
                 raise OSError(f"Không thể lưu trạng thái SERVED cho đơn '{order_id}'.")
         return success
 
+    def _save_order_mutation(
+        self,
+        order: Order,
+        mutation: Callable[[], bool],
+    ) -> bool:
+        previous_order = order.model_copy(deep=True)
+        try:
+            if not mutation():
+                return False
+            if self.save_orders():
+                return True
+        except Exception:
+            self._restore_order(order, previous_order)
+            raise
+
+        self._restore_order(order, previous_order)
+        return False
+
+    @staticmethod
+    def _restore_order(order: Order, snapshot: Order) -> None:
+        for field_name in type(snapshot).model_fields:
+            setattr(order, field_name, getattr(snapshot, field_name))
+
     def add_item_to_order(self, order_id: str, item: OrderItem) -> bool:
         """Thêm món vào đơn hàng hiện có và tự động lưu."""
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        order.add_item(item)
-        return self.save_orders()
+        return self._save_order_mutation(order, lambda: order.add_item(item))
 
     def remove_item_from_order(self, order_id: str, menu_item_id: str) -> bool:
         """Xóa món khỏi đơn hàng hiện có và tự động lưu."""
@@ -689,9 +711,10 @@ class OrderService:
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        if order.remove_item(menu_item_id):
-            return self.save_orders()
-        return False
+        return self._save_order_mutation(
+            order,
+            lambda: order.remove_item(menu_item_id),
+        )
 
     def update_item_quantity_in_order(self, order_id: str, menu_item_id: str, quantity: int) -> bool:
         """Cập nhật số lượng món trong đơn và tự động lưu."""
@@ -699,6 +722,7 @@ class OrderService:
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        if order.update_item_quantity(menu_item_id, quantity):
-            return self.save_orders()
-        return False
+        return self._save_order_mutation(
+            order,
+            lambda: order.update_item_quantity(menu_item_id, quantity),
+        )
