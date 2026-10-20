@@ -355,6 +355,69 @@ class TestOrderService:
         assert item.subtotal == 50000
         assert item.prep_time == 5
 
+    @pytest.mark.parametrize(
+        "operation",
+        ["add", "remove", "update_quantity"],
+    )
+    @pytest.mark.parametrize("save_failure", ["false", "exception"])
+    def test_order_item_mutation_rolls_back_when_persistence_fails(
+        self,
+        service_with_tmp_storage,
+        monkeypatch,
+        operation,
+        save_failure,
+    ):
+        service = service_with_tmp_storage
+        order = service.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        saved_file = service.orders_file.read_bytes()
+        original_order_data = order.to_dict()
+        if save_failure == "false":
+            monkeypatch.setattr(service, "save_orders", lambda: False)
+        else:
+            def fail_to_save():
+                raise OSError("simulated write failure")
+
+            monkeypatch.setattr(service, "save_orders", fail_to_save)
+
+        def mutate_order():
+            if operation == "add":
+                return service.add_item_to_order(
+                    order.id,
+                    OrderItem(
+                        menu_item_id="M02",
+                        item_name="Trà đào cam sả",
+                        unit_price=39000,
+                        quantity=1,
+                    ),
+                )
+            if operation == "remove":
+                return service.remove_item_from_order(order.id, "M01")
+            return service.update_item_quantity_in_order(
+                order.id,
+                "M01",
+                3,
+            )
+
+        if save_failure == "false":
+            result = mutate_order()
+            assert result is False
+        else:
+            with pytest.raises(OSError, match="simulated write failure"):
+                mutate_order()
+        assert service.get_order_by_id(order.id) is order
+        assert order.to_dict() == original_order_data
+        assert service.orders_file.read_bytes() == saved_file
+
     def test_serve_order_updates_service_and_kitchen_together(
         self, service_with_tmp_storage
     ):
