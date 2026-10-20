@@ -1,6 +1,3 @@
-"""
-Kiểm thử tự động xác nhận cấu trúc thư mục và hợp đồng dữ liệu JSON (Data Contract).
-"""
 from datetime import datetime
 from pathlib import Path
 import json
@@ -9,7 +6,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = BASE_DIR / "data"
 
 def test_project_structure():
-    """Kiểm tra sự tồn tại của các thư mục cốt lõi."""
     assert (BASE_DIR / "src").is_dir(), "Thư mục src/ phải tồn tại"
     assert (BASE_DIR / "src" / "models").is_dir(), "Thư mục src/models/ phải tồn tại"
     assert (BASE_DIR / "src" / "core").is_dir(), "Thư mục src/core/ phải tồn tại"
@@ -18,7 +14,6 @@ def test_project_structure():
     assert (BASE_DIR / "src" / "app.py").is_file(), "File src/app.py phải tồn tại"
 
 def test_menu_schema():
-    """Kiểm tra cấu trúc và kiểu dữ liệu của menu.json."""
     menu_file = DATA_DIR / "menu.json"
     assert menu_file.is_file(), "File menu.json phải tồn tại"
     with open(menu_file, "r", encoding="utf-8") as f:
@@ -34,7 +29,6 @@ def test_menu_schema():
         assert isinstance(item["prep_time"], int) and item["prep_time"] >= 0
 
 def test_tables_schema():
-    """Kiểm tra cấu trúc và kiểu dữ liệu của tables.json."""
     tables_file = DATA_DIR / "tables.json"
     assert tables_file.is_file(), "File tables.json phải tồn tại"
     valid_statuses = {"AVAILABLE", "OCCUPIED", "RESERVED"}
@@ -49,7 +43,6 @@ def test_tables_schema():
         assert table["current_order_id"] is None or isinstance(table["current_order_id"], str)
 
 def test_orders_schema():
-    """Kiểm tra cấu trúc và kiểu dữ liệu của orders.json."""
     orders_file = DATA_DIR / "orders.json"
     assert orders_file.is_file(), "File orders.json phải tồn tại"
     valid_statuses = {"PENDING", "PREPARING", "SERVED", "COMPLETED", "CANCELLED"}
@@ -60,7 +53,6 @@ def test_orders_schema():
         assert isinstance(order["id"], str)
         assert isinstance(order["table_id"], int)
         assert order["status"] in valid_statuses
-        # Kiểm tra chuẩn thời gian ISO 8601
         datetime.fromisoformat(order["created_at"])
         datetime.fromisoformat(order["updated_at"])
         assert isinstance(order["items"], list) and len(order["items"]) > 0
@@ -73,7 +65,6 @@ def test_orders_schema():
         assert order["final_amount"] == order["total_amount"] - order["discount_amount"]
 
 def test_payments_schema():
-    """Kiểm tra cấu trúc và kiểu dữ liệu của payments.json."""
     payments_file = DATA_DIR / "payments.json"
     assert payments_file.is_file(), "File payments.json phải tồn tại"
     valid_methods = {"CASH", "BANK_TRANSFER", "CARD"}
@@ -92,7 +83,6 @@ def test_payments_schema():
         assert isinstance(pay["cashier_name"], str)
 
 def test_invoices_schema():
-    """Kiểm tra cấu trúc và kiểu dữ liệu của invoices.json."""
     invoices_file = DATA_DIR / "invoices.json"
     assert invoices_file.is_file(), "File invoices.json phải tồn tại"
     with open(invoices_file, "r", encoding="utf-8") as f:
@@ -110,7 +100,6 @@ def test_invoices_schema():
         assert isinstance(inv["final_amount"], int)
 
 def test_ui_components_importable():
-    """Kiểm tra việc import và khởi tạo tất cả các component UI."""
     from src.ui import (
         apply_custom_styles,
         render_dashboard_component,
@@ -128,4 +117,3 @@ def test_ui_components_importable():
     assert callable(render_tables_component)
     assert callable(render_dashboard_component)
     assert callable(render_settings_component)
-

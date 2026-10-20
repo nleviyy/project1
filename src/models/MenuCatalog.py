@@ -12,15 +12,12 @@ from .MenuItem import MenuItem
 
 __all__ = ["HashNode", "HashTable", "MenuCatalog"]
 
-
 class HashNode:
-    """Nút (Node) lưu trữ phần tử trong bảng băm theo kỹ thuật Separate Chaining."""
 
     def __init__(self, key: Any, value: Any):
         self.key = key
         self.value = value
         self.next: Optional["HashNode"] = None
-
 
 class HashTable:
     def __init__(self, capacity: int = 32):
@@ -32,7 +29,6 @@ class HashTable:
         self._keys_order: List[Any] = []
 
     def _hash(self, key: Any) -> int:
-        """Hàm băm tự tạo dựa trên mã ASCII của các ký tự trong key."""
         key_str = str(key)
         hash_val = 0
         for char in key_str:
@@ -40,7 +36,6 @@ class HashTable:
         return hash_val
 
     def _resize(self) -> None:
-        """Mở rộng dung lượng bảng băm gấp đôi và rehash lại toàn bộ phần tử."""
         old_buckets = self.buckets
         self.capacity *= 2
         self.buckets = [None] * self.capacity
@@ -56,7 +51,6 @@ class HashTable:
         self._keys_order = [k for k in order_backup if self.contains(k)]
 
     def put(self, key: Any, value: Any) -> None:
-        """Thêm hoặc cập nhật cặp key-value vào bảng băm."""
         index = self._hash(key)
         current = self.buckets[index]
 
@@ -76,7 +70,6 @@ class HashTable:
             self._resize()
 
     def get(self, key: Any, default: Any = None) -> Any:
-        """Lấy giá trị theo key, trả về default nếu không tìm thấy."""
         index = self._hash(key)
         current = self.buckets[index]
         while current is not None:
@@ -86,7 +79,6 @@ class HashTable:
         return default
 
     def remove(self, key: Any) -> bool:
-        """Xóa cặp key-value khỏi bảng băm. Trả về True nếu xóa thành công, False nếu không tìm thấy."""
         index = self._hash(key)
         current = self.buckets[index]
         prev = None
@@ -107,7 +99,6 @@ class HashTable:
         return False
 
     def pop(self, key: Any, default: Any = None) -> Any:
-        """Xóa và trả về giá trị của key; trả về default nếu không tồn tại."""
         index = self._hash(key)
         current = self.buckets[index]
         prev = None
@@ -129,7 +120,6 @@ class HashTable:
         return default
 
     def contains(self, key: Any) -> bool:
-        """Kiểm tra key có tồn tại trong bảng băm không."""
         index = self._hash(key)
         current = self.buckets[index]
         while current is not None:
@@ -139,21 +129,17 @@ class HashTable:
         return False
 
     def clear(self) -> None:
-        """Xóa toàn bộ các phần tử trong bảng băm."""
         self.buckets = [None] * self.capacity
         self.size = 0
         self._keys_order.clear()
 
     def values(self) -> List[Any]:
-        """Trả về danh sách toàn bộ các giá trị (values) theo thứ tự thêm vào."""
         return [self.get(k) for k in self._keys_order]
 
     def keys(self) -> List[Any]:
-        """Trả về danh sách toàn bộ các khóa (keys) theo thứ tự thêm vào."""
         return list(self._keys_order)
 
     def items(self) -> List[tuple]:
-        """Trả về danh sách các cặp (key, value) theo thứ tự thêm vào."""
         return [(k, self.get(k)) for k in self._keys_order]
 
     def __len__(self) -> int:
@@ -178,18 +164,14 @@ class HashTable:
     def __iter__(self):
         return iter(self.keys())
 
-
 __all__ = ["HashNode", "HashTable", "MenuCatalog"]
 
-
 class HashNode:
-    """Nút (Node) lưu trữ phần tử trong bảng băm theo kỹ thuật Separate Chaining."""
 
     def __init__(self, key: Any, value: Any):
         self.key = key
         self.value = value
         self.next: Optional["HashNode"] = None
-
 
 class HashTable:
 
@@ -208,7 +190,6 @@ class HashTable:
         return hash_val
 
     def _resize(self) -> None:
-        """Mở rộng dung lượng bảng băm gấp đôi và rehash lại toàn bộ phần tử."""
         old_buckets = self.buckets
         self.capacity *= 2
         self.buckets = [None] * self.capacity
@@ -221,29 +202,24 @@ class HashTable:
                 current = current.next
 
     def put(self, key: Any, value: Any) -> None:
-        """Thêm hoặc cập nhật cặp key-value vào bảng băm."""
         index = self._hash(key)
         current = self.buckets[index]
 
-        # Kiểm tra nếu key đã tồn tại -> cập nhật value
         while current is not None:
             if current.key == key:
                 current.value = value
                 return
             current = current.next
 
-        # Nếu key chưa tồn tại -> thêm node mới vào đầu bucket (O(1))
         new_node = HashNode(key, value)
         new_node.next = self.buckets[index]
         self.buckets[index] = new_node
         self.size += 1
 
-        # Tự động rehash nếu vượt quá hệ số tải ngưỡng 0.75
         if self.size / self.capacity >= 0.75:
             self._resize()
 
     def get(self, key: Any, default: Any = None) -> Any:
-        """Lấy giá trị theo key, trả về default nếu không tìm thấy."""
         index = self._hash(key)
         current = self.buckets[index]
         while current is not None:
@@ -253,7 +229,6 @@ class HashTable:
         return default
 
     def remove(self, key: Any) -> bool:
-        """Xóa cặp key-value khỏi bảng băm. Trả về True nếu xóa thành công, False nếu không tìm thấy."""
         index = self._hash(key)
         current = self.buckets[index]
         prev = None
@@ -272,7 +247,6 @@ class HashTable:
         return False
 
     def pop(self, key: Any, default: Any = None) -> Any:
-        """Xóa và trả về giá trị của key; trả về default nếu không tồn tại."""
         index = self._hash(key)
         current = self.buckets[index]
         prev = None
@@ -292,7 +266,6 @@ class HashTable:
         return default
 
     def contains(self, key: Any) -> bool:
-        """Kiểm tra key có tồn tại trong bảng băm không."""
         index = self._hash(key)
         current = self.buckets[index]
         while current is not None:
@@ -302,12 +275,10 @@ class HashTable:
         return False
 
     def clear(self) -> None:
-        """Xóa toàn bộ các phần tử trong bảng băm."""
         self.buckets = [None] * self.capacity
         self.size = 0
 
     def values(self) -> List[Any]:
-        """Trả về danh sách toàn bộ các giá trị (values) trong bảng băm."""
         res: List[Any] = []
         for head in self.buckets:
             current = head
@@ -317,7 +288,6 @@ class HashTable:
         return res
 
     def keys(self) -> List[Any]:
-        """Trả về danh sách toàn bộ các khóa (keys) trong bảng băm."""
         res: List[Any] = []
         for head in self.buckets:
             current = head
@@ -327,7 +297,6 @@ class HashTable:
         return res
 
     def items(self) -> List[tuple]:
-        """Trả về danh sách các cặp (key, value) trong bảng băm."""
         res: List[tuple] = []
         for head in self.buckets:
             current = head
@@ -357,7 +326,6 @@ class HashTable:
 
     def __iter__(self):
         return iter(self.keys())
-
 
 class MenuCatalog:
     def __init__(self):
@@ -398,7 +366,6 @@ class MenuCatalog:
                 print(f"[Cảnh báo] Bỏ qua món ID {key} do dữ liệu không hợp lệ: {e}")
 
     def load_from_file(self, file_path: Optional[Union[str, Path]] = None) -> bool:
-        """Đọc thực đơn trực tiếp từ file JSON."""
         target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
         if not target.exists():
             return False
@@ -412,7 +379,6 @@ class MenuCatalog:
             return False
 
     def save_to_file(self, file_path: Optional[Union[str, Path]] = None) -> bool:
-        """Lưu toàn bộ danh mục món ăn hiện tại ra file JSON."""
         target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
         try:
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -432,10 +398,10 @@ class MenuCatalog:
     def add_item(self, item: MenuItem) -> bool:
         if not isinstance(item, MenuItem):
             raise TypeError("Đối tượng thêm vào phải thuộc lớp MenuItem.")
-        
+
         if item.id in self._items:
             return False
-        
+
         self._items[item.id] = item
         return True
 
@@ -453,7 +419,6 @@ class MenuCatalog:
             "item_type": "category"
         }
 
-        
         current_data = item.to_dict() if hasattr(item, "to_dict") else item.model_dump()
 
         for k, v in kwargs.items():
@@ -508,7 +473,6 @@ class MenuCatalog:
         keyword: str,
         max_results: int = 5,
     ) -> List[MenuItem]:
-        """Return menu items whose name or ID starts with the entered text."""
         if not isinstance(keyword, str) or max_results < 1:
             return []
 
@@ -542,11 +506,9 @@ class MenuCatalog:
         ]
 
     def filter_by_category(self, category: str) -> List[MenuItem]:
-        """Bí danh cho filter_by_type để đồng nhất với trường 'category'."""
         return self.filter_by_type(category)
 
     def get_categories(self) -> List[str]:
-        """Lấy danh sách các phân loại món ăn hiện có."""
         seen = set()
         categories = []
         for item in self._items.values():
@@ -556,5 +518,4 @@ class MenuCatalog:
         return categories
 
     def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
-        """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""
         return [item for item in self._items.values() if item.is_available == is_available]

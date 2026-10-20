@@ -1,5 +1,3 @@
-"""Business services and core data structures."""
-
 from .Cart import Cart, CartItem
 from .KitchenManager import KitchenManager
 from .OrderService import OrderService

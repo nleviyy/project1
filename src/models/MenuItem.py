@@ -57,7 +57,6 @@ class MenuItem:
         self.unit = str(self.unit).strip()
 
     def update(self, **kwargs):
-        """Cập nhật dữ liệu an toàn: Chỉ áp dụng khi toàn bộ dữ liệu mới hợp lệ."""
         old_state = self.to_dict()
         try:
             for key, value in kwargs.items():

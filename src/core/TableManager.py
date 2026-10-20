@@ -116,7 +116,6 @@ class TableManager:
         return True
 
     def add_table(self, table: Table) -> bool:
-        """Thêm bàn mới vào hệ thống và lưu vào tables.json."""
         if not isinstance(table, Table):
             raise TypeError("Đối tượng thêm vào phải thuộc lớp Table.")
         if table.id in self._tables:
@@ -126,7 +125,6 @@ class TableManager:
         return True
 
     def remove_table(self, table_id: int) -> bool:
-        """Xóa bàn khỏi hệ thống nếu bàn không bận (OCCUPIED)."""
         table = self.get_table(table_id)
         if not table or table.status == "OCCUPIED":
             return False
@@ -140,7 +138,6 @@ class TableManager:
         name: Optional[str] = None,
         capacity: Optional[int] = None,
     ) -> bool:
-        """Cập nhật tên và sức chứa của bàn ăn."""
         table = self.get_table(table_id)
         if not table:
             return False
@@ -150,4 +147,5 @@ class TableManager:
             table.capacity = int(capacity)
         self.save_tables()
         return True
+
 

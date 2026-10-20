@@ -1,4 +1,3 @@
-"""Streamlit entry point for the DŨNG FATFOOD management system."""
 
 import sys
 from pathlib import Path
@@ -149,9 +148,7 @@ section[data-testid="stSidebar"] {
     unsafe_allow_html=True,
 )
 
-
 def get_services():
-    """Create per-session services and restore active kitchen orders."""
     if "table_manager" not in st.session_state:
         st.session_state.table_manager = TableManager()
     if "kitchen_manager" not in st.session_state:
@@ -183,7 +180,6 @@ def get_services():
         st.session_state.payment_service,
         st.session_state.cart,
     )
-
 
 (
     table_manager,

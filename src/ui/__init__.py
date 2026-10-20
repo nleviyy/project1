@@ -1,4 +1,3 @@
-"""Streamlit components for the restaurant ordering and management system."""
 
 import json
 from pathlib import Path
@@ -37,13 +36,10 @@ ORDER_STATUS_LABELS = {
     "CANCELLED": "Đã hủy",
 }
 
-
 def _select_menu_suggestion(item_id: str) -> None:
     st.session_state["header_menu_search"] = item_id
 
-
 def apply_custom_styles() -> None:
-    """Apply the lavender and purple dashboard theme."""
     st.markdown(
         """
 <style>
@@ -160,7 +156,6 @@ h1, h2, h3, h4 {
         unsafe_allow_html=True,
     )
 
-
 def _load_menu_catalog() -> MenuCatalog:
     if not MENU_PATH.exists():
         raise FileNotFoundError(f"Không tìm thấy thực đơn: {MENU_PATH}")
@@ -174,14 +169,11 @@ def _load_menu_catalog() -> MenuCatalog:
         raise ValueError("Thực đơn có món không hợp lệ hoặc mã món bị trùng.")
     return catalog
 
-
 def _money(value: int | float) -> str:
     return f"{value:,.0f} VNĐ"
 
-
 def _table_label(table_id: int | str) -> str:
     return f"Bàn {table_id}" if str(table_id).isdigit() else str(table_id)
-
 
 def _read_payment_records(payment_service: PaymentService) -> list[dict]:
     path = Path(payment_service.payments_path)
@@ -193,7 +185,6 @@ def _read_payment_records(payment_service: PaymentService) -> list[dict]:
         raise ValueError(f"Dữ liệu thanh toán trong {path.name} không hợp lệ.")
     return records
 
-
 def render_ordering_component(
     menu_catalog: Optional[MenuCatalog] = None,
     cart: Optional[Cart] = None,
@@ -201,7 +192,6 @@ def render_ordering_component(
     table_manager: Optional[TableManager] = None,
     kitchen_manager: Optional[KitchenManager] = None,
 ) -> None:
-    """Render the menu and cart, then create orders through OrderService."""
     menu_catalog = menu_catalog or _load_menu_catalog()
     cart = cart or st.session_state.get("cart") or Cart()
     order_service = order_service or st.session_state.get("order_service") or OrderService()
@@ -402,12 +392,10 @@ def render_ordering_component(
                                 )
                                 st.rerun()
 
-
 def render_tables_component(
     table_manager: Optional[TableManager] = None,
     order_service: Optional[OrderService] = None,
 ) -> None:
-    """Render table availability and the active order associated with each table."""
     table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     st.subheader("🪑 Sơ đồ bàn ăn")
@@ -495,12 +483,10 @@ def render_tables_component(
                         else:
                             st.error("Không thể xóa bàn đã chọn.")
 
-
 def render_kitchen_component(
     kitchen_manager: Optional[KitchenManager] = None,
     order_service: Optional[OrderService] = None,
 ) -> None:
-    """Render the FIFO kitchen queue and persist its state transitions."""
     kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     st.subheader("🍳 Điều phối bếp · Hàng đợi FIFO")
@@ -599,13 +585,11 @@ def render_kitchen_component(
             "ở mục Thực đơn."
         )
 
-
 def render_orders_component(
     order_service: Optional[OrderService] = None,
     kitchen_manager: Optional[KitchenManager] = None,
     table_manager: Optional[TableManager] = None,
 ) -> None:
-    """Render searchable order history and cancellation controls."""
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
     table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
@@ -643,7 +627,6 @@ def render_orders_component(
             table_manager=table_manager,
             allow_cancel=True,
         )
-
 
 def _render_order_details(
     order: Order,
@@ -694,13 +677,11 @@ def _render_order_details(
                     st.success(f"Đã hủy đơn {order.id}.")
                     st.rerun()
 
-
 def render_payment_component(
     payment_service: Optional[PaymentService] = None,
     order_service: Optional[OrderService] = None,
     table_manager: Optional[TableManager] = None,
 ) -> None:
-    """Render checkout for served orders and recent transaction history."""
     payment_service = payment_service or st.session_state.get("payment_service") or PaymentService()
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
@@ -837,13 +818,11 @@ def render_payment_component(
             else:
                 st.caption("Chưa có giao dịch thanh toán.")
 
-
 def render_dashboard_component(
     order_service: Optional[OrderService] = None,
     table_manager: Optional[TableManager] = None,
     payment_service: Optional[PaymentService] = None,
 ) -> None:
-    """Render at-a-glance restaurant, kitchen, and revenue metrics."""
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
     payment_service = payment_service or st.session_state.get("payment_service") or PaymentService()
@@ -995,7 +974,6 @@ def render_dashboard_component(
             width="stretch",
         )
 
-
 def render_settings_component(
     order_service: Optional[OrderService] = None,
     table_manager: Optional[TableManager] = None,
@@ -1003,7 +981,6 @@ def render_settings_component(
     payment_service: Optional[PaymentService] = None,
     menu_catalog: Optional[MenuCatalog] = None,
 ) -> None:
-    """Render system settings, file inspectors, and reload controls."""
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
     kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
