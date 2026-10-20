@@ -49,6 +49,10 @@ class Order(BaseModel):
         default_factory=lambda: datetime.now().isoformat(), 
         description="Thời gian cập nhật gần nhất"
     )
+    preparing_started_at: Optional[str] = Field(
+        default=None,
+        description="Thời điểm bắt đầu chế biến để tính ETA còn lại",
+    )
     items: List[OrderItem] = Field(default_factory=list, description="Danh sách món đã đặt")
     notes: Optional[str] = Field(default="", description="Ghi chú toàn đơn")
     discount_amount: int = Field(default=0, ge=0, description="Tiền giảm giá (VNĐ)")
@@ -153,7 +157,14 @@ class Order(BaseModel):
             return False
 
         self.status = new_status
-        self.updated_at = datetime.now().isoformat()
+        now = datetime.now().isoformat()
+        self.updated_at = now
+        if new_status == "PREPARING":
+            self.preparing_started_at = now
+        elif new_status == "PENDING":
+            self.preparing_started_at = None
+        elif new_status == "SERVED":
+            self.preparing_started_at = None
         return True
 
     def can_transition_to(self, new_status: StatusType) -> bool:

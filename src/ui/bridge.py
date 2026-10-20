@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 import sys
 
@@ -8,11 +7,9 @@ if str(PROJECT_ROOT) not in sys.path:
 
 
 def _load_json(path: Path, default: list) -> list:
-    try:
-        with path.open(encoding="utf-8") as source:
-            value = json.load(source)
-    except FileNotFoundError:
-        return default
+    from src.models.JSONStorage import JSONStorage
+
+    value = JSONStorage.load_data(str(path), default_data=default, strict=True)
     if not isinstance(value, list):
         raise ValueError(f"{path.name} chứa dữ liệu không đúng định dạng.")
     return value
@@ -140,31 +137,32 @@ def handle(request: dict, data_directory: Path) -> list | dict | None:
     if operation in ("start_next_order", "finish_current_order", "cancel_order"):
         order_service, _, kitchen_manager = _make_runtime(data_directory)
         if operation == "start_next_order":
-            order = kitchen_manager.start_next_order()
+            order = kitchen_manager.peek_next_order()
             if order is None:
                 return None
+            if not order_service.start_preparing_order(order.id):
+                raise ValueError(f"Không thể bắt đầu chế biến đơn '{order.id}'.")
         elif operation == "finish_current_order":
             order = kitchen_manager.get_current_order()
             if order is None:
                 raise ValueError("Bếp chưa có đơn đang chế biến.")
-            kitchen_manager.advance_status()
-            order = kitchen_manager.finish_current_order()
+            if not order_service.serve_order(order.id):
+                raise ValueError(f"Không thể lên món cho đơn '{order.id}'.")
         else:
             order_id = request.get("order_id")
             if not isinstance(order_id, str) or not order_id:
                 raise ValueError("Mã đơn hàng không hợp lệ.")
-            order_service.cancel_order(
+            if not order_service.cancel_order(
                 order_id,
                 reason=request.get("reason", ""),
                 kitchen_manager=kitchen_manager,
-            )
+            ):
+                raise ValueError(f"Không thể hủy đơn '{order_id}'.")
             order = order_service.get_order_by_id(order_id)
             if order is None:
                 raise ValueError(f"Không tìm thấy đơn hàng '{order_id}'.")
             return order.to_dict()
 
-        if not order_service.save_orders():
-            raise OSError(f"Không thể lưu trạng thái đơn '{order.id}'.")
         return order.to_dict()
 
     if operation == "pay_order":

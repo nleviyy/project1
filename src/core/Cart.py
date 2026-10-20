@@ -15,18 +15,6 @@ class CartItem:
         self.note = note
         self.prep_time = prep_time
 
-    @property
-    def item_id(self):
-        return self.menu_item_id
-
-    @property
-    def name(self):
-        return self.item_name
-
-    @property
-    def price(self):
-        return self.unit_price
-
     def calculate_subtotal(self):
         return self.unit_price * self.quantity
 
@@ -59,6 +47,14 @@ class Cart:
         self._items = []         
         self.undo_stack = []
         self.redo_stack = []
+
+    @property
+    def items(self):
+        return self._items
+
+    @property
+    def total_amount(self):
+        return self.calculate_total()
 
     def _snapshot(self):
         return [item.to_dict() for item in self._items]
@@ -96,13 +92,6 @@ class Cart:
                 return item
         return None
 
-    @property
-    def items(self):
-        return self._items
-
-    def total_amount(self):
-        return self.calculate_total()
-
     def _get_value(self, menu_item, key, default=None):
         if isinstance(menu_item, dict):
             return menu_item.get(key, default)
@@ -127,6 +116,8 @@ class Cart:
             is_available = self._get_value(menu_item, "is_available", True)
             prep_time = self._get_value(menu_item, "prep_time", 0)
 
+        if not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
         if unit_price < 0:

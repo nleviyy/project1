@@ -1,4 +1,3 @@
-import json
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -20,22 +19,22 @@ class TableManager:
             self.load_tables()
 
     def load_tables(self) -> None:
-        if not self.tables_file.exists():
-            self._tables = {}
-            return
-
-        try:
-            with open(self.tables_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    self._tables = {
-                        int(item["id"]): Table.from_dict(item)
-                        for item in data
-                        if isinstance(item, dict) and "id" in item
-                    }
-        except Exception as e:
-            print(f"Lỗi khi đọc file tables.json: {e}")
-            self._tables = {}
+        data = JSONStorage.load_data(
+            str(self.tables_file),
+            default_data=[],
+            strict=True,
+        )
+        if not isinstance(data, list) or any(not isinstance(item, dict) for item in data):
+            raise ValueError(f"Dữ liệu bàn trong '{self.tables_file}' phải là danh sách object.")
+        loaded_tables = {}
+        for item in data:
+            if "id" not in item:
+                raise ValueError(f"Một bàn trong '{self.tables_file}' thiếu trường id.")
+            table = Table.from_dict(item)
+            if table.id in loaded_tables:
+                raise ValueError(f"ID bàn '{table.id}' bị trùng trong '{self.tables_file}'.")
+            loaded_tables[table.id] = table
+        self._tables = loaded_tables
 
     def save_tables(self) -> bool:
         data = [table.to_dict() for table in self._tables.values()]
@@ -103,7 +102,7 @@ class TableManager:
 
     def vacate_table(self, table_id: int) -> bool:
         table = self.get_table(table_id)
-        if not table:
+        if not table or table.status != "RESERVED":
             return False
 
         previous_status = table.status
@@ -121,7 +120,9 @@ class TableManager:
         if table.id in self._tables:
             return False
         self._tables[table.id] = table
-        self.save_tables()
+        if not self.save_tables():
+            del self._tables[table.id]
+            return False
         return True
 
     def remove_table(self, table_id: int) -> bool:
@@ -129,7 +130,9 @@ class TableManager:
         if not table or table.status == "OCCUPIED":
             return False
         del self._tables[int(table_id)]
-        self.save_tables()
+        if not self.save_tables():
+            self._tables[int(table_id)] = table
+            return False
         return True
 
     def update_table(
@@ -141,11 +144,14 @@ class TableManager:
         table = self.get_table(table_id)
         if not table:
             return False
+        previous_name = table.name
+        previous_capacity = table.capacity
         if name:
             table.name = str(name).strip()
         if capacity is not None and int(capacity) > 0:
             table.capacity = int(capacity)
-        self.save_tables()
+        if not self.save_tables():
+            table.name = previous_name
+            table.capacity = previous_capacity
+            return False
         return True
-
-

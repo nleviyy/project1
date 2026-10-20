@@ -1,15 +1,111 @@
 [
   {
-    "id": "M20",
-    "name": "Trà Atiso",
+    "id": "M01",
+    "name": "Cà phê đen đá",
     "category": "Đồ uống",
-    "price": 20,
+    "price": 25000,
     "unit": "ly",
     "is_available": true,
-    "description": "Thức uống giải nhiệt thuần túy từ hoa atiso Đà Lạt tự nhiên, mang vị ngọt hậu nhẹ nhàng và hương thơm mộc mạc đặc trưng. Giúp mát gan, thanh lọc cơ thể và mang lại cảm giác sảng khoái tức thì cho ngày dài năng động.",
-    "prep_time": 10,
-    "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT2LZ-YMxb4SynG7LpkL5cW5KlNSVXMiBn0wRfgW3Q4gF9ArKX_EMRHyXE&s=10",
+    "description": "Cà phê Robusta truyền thống, thơm đậm vị",
+    "prep_time": 5,
+    "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=700&q=85",
+    "color": "#68452f"
+  },
+  {
+    "id": "M02",
+    "name": "Cà phê sữa đá",
+    "category": "Đồ uống",
+    "price": 28000,
+    "unit": "ly",
+    "is_available": true,
+    "description": "Cà phê pha phin hòa quyện cùng sữa đặc béo ngậy",
+    "prep_time": 6,
+    "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=700&q=85",
+    "color": "#68452f"
+  },
+  {
+    "id": "M03",
+    "name": "Trà đào cam sả",
+    "category": "Đồ uống",
+    "price": 39000,
+    "unit": "ly",
+    "is_available": true,
+    "description": "Trà đen hương đào thanh mát, sả tươi và lát cam vàng",
+    "prep_time": 7,
+    "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=700&q=85",
+    "color": "#80452f"
+  },
+  {
+    "id": "M04",
+    "name": "Trà sữa trân châu hoàng kim",
+    "category": "Đồ uống",
+    "price": 42000,
+    "unit": "ly",
+    "is_available": true,
+    "description": "Trà sữa đậm vị kèm trân châu hoàng kim dai giòn",
+    "prep_time": 8,
+    "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=700&q=85",
     "color": "#5b3c55"
+  },
+  {
+    "id": "M05",
+    "name": "Bánh mì chảo đặc biệt",
+    "category": "Món chính",
+    "price": 55000,
+    "unit": "phần",
+    "is_available": true,
+    "description": "Bò sốt tiêu, trứng ốp la, xíu mại, xúc xích và bánh mì giòn",
+    "prep_time": 15,
+    "image": "https://cdn-i.doisongphapluat.com.vn/media/nguyen-thi-linh/2024/03/13/ban-my-viet-nam-dung-dau-danh-sach-top-100-mon-banh-sandwich-ngon-nhat-the-gioi-dspl1.png",
+    "color": "#713f28"
+  },
+  {
+    "id": "M06",
+    "name": "Bò lúc lắc khoai tây",
+    "category": "Món chính",
+    "price": 69000,
+    "unit": "dĩa",
+    "is_available": true,
+    "description": "Bò Úc xào lửa lớn với ớt chuông, kèm khoai tây chiên",
+    "prep_time": 18,
+    "image": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=85",
+    "color": "#713f28"
+  },
+  {
+    "id": "M07",
+    "name": "Khoai tây chiên lắc phô mai",
+    "category": "Ăn vặt",
+    "price": 32000,
+    "unit": "dĩa",
+    "is_available": true,
+    "description": "Khoai tây giòn rụm phủ lớp bột phô mai béo thơm",
+    "prep_time": 10,
+    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=700&q=85",
+    "color": "#5b3c55"
+  },
+  {
+    "id": "M08",
+    "name": "Salad ức gà sốt mè rang",
+    "category": "Khai vị",
+    "price": 45000,
+    "unit": "dĩa",
+    "is_available": false,
+    "description": "Rau xà lách tươi, cà chua bi, ức gà áp chảo sốt mè (tạm hết)",
+    "prep_time": 12,
+    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "color": "#2f6845"
+  },
+  {
+    "id": "M09",
+    "name": "Súp bí đỏ kem tươi",
+    "category": "Khai vị",
+    "price": 38000,
+    "unit": "chén",
+    "is_available": true,
+    "description": "Súp bí đỏ mịn, béo ngậy kèm kem tươi và hạt bí rang",
+    "prep_time": 10,
+    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "color": "#2f6845"
   },
   {
     "id": "M10",
@@ -48,18 +144,6 @@
     "color": "#5b3c55"
   },
   {
-    "id": "M01",
-    "name": "Cà phê đen đá",
-    "category": "Đồ uống",
-    "price": 60000,
-    "unit": "ly",
-    "is_available": true,
-    "description": "Cà phê Robusta truyền thống, thơm đậm vị",
-    "prep_time": 5,
-    "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=700&q=85",
-    "color": "#68452f"
-  },
-  {
     "id": "M13",
     "name": "Bún chả Hà Nội",
     "category": "Món chính",
@@ -70,18 +154,6 @@
     "prep_time": 25,
     "image": "https://i-giadinh.vnecdn.net/2023/04/16/Buoc-11-Thanh-pham-11-7068-1681636164.jpg",
     "color": "#5b3c55"
-  },
-  {
-    "id": "M02",
-    "name": "Cà phê sữa đá",
-    "category": "Đồ uống",
-    "price": 29000,
-    "unit": "ly",
-    "is_available": true,
-    "description": "Cà phê pha phin hòa quyện cùng sữa đặc béo ngậy",
-    "prep_time": 6,
-    "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=700&q=85",
-    "color": "#68452f"
   },
   {
     "id": "M14",
@@ -96,18 +168,6 @@
     "color": "#5b3c55"
   },
   {
-    "id": "M03",
-    "name": "Trà đào cam sả",
-    "category": "Đồ uống",
-    "price": 39000,
-    "unit": "ly",
-    "is_available": true,
-    "description": "Trà đen hương đào thanh mát, sả tươi và lát cam vàng",
-    "prep_time": 7,
-    "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=700&q=85",
-    "color": "#80452f"
-  },
-  {
     "id": "M15",
     "name": "Mì Quảng",
     "category": "Món chính",
@@ -117,18 +177,6 @@
     "description": "Sợi mì gạo dai mềm hòa quyện cùng nước nhưn (nước dùng) sệt đậm đà, chan xăm xắp chuẩn vị xứ Quảng. Ăn kèm thịt heo, tôm tươi, gà ta, trứng cút, đậu phộng rang bùi béo, bánh tráng nướng giòn rụm và rau sống tươi mát.",
     "prep_time": 15,
     "image": "https://mhotel.vn/wp-content/uploads/2025/11/1238-1665132014.jpg",
-    "color": "#5b3c55"
-  },
-  {
-    "id": "M04",
-    "name": "Trà sữa trân châu hoàng kim",
-    "category": "Đồ uống",
-    "price": 42000,
-    "unit": "ly",
-    "is_available": true,
-    "description": "Trà sữa đậm vị kèm trân châu hoàng kim dai giòn",
-    "prep_time": 8,
-    "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=700&q=85",
     "color": "#5b3c55"
   },
   {
@@ -144,18 +192,6 @@
     "color": "#5b3c55"
   },
   {
-    "id": "M05",
-    "name": "Bánh mì chảo đặc biệt",
-    "category": "Món chính",
-    "price": 55000,
-    "unit": "phần",
-    "is_available": true,
-    "description": "Bò sốt tiêu, trứng ốp la, xíu mại, xúc xích và bánh mì giòn",
-    "prep_time": 15,
-    "image": "https://cdn-i.doisongphapluat.com.vn/media/nguyen-thi-linh/2024/03/13/ban-my-viet-nam-dung-dau-danh-sach-top-100-mon-banh-sandwich-ngon-nhat-the-gioi-dspl1.png",
-    "color": "#713f28"
-  },
-  {
     "id": "M17",
     "name": "Sữa chua nếp cẩm",
     "category": "Tráng miệng",
@@ -168,39 +204,15 @@
     "color": "#5b3c55"
   },
   {
-    "id": "M06",
-    "name": "Bò lúc lắc khoai tây",
-    "category": "Món chính",
-    "price": 69000,
-    "unit": "dĩa",
-    "is_available": true,
-    "description": "Bò Úc xào lửa lớn với ớt chuông, kèm khoai tây chiên",
-    "prep_time": 18,
-    "image": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=85",
-    "color": "#713f28"
-  },
-  {
     "id": "M18",
     "name": "Kem chuối",
     "category": "Tráng miệng",
-    "price": 10,
+    "price": 10000,
     "unit": "que",
     "is_available": true,
     "description": "Kem chuối ép truyền thống với vị ngọt tự nhiên của chuối sứ chín cây, quyện cùng nước cốt dừa béo ngậy, phủ thêm đậu phộng rang giòn rụm và dừa nạo sần sật.",
     "prep_time": 10,
     "image": "https://savourebakery.com/storage/images/san-pham/Kem/Kem-Chuoi-Dua.jpg",
-    "color": "#5b3c55"
-  },
-  {
-    "id": "M07",
-    "name": "Khoai tây chiên lắc phô mai",
-    "category": "Ăn vặt",
-    "price": 32000,
-    "unit": "dĩa",
-    "is_available": true,
-    "description": "Khoai tây giòn rụm phủ lớp bột phô mai béo thơm",
-    "prep_time": 10,
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=700&q=85",
     "color": "#5b3c55"
   },
   {
@@ -216,27 +228,15 @@
     "color": "#5b3c55"
   },
   {
-    "id": "M08",
-    "name": "Salad ức gà sốt mè rang",
-    "category": "Khai vị",
-    "price": 45000,
-    "unit": "dĩa",
-    "is_available": false,
-    "description": "Rau xà lách tươi, cà chua bi, ức gà áp chảo sốt mè (tạm hết)",
-    "prep_time": 12,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
-    "color": "#2f6845"
-  },
-  {
-    "id": "M09",
-    "name": "Súp bí đỏ kem tươi",
-    "category": "Khai vị",
-    "price": 38000,
-    "unit": "chén",
+    "id": "M20",
+    "name": "Trà Atiso",
+    "category": "Đồ uống",
+    "price": 20000,
+    "unit": "ly",
     "is_available": true,
-    "description": "Súp bí đỏ mịn, béo ngậy kèm kem tươi và hạt bí rang",
+    "description": "Thức uống giải nhiệt thuần túy từ hoa atiso Đà Lạt tự nhiên, mang vị ngọt hậu nhẹ nhàng và hương thơm mộc mạc đặc trưng. Giúp mát gan, thanh lọc cơ thể và mang lại cảm giác sảng khoái tức thì cho ngày dài năng động.",
     "prep_time": 10,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
-    "color": "#2f6845"
+    "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcT2LZ-YMxb4SynG7LpkL5cW5KlNSVXMiBn0wRfgW3Q4gF9ArKX_EMRHyXE&s=10",
+    "color": "#5b3c55"
   }
 ]

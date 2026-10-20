@@ -4,24 +4,32 @@
     "order_id": "ORD-20261014-003",
     "table_id": 1,
     "payment_time": "2026-10-14T19:20:00",
+    "amount": 25000,
+    "discount_rate": 0.0,
     "amount_paid": 25000,
     "method": "CASH",
     "status": "SUCCESS",
     "cashier_name": "Vy",
     "transaction_code": null,
-    "note": "Khách thanh toán tiền mặt 50.000đ, trả lại 25.000đ"
+    "note": "Khách thanh toán tiền mặt 50.000đ, trả lại 25.000đ",
+    "cash_received": 50000,
+    "change_due": 25000
   },
   {
     "id": "PAY-20261014-002",
     "order_id": "ORD-20261013-088",
     "table_id": 3,
     "payment_time": "2026-10-13T21:45:15",
+    "amount": 450000,
+    "discount_rate": 0.0,
     "amount_paid": 450000,
     "method": "BANK_TRANSFER",
     "status": "SUCCESS",
     "cashier_name": "Quỳnh",
     "transaction_code": "MB-FT26101399812",
-    "note": "Chuyển khoản VietQR thành công"
+    "note": "Chuyển khoản VietQR thành công",
+    "cash_received": null,
+    "change_due": 0
   },
   {
     "id": "PAY-F31722D419714787B78975E74302142B",
