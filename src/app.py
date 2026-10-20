@@ -1,4 +1,4 @@
-"""Streamlit entry point for the DŨNG FATFOOD management system."""
+"""Streamlit entry point for the DŨNG MINION management system."""
 
 import sys
 from pathlib import Path
@@ -43,7 +43,7 @@ PAGE_LABELS = {
 }
 
 st.set_page_config(
-    page_title="DŨNG FATFOOD · Quản lý nhà hàng",
+    page_title="DŨNG MINION · Quản lý nhà hàng",
     page_icon="🍽️",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -202,8 +202,8 @@ with st.sidebar:
     st.markdown(
         """
 <div class="sidebar-brand">
-    <span class="sidebar-logo">DF</span>
-    <span><strong>DŨNG<br>FATFOOD</strong><small>Quản lý nhà hàng</small></span>
+    <span class="sidebar-logo">DM</span>
+    <span><strong>DŨNG<br>MINION</strong><small>Quản lý nhà hàng</small></span>
 </div>
 """,
         unsafe_allow_html=True,
@@ -227,7 +227,7 @@ with st.sidebar:
     st.markdown(
         '<div style="margin-top:2rem;padding:.8rem;border-radius:14px;'
         'background:rgba(255,255,255,.12);color:#fff">'
-        '<b>Ngon hơn mỗi ngày</b><br><small>cùng DŨNG FATFOOD</small></div>',
+        '<b>Ngon hơn mỗi ngày</b><br><small>cùng DŨNG MINION</small></div>',
         unsafe_allow_html=True,
     )
 
@@ -236,10 +236,7 @@ if "checkout_notice" in st.session_state:
 if "payment_notice" in st.session_state:
     st.success(st.session_state.pop("payment_notice"))
 
-header_left, header_search = st.columns(
-    [1.1, 1],
-    vertical_alignment="center",
-)
+header_left = st.container()
 if selected_page == "🍽️  Thực đơn":
     with header_left:
         render_cart_component(
@@ -248,12 +245,6 @@ if selected_page == "🍽️  Thực đơn":
             table_manager=table_manager,
             kitchen_manager=kitchen_manager,
         )
-header_search.text_input(
-    "Tìm món ăn theo tên hoặc mã món",
-    placeholder="⌕  Tìm món ăn theo tên hoặc mã món",
-    key="header_menu_search",
-    label_visibility="collapsed",
-)
 
 if selected_page == "🍽️  Thực đơn":
     st.title("Thực đơn")
@@ -275,7 +266,7 @@ elif selected_page == "🍳  Bếp":
     if st.button("↻ Cập nhật hàng đợi", key="refresh_kitchen_queue"):
         order_service.load_orders()
         kitchen_manager.restore_orders(order_service.get_all_orders())
-        st.toast("Đã tải lại đơn hàng từ data/orders.json.")
+        st.toast("Đã tải lại đơn hàng.")
     render_kitchen_component(
         kitchen_manager=kitchen_manager,
         order_service=order_service,

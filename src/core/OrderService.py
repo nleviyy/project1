@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from pathlib import Path
 import sys
@@ -399,6 +399,51 @@ class OrderService:
         if self.table_manager is not None:
             self.table_manager.release_table(order.table_id)
 
+        return True
+
+    def prioritize_order(self, order_id: str, kitchen_manager: Optional[Any] = None) -> bool:
+        """Bếp ưu tiên đơn đang chờ: đưa lên đầu hàng đợi và lưu thời điểm ưu tiên."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+        km = kitchen_manager or self.kitchen_manager
+        if km is None:
+            raise ValueError("Chưa kết nối bếp, không thể ưu tiên đơn.")
+        km.prioritize_order(order_id)
+        order.priority_at = datetime.now().isoformat()
+        order._touch()
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu ưu tiên của đơn '{order_id}'.")
+        return True
+
+    def set_kitchen_note(self, order_id: str, note: str) -> bool:
+        """Lưu ghi chú của bếp cho đơn hàng."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+        clean = (note or "").strip()
+        if len(clean) > 300:
+            raise ValueError("Ghi chú bếp tối đa 300 ký tự.")
+        order.kitchen_note = clean
+        order._touch()
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu ghi chú của đơn '{order_id}'.")
+        return True
+
+    def move_waiting_order(self, order_id: str, step: int, kitchen_manager: Optional[Any] = None) -> bool:
+        """Đổi chỗ đơn đang chờ với đơn liền kề (step=-1 lên, +1 xuống) và lưu thứ tự mới."""
+        if step not in (-1, 1):
+            raise ValueError("Chỉ đổi chỗ 1 bậc mỗi lần.")
+        km = kitchen_manager or self.kitchen_manager
+        if km is None:
+            raise ValueError("Chưa kết nối bếp, không thể chuyển thứ tự.")
+        new_queue = km.move_waiting(order_id, step)
+        base = datetime.now()
+        total = len(new_queue)
+        for index, order in enumerate(new_queue):
+            order.priority_at = (base + timedelta(seconds=total - index)).isoformat()
+        if not self.save_orders():
+            raise OSError("Không thể lưu thứ tự hàng đợi.")
         return True
 
     def serve_order(self, order_id: str) -> bool:

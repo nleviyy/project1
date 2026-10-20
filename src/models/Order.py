@@ -52,6 +52,8 @@ class Order(BaseModel):
     items: List[OrderItem] = Field(default_factory=list, description="Danh sách món đã đặt")
     notes: Optional[str] = Field(default="", description="Ghi chú toàn đơn")
     discount_amount: int = Field(default=0, ge=0, description="Tiền giảm giá (VNĐ)")
+    kitchen_note: str = Field(default="", description="Ghi chú của bếp")
+    priority_at: Optional[str] = Field(default=None, description="Thời điểm bếp ưu tiên đơn (ISO)")
 
     VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = ORDER_STATUS_TRANSITIONS
 
