@@ -114,3 +114,40 @@ class TableManager:
             table.current_order_id = previous_order_id
             return False
         return True
+
+    def add_table(self, table: Table) -> bool:
+        """Thêm bàn mới vào hệ thống và lưu vào tables.json."""
+        if not isinstance(table, Table):
+            raise TypeError("Đối tượng thêm vào phải thuộc lớp Table.")
+        if table.id in self._tables:
+            return False
+        self._tables[table.id] = table
+        self.save_tables()
+        return True
+
+    def remove_table(self, table_id: int) -> bool:
+        """Xóa bàn khỏi hệ thống nếu bàn không bận (OCCUPIED)."""
+        table = self.get_table(table_id)
+        if not table or table.status == "OCCUPIED":
+            return False
+        del self._tables[int(table_id)]
+        self.save_tables()
+        return True
+
+    def update_table(
+        self,
+        table_id: int,
+        name: Optional[str] = None,
+        capacity: Optional[int] = None,
+    ) -> bool:
+        """Cập nhật tên và sức chứa của bàn ăn."""
+        table = self.get_table(table_id)
+        if not table:
+            return False
+        if name:
+            table.name = str(name).strip()
+        if capacity is not None and int(capacity) > 0:
+            table.capacity = int(capacity)
+        self.save_tables()
+        return True
+

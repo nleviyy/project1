@@ -1,10 +1,10 @@
 [
   {
-    "id": "INV-70E8FC6AC12F442AA61EEE7AF04285F5",
-    "payment_id": "PAY-5081D416ECD5461491D6279E61C55BF9",
+    "id": "INV-C70646A91A0D4751A9E4AECE5C3EC48F",
+    "payment_id": "PAY-F31722D419714787B78975E74302142B",
     "order_id": "ORD-20261014-001",
     "table_id": 2,
-    "issued_at": "2026-10-20T00:53:48",
+    "issued_at": "2026-10-19T02:51:03",
     "items": [
       {
         "menu_item_id": "M02",
@@ -27,7 +27,70 @@
     "discount_amount": 0,
     "total_amount": 113000,
     "final_amount": 113000,
-    "payment_method": "BANK_TRANSFER",
-    "cashier_name": "Lê Vyyyy"
+    "payment_method": "CASH",
+    "cashier_name": "NghimQinh"
+  },
+  {
+    "id": "INV-DD8FDB5B28664BA8B86C2AF9D3C69883",
+    "payment_id": "PAY-B133462CFB024443B68F80D912B5B663",
+    "order_id": "ORD-20261014-002",
+    "table_id": 5,
+    "issued_at": "2026-10-20T01:32:30",
+    "items": [
+      {
+        "menu_item_id": "M03",
+        "item_name": "Trà đào cam sả",
+        "unit_price": 39000,
+        "quantity": 3,
+        "subtotal": 117000,
+        "note": "Ít đá"
+      },
+      {
+        "menu_item_id": "M06",
+        "item_name": "Bò lúc lắc khoai tây",
+        "unit_price": 69000,
+        "quantity": 2,
+        "subtotal": 138000,
+        "note": "Bò chín vừa"
+      },
+      {
+        "menu_item_id": "M07",
+        "item_name": "Khoai tây chiên lắc phô mai",
+        "unit_price": 32000,
+        "quantity": 1,
+        "subtotal": 32000,
+        "note": ""
+      }
+    ],
+    "subtotal": 287000,
+    "discount_amount": 17000,
+    "total_amount": 270000,
+    "final_amount": 270000,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
+  },
+  {
+    "id": "INV-BC12DC629F7E4773B96EE90F5888FDB3",
+    "payment_id": "PAY-EAF58900555D4E5885AB1FC6B52D2267",
+    "order_id": "ORD-20261019-001",
+    "table_id": 1,
+    "issued_at": "2026-10-20T01:34:20",
+    "items": [
+      {
+        "menu_item_id": "M06",
+        "item_name": "Bò lúc lắc khoai tây",
+        "unit_price": 69000,
+        "quantity": 3,
+        "subtotal": 207000,
+        "note": "",
+        "prep_time": 18
+      }
+    ],
+    "subtotal": 207000,
+    "discount_amount": 0,
+    "total_amount": 207000,
+    "final_amount": 207000,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
   }
 ]

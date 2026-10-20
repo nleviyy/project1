@@ -90,3 +90,42 @@ def test_payments_schema():
         assert pay["status"] in valid_statuses
         datetime.fromisoformat(pay["payment_time"])
         assert isinstance(pay["cashier_name"], str)
+
+def test_invoices_schema():
+    """Kiểm tra cấu trúc và kiểu dữ liệu của invoices.json."""
+    invoices_file = DATA_DIR / "invoices.json"
+    assert invoices_file.is_file(), "File invoices.json phải tồn tại"
+    with open(invoices_file, "r", encoding="utf-8") as f:
+        invoices = json.load(f)
+    assert isinstance(invoices, list)
+    for inv in invoices:
+        assert isinstance(inv["id"], str)
+        assert isinstance(inv["payment_id"], str)
+        assert isinstance(inv["order_id"], str)
+        assert isinstance(inv["table_id"], int)
+        datetime.fromisoformat(inv["issued_at"])
+        assert isinstance(inv["items"], list)
+        assert isinstance(inv["total_amount"], int)
+        assert isinstance(inv["discount_amount"], int)
+        assert isinstance(inv["final_amount"], int)
+
+def test_ui_components_importable():
+    """Kiểm tra việc import và khởi tạo tất cả các component UI."""
+    from src.ui import (
+        apply_custom_styles,
+        render_dashboard_component,
+        render_kitchen_component,
+        render_ordering_component,
+        render_orders_component,
+        render_payment_component,
+        render_settings_component,
+        render_tables_component,
+    )
+    assert callable(render_ordering_component)
+    assert callable(render_kitchen_component)
+    assert callable(render_orders_component)
+    assert callable(render_payment_component)
+    assert callable(render_tables_component)
+    assert callable(render_dashboard_component)
+    assert callable(render_settings_component)
+

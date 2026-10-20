@@ -9,14 +9,23 @@ def now_time():
 
 
 class KitchenOrder:
-    def __init__(self, order_id, table_id=1, items=None, notes="", prep_time=0):
+    def __init__(
+        self,
+        order_id,
+        table_id=1,
+        items=None,
+        notes="",
+        prep_time=0,
+        status=OrderStatus.PENDING,
+        created_at=None,
+    ):
         self.order_id = order_id
         self.table_id = table_id
         self.items = items if items is not None else []
         self.notes = notes
         self._prep_time = prep_time
-        self.status = OrderStatus.PENDING
-        self.created_at = now_time()
+        self.status = status
+        self.created_at = created_at or now_time()
         self.updated_at = self.created_at
 
     @property

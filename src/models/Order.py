@@ -71,7 +71,11 @@ class Order(BaseModel):
 
     def set_status(self, new_status: Union[StatusType, OrderStatus]) -> bool:
         """Cập nhật trạng thái thống nhất giữa các tầng."""
-        return self.change_status(new_status)
+        if not self.change_status(new_status):
+            raise ValueError(
+                f"Không thể chuyển đơn {self.id} sang trạng thái {new_status}."
+            )
+        return True
 
     def calculate_prep_time(self) -> int:
         """Tính tổng thời gian chế biến dự kiến cho toàn bộ đơn hàng."""
@@ -196,7 +200,10 @@ class Order(BaseModel):
         return False
 
     def to_dict(self) -> dict:
-        return self.model_dump(mode="json")
+        data = self.model_dump(mode="json")
+        data["total_amount"] = self.total_amount
+        data["final_amount"] = self.final_amount
+        return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "Order":
