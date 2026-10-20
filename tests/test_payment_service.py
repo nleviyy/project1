@@ -1,4 +1,7 @@
 import json
+import os
+from pathlib import Path
+from importlib import import_module
 
 import pytest
 
@@ -75,6 +78,8 @@ def test_successful_payment_creates_invoice_completes_order_and_releases_table(
 
     assert result.payment.status == "SUCCESS"
     assert result.payment.amount_paid == 18000
+    assert result.payment.amount == 20000
+    assert result.payment.discount_rate == 0.1
     assert result.invoice is not None
     assert result.invoice.total_amount == 18000
     assert result.payment.change_due == (2000 if method == "CASH" else 0)
@@ -83,6 +88,48 @@ def test_successful_payment_creates_invoice_completes_order_and_releases_table(
     assert table["status"] == "AVAILABLE"
     assert table["current_order_id"] is None
     assert len(json.loads(paths["invoices_path"].read_text(encoding="utf-8"))) == 1
+    saved_payment = json.loads(
+        paths["payments_path"].read_text(encoding="utf-8")
+    )[0]
+    assert set(saved_payment) == {
+        "id", "order_id", "table_id", "payment_time", "amount", "discount_rate",
+        "amount_paid", "method", "status", "cashier_name", "transaction_code",
+        "note", "cash_received", "change_due",
+    }
+    assert Payment.model_validate(saved_payment).amount_paid == 18000
+
+
+def test_successful_payment_rolls_back_all_files_if_a_write_fails(
+    tmp_path, monkeypatch
+):
+    service, paths = build_service(tmp_path)
+    originals = {
+        path: path.read_bytes()
+        for path in paths.values()
+    }
+    real_replace = os.replace
+    failed = False
+
+    def fail_orders_replacement(source, destination):
+        nonlocal failed
+        if Path(destination) == paths["orders_path"] and not failed:
+            failed = True
+            raise OSError("simulated replace failure")
+        return real_replace(source, destination)
+
+    storage_module = import_module("src.models.JSONStorage")
+    monkeypatch.setattr(
+        storage_module.os,
+        "replace",
+        fail_orders_replacement,
+    )
+
+    with pytest.raises(OSError, match="simulated replace failure"):
+        service.pay_order(
+            "ORD-1", "CARD", "Cashier", transaction_successful=True
+        )
+
+    assert all(path.read_bytes() == contents for path, contents in originals.items())
 
 
 def test_failed_electronic_payment_does_not_complete_or_release_table(tmp_path):
@@ -106,6 +153,21 @@ def test_successful_payment_cannot_be_recorded_twice(tmp_path):
 
     with pytest.raises(ValueError, match="đã được thanh toán thành công"):
         service.pay_order("ORD-1", "CARD", "Cashier", transaction_successful=True)
+
+
+def test_takeaway_payment_uses_label_and_does_not_release_a_table(tmp_path):
+    service, paths = build_service(tmp_path)
+    order = json.loads(paths["orders_path"].read_text(encoding="utf-8"))[0]
+    order["table_id"] = 0
+    paths["orders_path"].write_text(json.dumps([order]), encoding="utf-8")
+    paths["tables_path"].write_text("[]", encoding="utf-8")
+
+    result = service.pay_order("ORD-1", "CASH", "Cashier", cash_received=20000)
+
+    assert result.payment.table_id == "Mang về"
+    assert result.invoice is not None
+    assert result.invoice.table_id == "Mang về"
+    assert json.loads(paths["tables_path"].read_text(encoding="utf-8")) == []
 
 
 def test_cash_payment_rejects_insufficient_tender_without_writing(tmp_path):

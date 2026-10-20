@@ -170,8 +170,11 @@ def get_services():
     order_service.kitchen_manager = kitchen_manager
     table_manager.load_tables()
     order_service.load_orders()
-    if hasattr(kitchen_manager, "restore_orders"):
-        kitchen_manager.restore_orders(order_service.get_all_orders())
+    active_orders = sorted(
+        order_service.get_all_orders(),
+        key=lambda order: str(order.created_at),
+    )
+    kitchen_manager.synchronize_orders(active_orders)
 
     return (
         table_manager,

@@ -99,6 +99,7 @@ def main():
     from tempfile import TemporaryDirectory
     from src.core.TableManager import TableManager
     from src.core.KitchenManager import KitchenManager
+    from src.core.PaymentService import PaymentService
     import json
 
     with TemporaryDirectory() as tmp_dir:
@@ -134,7 +135,7 @@ def main():
         dish = OrderItem(
             menu_item_id="M02",
             item_name="Cà phê sữa đá",
-            unit_price=29000,
+            unit_price=28000,
             quantity=2,
             note="Ít ngọt"
         )
@@ -169,13 +170,23 @@ def main():
         can_pay, msg = service.can_checkout(new_order.id)
         print(f"  + Lần 1: Kiểm tra trước thanh toán: Hợp lệ = {can_pay} -> '{msg}'")
 
-        # Ghi nhận thanh toán thành công vào payments_file
-        with open(payments_file, "w", encoding="utf-8") as f:
-            json.dump([{"order_id": new_order.id, "status": "SUCCESS", "amount": new_order.final_amount}], f)
-
-        # Tiến hành hoàn tất đơn
-        service.complete_order(new_order.id)
-        print(f"  + Đã thanh toán đơn '{new_order.id}' -> Trạng thái đổi sang: {new_order.status}")
+        payment_result = PaymentService(
+            payments_path=payments_file,
+            invoices_path=tmp_path / "invoices.json",
+            orders_path=orders_file,
+            tables_path=tables_file,
+        ).pay_order(
+            new_order.id,
+            method="CASH",
+            cashier_name="Thu ngân demo",
+            cash_received=new_order.final_amount,
+        )
+        service.load_orders()
+        new_order = service.get_order_by_id(new_order.id)
+        print(
+            f"  + Thanh toán {payment_result.payment.status}; "
+            f"đơn chuyển sang: {new_order.status}"
+        )
 
         # Thử thanh toán lại lần 2 đơn đã thanh toán
         can_pay_again, msg_again = service.can_checkout(new_order.id)

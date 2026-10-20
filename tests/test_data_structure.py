@@ -6,8 +6,8 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from src.core.KitchenManager import KitchenManager
-from src.models.KitchenOrder import KitchenOrder as Order
-from src.models.Order import OrderStatus
+from src.models.Order import Order, OrderStatus
+from src.models.OrderItem import OrderItem
 from src.core.Cart import Cart, CartItem
 
 
@@ -17,6 +17,20 @@ class TestKitchenQueue(unittest.TestCase):
     def setUp(self):
         self.kitchen = KitchenManager()
 
+    def _order(self, order_id, prep_time=0):
+        items = []
+        if prep_time:
+            items = [
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Món thử",
+                    unit_price=0,
+                    quantity=1,
+                    prep_time=prep_time,
+                )
+            ]
+        return Order(id=order_id, table_id=0, items=items)
+
     def _cook_one(self):
         order = self.kitchen.start_next_order()
         self.kitchen.advance_status()            
@@ -25,7 +39,7 @@ class TestKitchenQueue(unittest.TestCase):
 
     def test_fifo_order(self):
         for oid in ["A", "B", "C"]:
-            self.kitchen.add_order(Order(oid))
+            self.kitchen.add_order(self._order(oid))
         got = [self._cook_one().order_id for _ in range(3)]
         self.assertEqual(got, ["A", "B", "C"])
 
@@ -36,30 +50,34 @@ class TestKitchenQueue(unittest.TestCase):
         self.assertIsNone(self.kitchen.peek_next_order())
 
     def test_queue_becomes_empty_after_all_done(self):
-        self.kitchen.add_order(Order("A"))
+        self.kitchen.add_order(self._order("A"))
         self._cook_one()
         self.assertTrue(self.kitchen.is_empty())
 
     def test_peek_does_not_remove(self):
-        self.kitchen.add_order(Order("A"))
-        self.kitchen.add_order(Order("B"))
+        self.kitchen.add_order(self._order("A"))
+        self.kitchen.add_order(self._order("B"))
         self.assertEqual(self.kitchen.peek_next_order().order_id, "A")
         self.assertEqual(self.kitchen.count_waiting(), 2)
 
     def test_duplicate_order_rejected(self):
-        self.kitchen.add_order(Order("A"))
+        self.kitchen.add_order(self._order("A"))
         with self.assertRaises(ValueError):
-            self.kitchen.add_order(Order("A"))
+            self.kitchen.add_order(self._order("A"))
 
     def test_cannot_start_when_busy(self):
-        self.kitchen.add_order(Order("A"))
-        self.kitchen.add_order(Order("B"))
+        self.kitchen.add_order(self._order("A"))
+        self.kitchen.add_order(self._order("B"))
         self.kitchen.start_next_order()
         with self.assertRaises(ValueError):
             self.kitchen.start_next_order()      
 
     def test_estimate_wait_time(self):
-        a, b, c = Order("A", prep_time=5), Order("B", prep_time=7), Order("C", prep_time=3)
+        a, b, c = (
+            self._order("A", prep_time=5),
+            self._order("B", prep_time=7),
+            self._order("C", prep_time=3),
+        )
         for o in (a, b, c):
             self.kitchen.add_order(o)
         self.assertEqual(self.kitchen.estimate_wait_time(c), 5 + 7 + 3)
@@ -72,7 +90,7 @@ class TestKitchenQueue(unittest.TestCase):
 class TestOrderStatus(unittest.TestCase):
     def setUp(self):
         self.kitchen = KitchenManager()
-        self.order = Order("A")
+        self.order = Order(id="A", table_id=0)
         self.kitchen.add_order(self.order)
 
     def test_status_flow(self):

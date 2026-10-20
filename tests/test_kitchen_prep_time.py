@@ -1,19 +1,33 @@
 import json
-from src.core.KitchenManager import KitchenManager
-from src.models.KitchenOrder import KitchenOrder as Order
+from datetime import datetime, timedelta
 
+from src.core.KitchenManager import KitchenManager
+from src.models.Order import Order
+from src.models.OrderItem import OrderItem
 
 from src.core.OrderService import OrderService
 from src.core.PaymentService import PaymentService
 from src.core.TableManager import TableManager
-from src.models.OrderItem import OrderItem
 
 def test_order_prep_time_uses_each_items_quantity():
     order = Order(
-        "A",
+        id="A",
+        table_id=0,
         items=[
-            {"quantity": 2, "prep_time": 5},
-            {"quantity": 3, "prep_time": 4},
+            OrderItem(
+                menu_item_id="M01",
+                item_name="Món 1",
+                unit_price=0,
+                quantity=2,
+                prep_time=5,
+            ),
+            OrderItem(
+                menu_item_id="M02",
+                item_name="Món 2",
+                unit_price=0,
+                quantity=3,
+                prep_time=4,
+            ),
         ],
     )
 
@@ -22,8 +36,32 @@ def test_order_prep_time_uses_each_items_quantity():
 
 def test_wait_time_includes_current_and_earlier_queued_orders():
     kitchen = KitchenManager()
-    current = Order("A", items=[{"quantity": 2, "prep_time": 5}])
-    waiting = Order("B", items=[{"sl": 1, "prep_time": 4}])
+    current = Order(
+        id="A",
+        table_id=0,
+        items=[
+            OrderItem(
+                menu_item_id="M01",
+                item_name="Món 1",
+                unit_price=0,
+                quantity=2,
+                prep_time=5,
+            )
+        ],
+    )
+    waiting = Order(
+        id="B",
+        table_id=0,
+        items=[
+            OrderItem(
+                menu_item_id="M02",
+                item_name="Món 2",
+                unit_price=0,
+                quantity=1,
+                prep_time=4,
+            )
+        ],
+    )
     kitchen.add_order(current)
     kitchen.start_next_order()
     kitchen.add_order(waiting)
@@ -36,6 +74,47 @@ def test_wait_time_includes_current_and_earlier_queued_orders():
     assert estimate == 32
     assert kitchen.count_waiting() == 2
     assert kitchen.peek_next_order() is waiting
+    received_order = kitchen.get_waiting_orders()[1]
+    assert isinstance(received_order, Order)
+    assert received_order.calculate_prep_time() == 18
+
+
+def test_wait_time_uses_elapsed_time_for_current_order():
+    kitchen = KitchenManager()
+    current = Order(
+        id="CURRENT",
+        table_id=0,
+        items=[
+            OrderItem(
+                menu_item_id="M01",
+                item_name="Món 1",
+                unit_price=0,
+                quantity=1,
+                prep_time=5,
+            )
+        ],
+        status="PREPARING",
+        preparing_started_at=(
+            datetime.now() - timedelta(minutes=2)
+        ).isoformat(timespec="seconds"),
+    )
+    waiting = Order(
+        id="WAITING",
+        table_id=0,
+        items=[
+            OrderItem(
+                menu_item_id="M02",
+                item_name="Món 2",
+                unit_price=0,
+                quantity=1,
+                prep_time=4,
+            )
+        ],
+    )
+    kitchen.restore_orders([current, waiting])
+
+    assert kitchen.estimate_wait_time(current) == 3
+    assert kitchen.estimate_wait_time(waiting) == 7
 
 
 def test_order_kitchen_payment_and_table_lifecycle(tmp_path):
@@ -72,7 +151,7 @@ def test_order_kitchen_payment_and_table_lifecycle(tmp_path):
             OrderItem(
                 menu_item_id="M01",
                 item_name="Coffee",
-                unit_price=10000,
+                unit_price=25000,
                 quantity=2,
                 prep_time=5,
             )
@@ -85,42 +164,108 @@ def test_order_kitchen_payment_and_table_lifecycle(tmp_path):
     assert kitchen.count_waiting() == 1
     assert kitchen.estimate_wait_time(order) == 10
 
-    assert kitchen.start_next_order() is order
+    assert order_service.start_preparing_order(order.id)
     assert order.status == "PREPARING"
-    assert order_service.save_orders()
-    assert kitchen.advance_status() == "SERVED"
-    assert kitchen.finish_current_order() is order
-    assert order_service.save_orders()
+    assert order.preparing_started_at is not None
+    assert order_service.serve_order(order.id)
+    assert order.status == "SERVED"
+    assert kitchen.get_current_order() is None
 
     result = PaymentService(
         payments_path=payments_file,
         invoices_path=invoices_file,
         orders_path=orders_file,
         tables_path=tables_file,
-    ).pay_order(order.id, "CASH", "Cashier", cash_received=20000)
+    ).pay_order(order.id, "CASH", "Cashier", cash_received=50000)
 
     assert result.invoice is not None
     persisted_order = json.loads(orders_file.read_text(encoding="utf-8"))[0]
     assert persisted_order["status"] == "COMPLETED"
-    assert persisted_order["total_amount"] == 20000
+    assert persisted_order["total_amount"] == 50000
     assert persisted_order["items"][0]["prep_time"] == 5
     assert json.loads(tables_file.read_text(encoding="utf-8"))[0]["status"] == "AVAILABLE"
 
 
 def test_kitchen_restore_orders():
     kitchen = KitchenManager()
-    order_preparing = Order("ORD-0001", items=[{"quantity": 1, "prep_time": 5}], status="PREPARING")
-    order_pending1 = Order("ORD-0002", items=[{"quantity": 2, "prep_time": 3}], status="PENDING", created_at="2026-10-20T01:00:00")
-    order_pending2 = Order("ORD-0003", items=[{"quantity": 1, "prep_time": 4}], status="PENDING", created_at="2026-10-20T01:05:00")
-    order_completed = Order("ORD-0004", items=[{"quantity": 1, "prep_time": 2}], status="COMPLETED")
+    order_preparing = Order(
+        id="ORD-0001",
+        table_id=1,
+        items=[
+            {
+                "menu_item_id": "M01",
+                "item_name": "Món 1",
+                "unit_price": 0,
+                "quantity": 1,
+                "prep_time": 5,
+            }
+        ],
+        status="PREPARING",
+    )
+    order_pending1 = Order(
+        id="ORD-0002",
+        table_id=1,
+        items=[
+            {
+                "menu_item_id": "M02",
+                "item_name": "Món 2",
+                "unit_price": 0,
+                "quantity": 2,
+                "prep_time": 3,
+            }
+        ],
+        status="PENDING",
+        created_at="2026-10-20T01:00:00",
+    )
+    order_pending2 = Order(
+        id="ORD-0003",
+        table_id=1,
+        items=[
+            {
+                "menu_item_id": "M03",
+                "item_name": "Món 3",
+                "unit_price": 0,
+                "quantity": 1,
+                "prep_time": 4,
+            }
+        ],
+        status="PENDING",
+        created_at="2026-10-20T01:05:00",
+    )
+    order_completed = Order(
+        id="ORD-0004",
+        table_id=1,
+        items=[
+            {
+                "menu_item_id": "M04",
+                "item_name": "Món 4",
+                "unit_price": 0,
+                "quantity": 1,
+                "prep_time": 2,
+            }
+        ],
+        status="COMPLETED",
+    )
 
-    orders_list = [order_completed, order_pending2, order_preparing, order_pending1]
-    kitchen.restore_orders(orders_list)
+    kitchen.restore_orders(
+        [order_completed, order_pending2, order_preparing, order_pending1]
+    )
 
     assert kitchen.get_current_order() is order_preparing
     assert kitchen.count_waiting() == 2
     assert kitchen.peek_next_order() is order_pending1
-    waiting = kitchen.get_waiting_orders()
-    assert waiting[0] is order_pending1
-    assert waiting[1] is order_pending2
+    assert kitchen.get_waiting_orders() == [order_pending1, order_pending2]
 
+
+def test_preparing_start_timestamp_survives_order_serialization():
+    started_at = "2026-10-20T10:00:00"
+    order = Order(
+        id="ORD-PREPARING",
+        table_id=0,
+        status="PREPARING",
+        preparing_started_at=started_at,
+    )
+
+    restored = Order.from_dict(order.to_dict())
+
+    assert restored.preparing_started_at == started_at
