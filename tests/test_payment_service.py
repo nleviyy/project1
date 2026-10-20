@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from importlib import import_module
 
 import pytest
 
@@ -116,8 +117,10 @@ def test_successful_payment_rolls_back_all_files_if_a_write_fails(
             raise OSError("simulated replace failure")
         return real_replace(source, destination)
 
+    payment_service_module = import_module("src.core.PaymentService")
     monkeypatch.setattr(
-        "src.core.PaymentService.os.replace",
+        payment_service_module.os,
+        "replace",
         fail_orders_replacement,
     )
 

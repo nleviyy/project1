@@ -1,4 +1,5 @@
 import json
+from importlib import import_module
 
 from src.core.TableManager import TableManager
 from src.models.JSONStorage import JSONStorage
@@ -22,7 +23,8 @@ def test_json_storage_reports_write_failure_and_preserves_original(
     def fail_replace(source, destination):
         raise OSError("replace failed")
 
-    monkeypatch.setattr("src.models.JSONStorage.os.replace", fail_replace)
+    storage_module = import_module("src.models.JSONStorage")
+    monkeypatch.setattr(storage_module.os, "replace", fail_replace)
 
     assert not JSONStorage.save_data(str(path), [{"id": "updated"}])
     assert json.loads(path.read_text(encoding="utf-8")) == original
