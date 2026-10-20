@@ -82,10 +82,22 @@ class OrderService:
         self._orders.clear()
         data = JSONStorage.load_data(str(self.orders_file), default_data=[])
         if isinstance(data, list):
+            menu = MenuCatalog()
+            menu_path = DATA_DIR / "menu.json"
+            if menu_path.exists():
+                menu.load_from_dict(
+                    JSONStorage.load_data(str(menu_path), default_data=[])
+                )
             for order_dict in data:
                 if isinstance(order_dict, dict):
                     try:
                         order = Order.from_dict(order_dict)
+                        for item in order.items:
+                            if item.prep_time is None:
+                                menu_item = menu.get_item(item.menu_item_id)
+                                item.prep_time = (
+                                    menu_item.prep_time if menu_item is not None else 0
+                                )
                         self._orders[order.id] = order
                     except Exception as e:
                         print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {e}")
@@ -202,6 +214,8 @@ class OrderService:
                 raise ValueError(
                     f"Món '{item.item_name}' ({item.menu_item_id}) không còn phục vụ."
                 )
+            if item.prep_time is None:
+                item.prep_time = menu_item.prep_time
 
         order_id = custom_order_id or self.generate_order_id()
         if order_id in self._orders:
@@ -559,9 +573,28 @@ class OrderService:
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
+        kitchen = self.kitchen_manager
+        if kitchen is not None:
+            if kitchen.get_current_order() is not order:
+                raise ValueError("Chỉ có thể lên món cho đơn đang được bếp chế biến.")
+            if order.status == OrderStatus.PREPARING:
+                kitchen.advance_status()
+            elif order.status != OrderStatus.SERVED:
+                raise ValueError(
+                    f"Không thể lên món khi đơn đang ở trạng thái '{order.status}'."
+                )
+            if not self.save_orders():
+                order.status = OrderStatus.PREPARING
+                order._touch()
+                raise OSError(f"Không thể lưu trạng thái SERVED cho đơn '{order_id}'.")
+            kitchen.finish_current_order()
+            return True
+
         success = order.change_status(OrderStatus.SERVED)
-        if success:
-            self.save_orders()
+        if success and not self.save_orders():
+            order.status = OrderStatus.PREPARING
+            order._touch()
+            raise OSError(f"Không thể lưu trạng thái SERVED cho đơn '{order_id}'.")
         return success
 
     def add_item_to_order(self, order_id: str, item: OrderItem) -> bool:

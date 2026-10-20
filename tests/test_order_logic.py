@@ -285,6 +285,74 @@ class TestOrderService:
         assert service_with_tmp_storage.start_preparing_order(order.id) is True
         assert order.status == OrderStatus.PREPARING
 
+    def test_order_prep_time_is_persisted_and_reloaded(self, service_with_tmp_storage):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=2,
+                )
+            ],
+        )
+        assert order.items[0].prep_time == 5
+
+        reloaded = OrderService(
+            orders_file=service_with_tmp_storage.orders_file,
+            auto_load=True,
+        )
+
+        loaded_order = reloaded.get_order_by_id(order.id)
+        assert loaded_order is not None
+        assert loaded_order.items[0].prep_time == 5
+        assert loaded_order.calculate_prep_time() == 10
+
+    def test_serve_order_updates_service_and_kitchen_together(
+        self, service_with_tmp_storage
+    ):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        assert service_with_tmp_storage.start_preparing_order(order.id)
+
+        assert service_with_tmp_storage.serve_order(order.id)
+        assert order.status == OrderStatus.SERVED
+        assert service_with_tmp_storage.kitchen_manager.get_current_order() is None
+        assert service_with_tmp_storage.kitchen_manager.count_waiting() == 0
+
+    def test_serve_order_restores_preparing_state_if_persistence_fails(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        service_with_tmp_storage.start_preparing_order(order.id)
+        monkeypatch.setattr(service_with_tmp_storage, "save_orders", lambda: False)
+
+        with pytest.raises(OSError, match="Không thể lưu trạng thái SERVED"):
+            service_with_tmp_storage.serve_order(order.id)
+
+        assert order.status == OrderStatus.PREPARING
+        assert service_with_tmp_storage.kitchen_manager.get_current_order() is order
+
     def test_create_order_rejects_empty_cart(self, service_with_tmp_storage):
         with pytest.raises(ValueError, match="trống"):
             service_with_tmp_storage.create_order(table_id=1, items=[])

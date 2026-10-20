@@ -30,6 +30,7 @@ class PaymentService:
         self.invoices_path = Path(invoices_path or data_dir / "invoices.json")
         self.orders_path = Path(orders_path or data_dir / "orders.json")
         self.tables_path = Path(tables_path or data_dir / "tables.json")
+        self.menu_path = data_dir / "menu.json"
 
     def pay_order(
         self,
@@ -46,9 +47,10 @@ class PaymentService:
         if not isinstance(cashier_name, str) or not cashier_name.strip():
             raise ValueError("Tên thu ngân không được để trống.")
 
-        payments = self._read_json(self.payments_path)
+        payments = self._normalize_payments(self._read_json(self.payments_path))
         invoices = self._read_json(self.invoices_path)
         orders = self._read_json(self.orders_path)
+        self._normalize_order_prep_times(orders)
         tables = self._read_json(self.tables_path)
         order = next((row for row in orders if row.get("id") == order_id), None)
         if order is None:
@@ -93,7 +95,8 @@ class PaymentService:
             payment_id=f"PAY-{uuid4().hex.upper()}",
             order_id=order_id,
             table_id=order.get("table_id", "Mang về"),
-            amount=total,
+            amount=subtotal,
+            discount_rate=discount / subtotal if subtotal else 0,
             amount_paid=total if transaction_successful else 0,
             method=method,
             status=status,
@@ -102,7 +105,7 @@ class PaymentService:
             cash_received=cash_received if method == "CASH" else None,
             change_due=change_due if transaction_successful else 0,
         )
-        payment_record = payment.model_dump()
+        payment_record = payment.to_dict()
         updated_payments = [*payments, payment_record]
 
         if not payment.is_successful:
@@ -187,6 +190,40 @@ class PaymentService:
         return data
 
     @staticmethod
+    def _normalize_payments(payments: list[dict]) -> list[dict]:
+        normalized = []
+        for payment in payments:
+            payment_data = {
+                **payment,
+                "amount": payment.get("amount", payment.get("amount_paid", 0)),
+                "discount_rate": payment.get("discount_rate", 0),
+                "cash_received": payment.get("cash_received"),
+                "change_due": payment.get("change_due", 0),
+            }
+            normalized.append(Payment.from_dict(payment_data).to_dict())
+        return normalized
+
+    def _normalize_order_prep_times(self, orders: list[dict]) -> None:
+        menu_items = self._read_json(self.menu_path)
+        prep_times = {
+            str(item.get("id", item.get("item_id", ""))): item.get("prep_time", 0)
+            for item in menu_items
+        }
+        for order in orders:
+            items = order.get("items", [])
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                prep_time = item.get("prep_time")
+                if prep_time is None:
+                    prep_time = prep_times.get(str(item.get("menu_item_id", "")), 0)
+                item["prep_time"] = self._nonnegative_int(
+                    prep_time, "Thời gian chế biến"
+                )
+
+    @staticmethod
     def _write_json_updates(updates: dict[Path, list[dict]]) -> None:
         staged: dict[Path, Path] = {}
         originals: dict[Path, bytes | None] = {}
@@ -204,15 +241,28 @@ class PaymentService:
             for target, temporary in staged.items():
                 os.replace(temporary, target)
                 replaced.append(target)
-        except OSError:
+        except OSError as write_error:
+            rollback_errors = []
             for target in reversed(replaced):
-                original = originals[target]
-                if original is None:
-                    target.unlink(missing_ok=True)
-                else:
-                    rollback = target.with_name(f".{target.name}.{uuid4().hex}.rollback")
-                    rollback.write_bytes(original)
-                    os.replace(rollback, target)
+                try:
+                    original = originals[target]
+                    if original is None:
+                        target.unlink(missing_ok=True)
+                    else:
+                        rollback = target.with_name(
+                            f".{target.name}.{uuid4().hex}.rollback"
+                        )
+                        rollback.write_bytes(original)
+                        os.replace(rollback, target)
+                except OSError as rollback_error:
+                    rollback_errors.append(
+                        f"{target}: {rollback_error}"
+                    )
+            if rollback_errors:
+                raise RuntimeError(
+                    f"Không thể ghi đồng bộ các file JSON ({write_error}); "
+                    "lỗi khi khôi phục: " + "; ".join(rollback_errors)
+                ) from write_error
             raise
         finally:
             for temporary in staged.values():

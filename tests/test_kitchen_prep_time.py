@@ -1,13 +1,27 @@
 from src.core.KitchenManager import KitchenManager
-from src.models.KitchenOrder import KitchenOrder as Order
+from src.models.Order import Order
+from src.models.OrderItem import OrderItem
 
 
 def test_order_prep_time_uses_each_items_quantity():
     order = Order(
-        "A",
+        id="A",
+        table_id=0,
         items=[
-            {"quantity": 2, "prep_time": 5},
-            {"quantity": 3, "prep_time": 4},
+            OrderItem(
+                menu_item_id="M01",
+                item_name="Món 1",
+                unit_price=0,
+                quantity=2,
+                prep_time=5,
+            ),
+            OrderItem(
+                menu_item_id="M02",
+                item_name="Món 2",
+                unit_price=0,
+                quantity=3,
+                prep_time=4,
+            ),
         ],
     )
 
@@ -16,8 +30,32 @@ def test_order_prep_time_uses_each_items_quantity():
 
 def test_wait_time_includes_current_and_earlier_queued_orders():
     kitchen = KitchenManager()
-    current = Order("A", items=[{"quantity": 2, "prep_time": 5}])
-    waiting = Order("B", items=[{"sl": 1, "prep_time": 4}])
+    current = Order(
+        id="A",
+        table_id=0,
+        items=[
+            OrderItem(
+                menu_item_id="M01",
+                item_name="Món 1",
+                unit_price=0,
+                quantity=2,
+                prep_time=5,
+            )
+        ],
+    )
+    waiting = Order(
+        id="B",
+        table_id=0,
+        items=[
+            OrderItem(
+                menu_item_id="M02",
+                item_name="Món 2",
+                unit_price=0,
+                quantity=1,
+                prep_time=4,
+            )
+        ],
+    )
     kitchen.add_order(current)
     kitchen.start_next_order()
     kitchen.add_order(waiting)
@@ -30,3 +68,6 @@ def test_wait_time_includes_current_and_earlier_queued_orders():
     assert estimate == 32
     assert kitchen.count_waiting() == 2
     assert kitchen.peek_next_order() is waiting
+    received_order = kitchen.get_waiting_orders()[1]
+    assert isinstance(received_order, Order)
+    assert received_order.calculate_prep_time() == 18

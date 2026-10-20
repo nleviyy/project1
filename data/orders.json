@@ -12,7 +12,8 @@
         "unit_price": 29000,
         "quantity": 2,
         "subtotal": 58000,
-        "note": "Ít ngọt"
+        "note": "Ít ngọt",
+        "prep_time": 6
       },
       {
         "menu_item_id": "M05",
@@ -20,7 +21,8 @@
         "unit_price": 55000,
         "quantity": 1,
         "subtotal": 55000,
-        "note": "Trứng lòng đào"
+        "note": "Trứng lòng đào",
+        "prep_time": 15
       }
     ],
     "total_amount": 113000,
@@ -41,7 +43,8 @@
         "unit_price": 39000,
         "quantity": 3,
         "subtotal": 117000,
-        "note": "Ít đá"
+        "note": "Ít đá",
+        "prep_time": 7
       },
       {
         "menu_item_id": "M06",
@@ -49,7 +52,8 @@
         "unit_price": 69000,
         "quantity": 2,
         "subtotal": 138000,
-        "note": "Bò chín vừa"
+        "note": "Bò chín vừa",
+        "prep_time": 18
       },
       {
         "menu_item_id": "M07",
@@ -57,7 +61,8 @@
         "unit_price": 32000,
         "quantity": 1,
         "subtotal": 32000,
-        "note": ""
+        "note": "",
+        "prep_time": 10
       }
     ],
     "total_amount": 287000,
@@ -78,7 +83,8 @@
         "unit_price": 25000,
         "quantity": 1,
         "subtotal": 25000,
-        "note": "Không đường"
+        "note": "Không đường",
+        "prep_time": 5
       }
     ],
     "total_amount": 25000,
@@ -99,7 +105,8 @@
         "unit_price": 29000,
         "quantity": 2,
         "subtotal": 58000,
-        "note": "Ít ngọt"
+        "note": "Ít ngọt",
+        "prep_time": 6
       }
     ],
     "total_amount": 58000,
@@ -120,7 +127,8 @@
         "unit_price": 29000,
         "quantity": 2,
         "subtotal": 58000,
-        "note": "Ít ngọt"
+        "note": "Ít ngọt",
+        "prep_time": 6
       }
     ],
     "total_amount": 58000,
@@ -141,7 +149,8 @@
         "unit_price": 29000,
         "quantity": 2,
         "subtotal": 58000,
-        "note": "Ít ngọt"
+        "note": "Ít ngọt",
+        "prep_time": 6
       }
     ],
     "total_amount": 58000,

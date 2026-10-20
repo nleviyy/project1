@@ -69,9 +69,9 @@ def render_kitchen_component(
                 st.write("")
                 if st.button("🍽️ Đã nấu xong & Lên món cho khách", type="primary", use_container_width=True):
                     try:
-                        kitchen_manager.advance_status()  # PREPARING -> SERVED
-                        kitchen_manager.finish_current_order()
-                        order_service.serve_order(c_id)
+                        if not order_service.serve_order(c_id):
+                            st.error(f"Không thể cập nhật trạng thái đơn `{c_id}`.")
+                            return
                         st.success(f"✅ Đơn `{c_id}` đã được lên bàn phục vụ!")
                         st.toast(f"Đơn {c_id} đã lên món!")
                         st.rerun()

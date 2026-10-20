@@ -73,29 +73,11 @@ def get_services():
     km = st.session_state.kitchen_manager
     os_service = st.session_state.order_service
 
-    # Đồng bộ các đơn PENDING/PREPARING vào hàng đợi bếp nếu bếp đang trống
-    if km.is_empty():
-        active_orders = [
-            order for order in os_service.get_all_orders()
-            if order.status in ("PENDING", "PREPARING")
-        ]
-        active_orders.sort(key=lambda o: str(o.created_at))
-        for ord_obj in active_orders:
-            if ord_obj.status == "PREPARING" and km.get_current_order() is None:
-                km._current_order = ord_obj
-            elif ord_obj.status == "PENDING":
-                try:
-                    km.add_order(ord_obj)
-                except ValueError:
-                    pass
-    else:
-        # Làm sạch đơn đã hủy/đã thanh toán khỏi bếp nếu có
-        active_ids = {o.id for o in os_service.get_all_orders() if o.status in ("PENDING", "PREPARING")}
-        if km.get_current_order() and km.get_current_order().id not in active_ids:
-            km._current_order = None
-        if hasattr(km, "_queue") and km._queue:
-            from collections import deque
-            km._queue = deque([o for o in km._queue if o.id in active_ids])
+    active_orders = sorted(
+        os_service.get_all_orders(),
+        key=lambda order: str(order.created_at),
+    )
+    km.synchronize_orders(active_orders)
 
     return (
         st.session_state.table_manager,
