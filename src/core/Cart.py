@@ -1,3 +1,8 @@
+from src.structures.linked_list import DoublyLinkedList
+from src.structures.stack import Stack
+from src.structures.hash_table import HashTable
+
+
 class CartItem:
     def __init__(
         self,
@@ -6,7 +11,7 @@ class CartItem:
         unit_price,
         quantity,
         note="",
-        prep_time=0,
+        prep_time=None,
     ):
         self.menu_item_id = menu_item_id
         self.item_name = item_name
@@ -18,86 +23,113 @@ class CartItem:
     def calculate_subtotal(self):
         return self.unit_price * self.quantity
 
+    def copy(self):
+        """Tạo bản sao của món (dùng để lưu trạng thái cho undo/redo)."""
+        return CartItem(
+            self.menu_item_id,
+            self.item_name,
+            self.unit_price,
+            self.quantity,
+            self.note,
+            self.prep_time,
+        )
+
     def to_dict(self):
-        data = {
-            "menu_item_id": self.menu_item_id,
-            "item_name": self.item_name,
-            "unit_price": self.unit_price,
-            "quantity": self.quantity,
-            "subtotal": self.calculate_subtotal(),
-            "note": self.note,
-        }
-        if self.prep_time:
-            data["prep_time"] = self.prep_time
+        """Đóng gói thông tin món vào một HashTable."""
+        data = HashTable()
+        data.put("menu_item_id", self.menu_item_id)
+        data.put("item_name", self.item_name)
+        data.put("unit_price", self.unit_price)
+        data.put("quantity", self.quantity)
+        data.put("subtotal", self.calculate_subtotal())
+        data.put("note", self.note)
+        if self.prep_time is not None:
+            data.put("prep_time", self.prep_time)
         return data
 
     @classmethod
     def from_dict(cls, data):
         return cls(
-            data["menu_item_id"],
-            data["item_name"],
-            data["unit_price"],
-            data["quantity"],
-            data.get("note", ""),
-            data.get("prep_time", 0),
+            menu_item_id=data.get("menu_item_id"),
+            item_name=data.get("item_name"),
+            unit_price=data.get("unit_price"),
+            quantity=data.get("quantity"),
+            note=data.get("note", ""),
+            prep_time=data.get("prep_time"),
         )
+
 
 class Cart:
     def __init__(self):
-        self._items = []         
-        self.undo_stack = []
-        self.redo_stack = []
+        self._items = DoublyLinkedList()   # danh sách các CartItem trong giỏ
+        self.undo_stack = Stack()          # mỗi phần tử là 1 DoublyLinkedList (bản sao giỏ hàng)
+        self.redo_stack = Stack()
+
+    # ---------- Undo / Redo ----------
 
     def _snapshot(self):
-        return [item.to_dict() for item in self._items]
-
-    def _restore(self, snapshot):
-        self._items = [CartItem.from_dict(data) for data in snapshot]
+        """Chụp lại giỏ hàng hiện tại: sao chép từng món vào một danh sách mới."""
+        snap = DoublyLinkedList()
+        node = self._items.head
+        while node is not None:
+            snap.add_last(node.data.copy())
+            node = node.next
+        return snap
 
     def _save_for_undo(self):
-        self.undo_stack.append(self._snapshot())
-        self.redo_stack.clear()           
+        """Gọi trước mỗi lần thay đổi giỏ hàng."""
+        self.undo_stack.push(self._snapshot())
+        self.redo_stack.clear()
 
     def undo(self):
-        if len(self.undo_stack) == 0:
+        if self.undo_stack.is_empty():
             return False
-        self.redo_stack.append(self._snapshot())   
-        self._restore(self.undo_stack.pop())       
+        self.redo_stack.push(self._snapshot())
+        self._items = self.undo_stack.pop()
         return True
 
     def redo(self):
-        if len(self.redo_stack) == 0:
+        if self.redo_stack.is_empty():
             return False
-        self.undo_stack.append(self._snapshot())   
-        self._restore(self.redo_stack.pop())       
+        self.undo_stack.push(self._snapshot())
+        self._items = self.redo_stack.pop()
         return True
 
     def can_undo(self):
-        return len(self.undo_stack) > 0
+        return not self.undo_stack.is_empty()
 
     def can_redo(self):
-        return len(self.redo_stack) > 0
+        return not self.redo_stack.is_empty()
+
+    # ---------- Tìm món ----------
 
     def _find(self, menu_item_id):
-        for item in self._items:
-            if item.menu_item_id == menu_item_id:
-                return item
+        """Trả về CartItem có id tương ứng, không có thì trả về None."""
+        node = self._items.head
+        while node is not None:
+            if node.data.menu_item_id == menu_item_id:
+                return node.data
+            node = node.next
         return None
 
-    def _get_value(self, menu_item, key, default=None):
-        if isinstance(menu_item, dict):
-            return menu_item.get(key, default)
-        return getattr(menu_item, key, default)
+    # ---------- Thao tác giỏ hàng ----------
 
     def add_item(self, menu_item, quantity=1, note=""):
         if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
 
-        item_id = self._get_value(menu_item, "id")
-        item_name = self._get_value(menu_item, "name")
-        unit_price = self._get_value(menu_item, "price")
-        is_available = self._get_value(menu_item, "is_available", True)
-        prep_time = self._get_value(menu_item, "prep_time", 0)
+        if isinstance(menu_item, dict):
+            item_id = menu_item.get("id")
+            item_name = menu_item.get("name")
+            unit_price = menu_item.get("price")
+            is_available = menu_item.get("is_available", True)
+            prep_time = menu_item.get("prep_time")
+        else:
+            item_id = menu_item.id
+            item_name = menu_item.name
+            unit_price = menu_item.price
+            is_available = getattr(menu_item, "is_available", True)
+            prep_time = getattr(menu_item, "prep_time", None)
 
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
@@ -107,7 +139,7 @@ class Cart:
         self._save_for_undo()
         existing = self._find(item_id)
         if existing is None:
-            self._items.append(
+            self._items.add_last(
                 CartItem(item_id, item_name, unit_price, quantity, note, prep_time)
             )
         else:
@@ -149,30 +181,45 @@ class Cart:
         item.note = note
 
     def clear(self):
-        self._items = []
+        self._items.clear()
         self.undo_stack.clear()
         self.redo_stack.clear()
 
+    # ---------- Truy vấn ----------
+
     def get_order_items(self):
-        return self._snapshot()
+        """Trả về DoublyLinkedList, mỗi phần tử là 1 HashTable mô tả món."""
+        result = DoublyLinkedList()
+        node = self._items.head
+        while node is not None:
+            result.add_last(node.data.to_dict())
+            node = node.next
+        return result
 
     def count_lines(self):
-        return len(self._items)
+        return self._items.size
 
     def is_empty(self):
-        return len(self._items) == 0
+        return self._items.is_empty()
 
     def calculate_total(self):
         total = 0
-        for item in self._items:
-            total += item.calculate_subtotal()
+        node = self._items.head
+        while node is not None:
+            total += node.data.calculate_subtotal()
+            node = node.next
         return total
 
     def to_text(self):
-        if len(self._items) == 0:
+        if self._items.is_empty():
             return "(giỏ hàng trống)"
-        lines = []
-        for item in self._items:
+        text = ""
+        node = self._items.head
+        while node is not None:
+            item = node.data
             money = "{:,}".format(item.calculate_subtotal()).replace(",", ".")
-            lines.append("{} x{} = {}".format(item.item_name, item.quantity, money))
-        return "; ".join(lines)
+            if text != "":
+                text += "; "
+            text += "{} x{} = {}".format(item.item_name, item.quantity, money)
+            node = node.next
+        return text

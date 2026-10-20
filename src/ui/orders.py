@@ -6,6 +6,7 @@ from src.core.KitchenManager import KitchenManager
 from src.core.OrderService import OrderService
 from src.core.TableManager import TableManager
 from src.models.Order import ORDER_STATUS_LABELS, OrderStatus
+from src.structures.linked_list import DoublyLinkedList
 
 STATUS_BADGE_MAP = {
     "PENDING": ("Chờ xác nhận", "⏳", "badge-pending"),
@@ -51,18 +52,14 @@ def render_orders_component(
     with c_search:
         search_query = st.text_input("Tìm kiếm theo Mã đơn hoặc Số bàn:", placeholder="VD: ORD-2026... hoặc 2")
 
-    filtered_orders = orders
-    if selected_status != "Tất cả":
-        filtered_orders = [o for o in filtered_orders if o.status == selected_status]
-    if search_query:
-        q = search_query.strip().lower()
-        filtered_orders = [
-            o for o in filtered_orders
-            if q in o.id.lower() or q == str(o.table_id).lower()
-        ]
-
-    # Sắp xếp theo created_at mới nhất lên đầu
-    filtered_orders.sort(key=lambda o: str(o.created_at), reverse=True)
+    filtered_orders = DoublyLinkedList()
+    query = search_query.strip().lower()
+    for order in orders:
+        if selected_status != "Tất cả" and order.status != selected_status:
+            continue
+        if query and query not in order.id.lower() and query != str(order.table_id).lower():
+            continue
+        filtered_orders.add_first(order)
 
     st.caption(f"Hiển thị: **{len(filtered_orders)}/{len(orders)}** đơn hàng")
 
@@ -138,4 +135,3 @@ def render_orders_component(
                             "Đơn cũ vẫn giữ nguyên trạng thái ĐÃ HỦY. "
                             "Vui lòng chuyển sang tab '🛒 Gọi món & Giỏ hàng' để chọn bàn và xác nhận đơn mới."
                         )
-

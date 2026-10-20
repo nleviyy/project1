@@ -73,10 +73,7 @@ def get_services():
     km = st.session_state.kitchen_manager
     os_service = st.session_state.order_service
 
-    active_orders = sorted(
-        os_service.get_all_orders(),
-        key=lambda order: str(order.created_at),
-    )
+    active_orders = os_service.get_all_orders()
     km.synchronize_orders(active_orders)
 
     return (

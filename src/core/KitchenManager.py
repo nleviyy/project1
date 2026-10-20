@@ -1,100 +1,15 @@
 from src.models.Order import ORDER_STATUS_TRANSITIONS, Order, OrderStatus
 from src.models.OrderItem import OrderItem
-
-
-class Node:
-    def __init__(self, data):
-        self.data = data
-        self.prev = None
-        self.next = None
-
-
-class DoublyLinkedList:
-    def __init__(self):
-        self.head = None   
-        self.tail = None   
-        self.size = 0     
-
-    def is_empty(self):
-        return self.size == 0
-
-    def add_last(self, data):
-        new_node = Node(data)
-        if self.tail is None:          
-            self.head = new_node
-            self.tail = new_node
-        else:
-            new_node.prev = self.tail
-            self.tail.next = new_node
-            self.tail = new_node
-        self.size += 1
-
-    def add_first(self, data):
-        new_node = Node(data)
-        if self.head is None:
-            self.head = new_node
-            self.tail = new_node
-        else:
-            new_node.next = self.head
-            self.head.prev = new_node
-            self.head = new_node
-        self.size += 1
-
-    def remove_first(self):
-        if self.head is None:
-            return None
-        data = self.head.data
-        self.head = self.head.next
-        if self.head is None:          
-            self.tail = None
-        else:
-            self.head.prev = None
-        self.size -= 1
-        return data
-
-    def peek_first(self):
-        if self.head is None:
-            return None
-        return self.head.data
-
-    def remove(self, data):
-        node = self.head
-        while node is not None:
-            if node.data == data:
-                break
-            node = node.next
-
-        if node is None:               
-            return False
-
-        if node.prev is None:          
-            self.head = node.next
-        else:
-            node.prev.next = node.next
-
-        if node.next is None:         
-            self.tail = node.prev
-        else:
-            node.next.prev = node.prev
-
-        self.size -= 1
-        return True
-
-    def to_list(self):
-        result = []
-        node = self.head
-        while node is not None:
-            result.append(node.data)
-            node = node.next
-        return result
+from src.structures.linked_list import DoublyLinkedList
 
 
 class KitchenManager:
     def __init__(self):
-        self._queue = DoublyLinkedList()   
-        self._current_order = None         
-        self._next_id = 1                 
+        self._queue = DoublyLinkedList()   # hàng đợi các đơn đang chờ (vào trước ra trước)
+        self._current_order = None         # đơn bếp đang làm
+        self._next_id = 1                  # dùng để sinh mã đơn
 
+    # ---------- Tiện ích ----------
 
     def _get_order_id(self, order):
         if order is None:
@@ -112,15 +27,20 @@ class KitchenManager:
             )
 
     def _find_order(self, order_id):
+        """Tìm đơn theo mã, trong đơn đang làm và trong hàng đợi."""
         if self._get_order_id(self._current_order) == order_id:
             return self._current_order
-        for order in self._queue.to_list():
-            if self._get_order_id(order) == order_id:
-                return order
+        node = self._queue.head
+        while node is not None:
+            if self._get_order_id(node.data) == order_id:
+                return node.data
+            node = node.next
         return None
 
     def _is_in_kitchen(self, order_id):
         return self._find_order(order_id) is not None
+
+    # ---------- Nhận đơn ----------
 
     def add_order(self, order):
         if not isinstance(order, Order):
@@ -137,39 +57,34 @@ class KitchenManager:
         self._queue.add_last(order)
 
     def receive_order(self, table_id, items, notes=""):
-        order_id = "ORD-" + str(self._next_id).zfill(4)   
+        """
+        items: DoublyLinkedList, mỗi phần tử là OrderItem
+               hoặc HashTable (kết quả của Cart.get_order_items()).
+        """
+        order_id = "ORD-" + str(self._next_id).zfill(4)
         self._next_id += 1
-        order_items = []
-        source_items = items.items() if isinstance(items, dict) else enumerate(items or [])
-        for item_key, item_data in source_items:
-            if isinstance(item_data, OrderItem):
-                order_items.append(item_data)
-                continue
-            if not isinstance(item_data, dict):
-                raise TypeError("Mỗi món trong đơn bếp phải là OrderItem hoặc dict.")
-            menu_item_id = item_data.get(
-                "menu_item_id",
-                item_data.get("id", item_key),
-            )
-            order_items.append(
-                OrderItem(
-                    menu_item_id=str(menu_item_id),
-                    item_name=str(
-                        item_data.get(
-                            "item_name",
-                            item_data.get("name", menu_item_id),
+
+        order_items = DoublyLinkedList()
+        if isinstance(items, dict):
+            for menu_item_id, details in items.items():
+                if isinstance(details, dict):
+                    order_items.add_last(
+                        OrderItem(
+                            menu_item_id=menu_item_id,
+                            item_name=details.get("item_name", details.get("name", str(menu_item_id))),
+                            unit_price=details.get("unit_price", 0),
+                            quantity=details.get("quantity", details.get("sl", 1)),
+                            note=details.get("note", ""),
+                            prep_time=details.get("prep_time", 0),
                         )
-                    ),
-                    unit_price=item_data.get(
-                        "unit_price",
-                        item_data.get("price", 0),
-                    ),
-                    quantity=item_data.get("quantity", item_data.get("sl", 1)),
-                    subtotal=item_data.get("subtotal"),
-                    note=item_data.get("note", ""),
-                    prep_time=item_data.get("prep_time", 0),
-                )
-            )
+                    )
+        else:
+            for data in items:
+                if isinstance(data, OrderItem):
+                    order_items.add_last(data)
+                else:
+                    order_items.add_last(OrderItem.from_dict(data))
+
         order = Order(
             id=order_id,
             table_id=table_id,
@@ -179,6 +94,7 @@ class KitchenManager:
         self.add_order(order)
         return self.estimate_wait_time(order)
 
+    # ---------- Chế biến ----------
 
     def start_next_order(self):
         if self._current_order is not None:
@@ -204,6 +120,7 @@ class KitchenManager:
         self._current_order = None
         return order
 
+    # ---------- Trạng thái ----------
 
     def get_status(self, order_id):
         order = self._find_order(order_id)
@@ -225,24 +142,30 @@ class KitchenManager:
         order = self._current_order
         if order.status == OrderStatus.SERVED:
             raise ValueError("Đơn đã lên món, hãy gọi finish_current_order()")
-        next_statuses = ORDER_STATUS_TRANSITIONS[order.status]
-        if not next_statuses:
+        # next_statuses là DoublyLinkedList các trạng thái được phép chuyển tới
+        next_statuses = ORDER_STATUS_TRANSITIONS.get(order.status)
+        if next_statuses is None or next_statuses.is_empty():
             raise ValueError("Đơn đã ở trạng thái cuối cùng")
-        self._set_status(order, next_statuses[0])
+        self._set_status(order, next_statuses.peek_first())
         return order.status
 
+    # ---------- Hủy đơn ----------
 
     def cancel_order(self, order_id):
         if self._get_order_id(self._current_order) == order_id:
             raise ValueError("Không thể hủy đơn bếp đang được chế biến")
-        
-        for order in self._queue.to_list():
+
+        node = self._queue.head
+        while node is not None:
+            order = node.data
             if self._get_order_id(order) == order_id:
                 self._set_status(order, OrderStatus.CANCELLED)
                 self._queue.remove(order)
                 return
+            node = node.next
         raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong bếp")
 
+    # ---------- Truy vấn ----------
 
     def peek_next_order(self):
         return self._queue.peek_first()
@@ -251,7 +174,13 @@ class KitchenManager:
         return self._current_order
 
     def get_waiting_orders(self):
-        return self._queue.to_list()
+        """Trả về một DoublyLinkedList mới chứa các đơn đang chờ."""
+        result = DoublyLinkedList()
+        node = self._queue.head
+        while node is not None:
+            result.add_last(node.data)
+            node = node.next
+        return result
 
     def restore_current_order_to_queue(self, order_id):
         if (
@@ -267,22 +196,30 @@ class KitchenManager:
         return True
 
     def synchronize_orders(self, orders):
-        active_orders = [
-            order
-            for order in orders
-            if order.status in (OrderStatus.PENDING, OrderStatus.PREPARING)
-        ]
-        preparing_orders = [
-            order for order in active_orders if order.status == OrderStatus.PREPARING
-        ]
-        if len(preparing_orders) > 1:
-            raise ValueError("Chỉ được có một đơn PREPARING trong bếp.")
+        """
+        orders: DoublyLinkedList các Order.
+        Đồng bộ lại hàng đợi và đơn đang làm theo danh sách này.
+        """
+        # Bước 1: tìm đơn PREPARING (chỉ được phép có tối đa 1)
+        preparing_order = None
+        node = orders.head
+        while node is not None:
+            if node.data.status == OrderStatus.PREPARING:
+                if preparing_order is not None:
+                    raise ValueError("Chỉ được có một đơn PREPARING trong bếp.")
+                preparing_order = node.data
+            node = node.next
 
+        # Bước 2: dựng lại bếp từ đầu
         self._queue = DoublyLinkedList()
-        self._current_order = preparing_orders[0] if preparing_orders else None
-        for order in active_orders:
-            if order.status == OrderStatus.PENDING:
-                self.add_order(order)
+        self._current_order = preparing_order
+
+        # Bước 3: các đơn PENDING đưa vào hàng đợi
+        node = orders.head
+        while node is not None:
+            if node.data.status == OrderStatus.PENDING:
+                self.add_order(node.data)
+            node = node.next
 
     def count_waiting(self):
         return self._queue.size
@@ -291,6 +228,7 @@ class KitchenManager:
         return self._queue.is_empty() and self._current_order is None
 
     def estimate_wait_time(self, order):
+        """Thời gian chờ = đơn đang làm + các đơn xếp trước + chính đơn này."""
         oid = self._get_order_id(order)
         if self._get_order_id(self._current_order) == oid:
             return order.calculate_prep_time()
@@ -298,8 +236,10 @@ class KitchenManager:
         total = 0
         if self._current_order is not None:
             total += self._current_order.calculate_prep_time()
-        for waiting in self._queue.to_list():
-            if self._get_order_id(waiting) == oid:
+        node = self._queue.head
+        while node is not None:
+            if self._get_order_id(node.data) == oid:
                 break
-            total += waiting.calculate_prep_time()
+            total += node.data.calculate_prep_time()
+            node = node.next
         return total + order.calculate_prep_time()

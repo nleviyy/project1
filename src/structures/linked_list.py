@@ -16,6 +16,66 @@ class DoublyLinkedList:
     def is_empty(self):
         return self.size == 0
 
+    def __len__(self):
+        return self.size
+
+    def __iter__(self):
+        node = self.head
+        while node is not None:
+            yield node.data
+            node = node.next
+
+    def __getitem__(self, index):
+        if not isinstance(index, int):
+            raise TypeError("Danh sách chỉ hỗ trợ chỉ số nguyên.")
+        if index < 0:
+            index += self.size
+        if index < 0 or index >= self.size:
+            raise IndexError("Chỉ số nằm ngoài phạm vi danh sách.")
+
+        node = self.head
+        for _ in range(index):
+            node = node.next
+        return node.data
+
+    def __setitem__(self, index, data):
+        if not isinstance(index, int):
+            raise TypeError("Danh sách chỉ hỗ trợ chỉ số nguyên.")
+        if index < 0:
+            index += self.size
+        if index < 0 or index >= self.size:
+            raise IndexError("Chỉ số nằm ngoài phạm vi danh sách.")
+
+        node = self.head
+        for _ in range(index):
+            node = node.next
+        node.data = data
+
+    def __eq__(self, other):
+        if isinstance(other, (list, tuple)):
+            if self.size != len(other):
+                return False
+            node = self.head
+            index = 0
+            while node is not None:
+                if node.data != other[index]:
+                    return False
+                node = node.next
+                index += 1
+            return True
+        if isinstance(other, DoublyLinkedList):
+            if self.size != other.size:
+                return False
+            left = self.head
+            right = other.head
+            while left is not None:
+                if left.data != right.data:
+                    return False
+                left = left.next
+                right = right.next
+            return True
+        return NotImplemented
+
     # ---------- Thêm ----------
 
     def add_last(self, data):

@@ -1,62 +1,87 @@
-from typing import Optional
-from pydantic import BaseModel, Field, model_validator
+from src.structures.hash_table import HashTable
+
+def _to_int(value, error_message):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        raise ValueError(error_message)
 
 
-class OrderItem(BaseModel):
-    menu_item_id: str = Field(..., description="Mã món ăn từ menu (VD: M02)")
-    item_name: str = Field(..., description="Tên món ăn")
-    unit_price: int = Field(..., description="Đơn giá (VNĐ)", ge=0)
-    quantity: int = Field(..., description="Số lượng món", gt=0)
-    subtotal: Optional[int] = Field(default=None, description="Thành tiền món này (VNĐ)", ge=0)
-    note: Optional[str] = Field(default="", description="Ghi chú món ăn")
-    prep_time: Optional[int] = Field(default=None, description="Thời gian chế biến (phút)", ge=0)
-
+class OrderItem:
     def __init__(
         self,
-        menu_item_id: Optional[str] = None,
-        item_name: Optional[str] = None,
-        unit_price: Optional[int] = None,
-        quantity: Optional[int] = None,
-        note: Optional[str] = "",
-        prep_time: Optional[int] = None,
-        **kwargs,
+        menu_item_id,
+        item_name,
+        unit_price,
+        quantity,
+        note="",
+        prep_time=None,
+        subtotal=None,
     ):
-        if menu_item_id is not None and "menu_item_id" not in kwargs:
-            kwargs["menu_item_id"] = menu_item_id
-        if item_name is not None and "item_name" not in kwargs:
-            kwargs["item_name"] = item_name
-        if unit_price is not None and "unit_price" not in kwargs:
-            kwargs["unit_price"] = unit_price
-        if quantity is not None and "quantity" not in kwargs:
-            kwargs["quantity"] = quantity
-        if note and "note" not in kwargs:
-            kwargs["note"] = note
-        if prep_time is not None and "prep_time" not in kwargs:
-            kwargs["prep_time"] = prep_time
-        super().__init__(**kwargs)
+        if menu_item_id is None or str(menu_item_id).strip() == "":
+            raise ValueError("Mã món ăn không được để trống.")
+        if item_name is None:
+            raise ValueError("Tên món ăn không được để trống.")
 
-    @model_validator(mode='after')
-    def auto_calculate_subtotal(self):
-        """Nếu JSON không truyền subtotal hoặc bằng 0 thì tự tính: đơn giá * số lượng."""
-        if self.subtotal is None or self.subtotal == 0:
-            self.subtotal = self.unit_price * self.quantity
-        return self
+        unit_price = _to_int(unit_price, "Đơn giá phải là số nguyên.")
+        if unit_price < 0:
+            raise ValueError("Đơn giá không được âm.")
 
-    def update_quantity(self, quantity: int) -> None:
+        quantity = _to_int(quantity, "Số lượng phải là số nguyên.")
+        if quantity <= 0:
+            raise ValueError("Số lượng phải lớn hơn 0.")
+
+        if prep_time is not None:
+            prep_time = _to_int(prep_time, "Thời gian chế biến phải là số nguyên.")
+            if prep_time < 0:
+                raise ValueError("Thời gian chế biến không được âm.")
+
+        if subtotal is not None:
+            subtotal = _to_int(subtotal, "Thành tiền phải là số nguyên.")
+            if subtotal < 0:
+                raise ValueError("Thành tiền không được âm.")
+
+        self.menu_item_id = str(menu_item_id)
+        self.item_name = str(item_name)
+        self.unit_price = unit_price
+        self.quantity = quantity
+        self.note = note if note is not None else ""
+        self.prep_time = prep_time
+
+        # Chưa có hoặc bằng 0 thì tự tính: đơn giá * số lượng
+        if subtotal is None or subtotal == 0:
+            subtotal = unit_price * quantity
+        self.subtotal = subtotal
+
+    def update_quantity(self, quantity):
         if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0.")
         self.quantity = quantity
         self.subtotal = self.unit_price * quantity
 
-    def update_note(self, note: str) -> None:
+    def update_note(self, note):
         self.note = note
 
-    def to_dict(self) -> dict:
-        data = self.model_dump(mode="json")
-        if data.get("prep_time") is None:
-            data.pop("prep_time", None)
+    def to_dict(self):
+        data = HashTable()
+        data.put("menu_item_id", self.menu_item_id)
+        data.put("item_name", self.item_name)
+        data.put("unit_price", self.unit_price)
+        data.put("quantity", self.quantity)
+        data.put("subtotal", self.subtotal)
+        data.put("note", self.note)
+        if self.prep_time is not None:
+            data.put("prep_time", self.prep_time)
         return data
 
     @classmethod
-    def from_dict(cls, data: dict) -> "OrderItem":
-        return cls.model_validate(data)
+    def from_dict(cls, data):
+        return cls(
+            menu_item_id=data.get("menu_item_id"),
+            item_name=data.get("item_name"),
+            unit_price=data.get("unit_price"),
+            quantity=data.get("quantity"),
+            note=data.get("note"),
+            prep_time=data.get("prep_time"),
+            subtotal=data.get("subtotal"),
+        )

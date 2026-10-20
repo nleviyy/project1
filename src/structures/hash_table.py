@@ -42,10 +42,10 @@ class HashTable:
         self.buckets[index] = new_node
         self.size += 1
 
-    def get(self, key):
+    def get(self, key, default=None):
         node = self._find_node(key)
         if node is None:
-            return None
+            return default
         return node.value
 
     def contains(self, key):
@@ -69,6 +69,48 @@ class HashTable:
 
     def is_empty(self):
         return self.size == 0
+
+    def clear(self):
+        self.buckets = [None] * self.capacity
+        self.size = 0
+
+    def __len__(self):
+        return self.size
+
+    def __contains__(self, key):
+        return self.contains(key)
+
+    def __getitem__(self, key):
+        node = self._find_node(key)
+        if node is None:
+            raise KeyError(key)
+        return node.value
+
+    def __setitem__(self, key, value):
+        self.put(key, value)
+
+    def __iter__(self):
+        node = self.keys().head
+        while node is not None:
+            yield node.data
+            node = node.next
+
+    def __eq__(self, other):
+        if isinstance(other, HashTable):
+            if self.size != other.size:
+                return False
+            for key in self:
+                if not other.contains(key) or self.get(key) != other.get(key):
+                    return False
+            return True
+        if isinstance(other, dict):
+            if self.size != len(other):
+                return False
+            for key in self:
+                if key not in other or self.get(key) != other[key]:
+                    return False
+            return True
+        return NotImplemented
 
 
     def keys(self):

@@ -22,3 +22,12 @@ class Stack:
 
     def clear(self):
         self._items.clear()
+
+    def __len__(self):
+        return self._items.size
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __eq__(self, other):
+        return self._items == other

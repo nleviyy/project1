@@ -1,8 +1,10 @@
 from datetime import datetime
-import json
 from pathlib import Path
 import sys
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Optional, Tuple
+
+from src.structures.hash_table import HashTable
+from src.structures.linked_list import DoublyLinkedList
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -15,7 +17,7 @@ SRC_DIR = CURRENT_DIR.parent
 PROJECT_ROOT = SRC_DIR.parent
 DATA_DIR = PROJECT_ROOT / "data"
 
-for path in [str(SRC_DIR), str(PROJECT_ROOT)]:
+for path in (str(SRC_DIR), str(PROJECT_ROOT)):
     if path not in sys.path:
         sys.path.append(path)
 
@@ -58,7 +60,8 @@ class OrderService:
     ):
         self.orders_file: Path = Path(orders_file) if orders_file else (DATA_DIR / "orders.json")
         self.payments_file: Path = Path(payments_file) if payments_file else (DATA_DIR / "payments.json")
-        self._orders: Dict[str, Order] = {}
+        self._orders = HashTable()
+        self._order_ids = DoublyLinkedList()
         if table_manager is None and orders_file is None:
             from src.core.TableManager import TableManager
             self.table_manager = TableManager()
@@ -80,33 +83,53 @@ class OrderService:
     def load_orders(self) -> bool:
         """Đọc danh sách đơn hàng từ file JSON vào bộ nhớ."""
         self._orders.clear()
-        data = JSONStorage.load_data(str(self.orders_file), default_data=[])
-        if isinstance(data, list):
-            menu = MenuCatalog()
-            menu_path = DATA_DIR / "menu.json"
-            if menu_path.exists():
-                menu.load_from_dict(
-                    JSONStorage.load_data(str(menu_path), default_data=[])
+        self._order_ids.clear()
+        data = JSONStorage.from_json_data(
+            JSONStorage.load_data(
+                str(self.orders_file),
+                default_data=DoublyLinkedList(),
+            )
+        )
+        if not isinstance(data, DoublyLinkedList):
+            return False
+
+        menu = MenuCatalog()
+        menu_path = DATA_DIR / "menu.json"
+        if menu_path.exists():
+            menu.load_from_dict(
+                JSONStorage.from_json_data(
+                    JSONStorage.load_data(
+                        str(menu_path),
+                        default_data=DoublyLinkedList(),
+                    )
                 )
-            for order_dict in data:
-                if isinstance(order_dict, dict):
-                    try:
-                        order = Order.from_dict(order_dict)
-                        for item in order.items:
-                            if item.prep_time is None:
-                                menu_item = menu.get_item(item.menu_item_id)
-                                item.prep_time = (
-                                    menu_item.prep_time if menu_item is not None else 0
-                                )
-                        self._orders[order.id] = order
-                    except Exception as e:
-                        print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {e}")
-            return True
-        return False
+            )
+        for order_data in data:
+            if not isinstance(order_data, HashTable):
+                print("[Cảnh báo OrderService] Bỏ qua dữ liệu đơn không hợp lệ.")
+                continue
+            try:
+                order = Order.from_dict(order_data)
+                for item in order.items:
+                    if item.prep_time is None:
+                        menu_item = menu.get_item(item.menu_item_id)
+                        item.prep_time = (
+                            menu_item.prep_time if menu_item is not None else 0
+                        )
+                if not self._orders.contains(order.id):
+                    self._order_ids.add_last(order.id)
+                self._orders.put(order.id, order)
+            except (AttributeError, TypeError, ValueError) as error:
+                print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {error}")
+        return True
 
     def save_orders(self) -> bool:
         """Ghi toàn bộ đơn hàng hiện có ra file JSON."""
-        data = [order.to_dict() for order in self._orders.values()]
+        data = DoublyLinkedList()
+        for order_id in self._order_ids:
+            order = self._orders.get(order_id)
+            if order is not None:
+                data.add_last(order.to_dict())
         return JSONStorage.save_data(str(self.orders_file), data)
 
     # -------------------------------------------------------------
@@ -141,7 +164,7 @@ class OrderService:
     def create_order(
         self,
         table_id: int,
-        items: Optional[List[OrderItem]] = None,
+        items: Optional[Any] = None,
         notes: str = "",
         discount_amount: int = 0,
         custom_order_id: Optional[str] = None,
@@ -172,15 +195,21 @@ class OrderService:
     def place_order(
         self,
         table_id: int,
-        items: Optional[List[OrderItem]] = None,
+        items: Optional[Any] = None,
         notes: str = "",
         discount_amount: int = 0,
         custom_order_id: Optional[str] = None,
         kitchen_manager: Optional[Any] = None,
     ) -> Order:
         """Xác nhận đơn PENDING, chiếm bàn và đưa đơn vào Queue một cách nhất quán."""
-        if not items:
+        if items is None:
             raise ValueError("Giỏ hàng đang trống, không thể tạo đơn hàng.")
+        order_items = DoublyLinkedList()
+        for item in items:
+            order_items.add_last(item)
+        if order_items.is_empty():
+            raise ValueError("Giỏ hàng đang trống, không thể tạo đơn hàng.")
+        items = order_items
 
         table_id = int(table_id)
         is_takeaway = table_id == 0
@@ -204,8 +233,12 @@ class OrderService:
         menu = MenuCatalog()
         menu_path = DATA_DIR / "menu.json"
         if menu_path.exists():
-            with menu_path.open("r", encoding="utf-8") as menu_file:
-                menu_data = json.load(menu_file)
+            menu_data = JSONStorage.from_json_data(
+                JSONStorage.load_data(
+                    str(menu_path),
+                    default_data=DoublyLinkedList(),
+                )
+            )
             menu.load_from_dict(menu_data)
 
         for item in items:
@@ -244,7 +277,8 @@ class OrderService:
 
             km.add_order(order)
             order_queued = True
-            self._orders[order.id] = order
+            self._orders.put(order.id, order)
+            self._order_ids.add_last(order.id)
             order_registered = True
             if not self.save_orders():
                 raise OSError("Không thể lưu đơn hàng.")
@@ -256,7 +290,8 @@ class OrderService:
                 except Exception as rollback_error:
                     rollback_errors.append(f"không thể gỡ đơn khỏi Queue: {rollback_error}")
             if order_registered:
-                self._orders.pop(order.id, None)
+                self._orders.remove(order.id)
+                self._order_ids.remove(order.id)
             if table_occupied:
                 try:
                     if not self.table_manager.release_table(table_id, order.id):
@@ -364,33 +399,49 @@ class OrderService:
             return None
         return self._orders.get(str(order_id).strip())
 
-    def get_orders_by_table(self, table_id: int) -> List[Order]:
+    def get_orders_by_table(self, table_id: int) -> DoublyLinkedList:
         """Lấy tất cả các đơn hàng thuộc về một bàn (bao gồm cả đơn cũ và mới)."""
-        return [order for order in self._orders.values() if order.table_id == int(table_id)]
+        orders = DoublyLinkedList()
+        for order_id in self._order_ids:
+            order = self._orders.get(order_id)
+            if order is not None and order.table_id == int(table_id):
+                orders.add_last(order)
+        return orders
 
     def get_active_order_by_table(self, table_id: int) -> Optional[Order]:
         """
         Tìm đơn hàng đang phục vụ tại bàn (trạng thái PENDING, PREPARING hoặc SERVED).
         Nếu có nhiều đơn, trả về đơn mới nhất.
         """
-        active_orders = [
-            order for order in self._orders.values()
-            if order.table_id == int(table_id) and order.is_active
-        ]
-        if not active_orders:
-            return None
-        # Sắp xếp theo created_at giảm dần, lấy đơn mới nhất
-        active_orders.sort(key=lambda o: o.created_at, reverse=True)
-        return active_orders[0]
+        latest_order = None
+        for order_id in self._order_ids:
+            order = self._orders.get(order_id)
+            if (
+                order is not None
+                and order.table_id == int(table_id)
+                and order.is_active
+            ):
+                latest_order = order
+        return latest_order
 
-    def get_all_orders(self) -> List[Order]:
+    def get_all_orders(self) -> DoublyLinkedList:
         """Lấy toàn bộ danh sách đơn hàng."""
-        return list(self._orders.values())
+        orders = DoublyLinkedList()
+        for order_id in self._order_ids:
+            order = self._orders.get(order_id)
+            if order is not None:
+                orders.add_last(order)
+        return orders
 
-    def filter_orders_by_status(self, status: str) -> List[Order]:
+    def filter_orders_by_status(self, status: str) -> DoublyLinkedList:
         """Lọc danh sách đơn hàng theo trạng thái."""
         target = status.upper().strip()
-        return [order for order in self._orders.values() if order.status == target]
+        orders = DoublyLinkedList()
+        for order_id in self._order_ids:
+            order = self._orders.get(order_id)
+            if order is not None and order.status == target:
+                orders.add_last(order)
+        return orders
 
     # -------------------------------------------------------------
     # 6. Kiểm tra đơn đã thanh toán để tránh thanh toán trùng
@@ -408,12 +459,20 @@ class OrderService:
 
         # Kiểm tra thêm trong nhật ký payments.json
         if self.payments_file.exists():
-            payments_data = JSONStorage.load_data(str(self.payments_file), default_data=[])
-            if isinstance(payments_data, list):
-                for pay in payments_data:
-                    if isinstance(pay, dict):
-                        if pay.get("order_id") == order_id and pay.get("status") == "SUCCESS":
-                            return True
+            payments_data = JSONStorage.from_json_data(
+                JSONStorage.load_data(
+                    str(self.payments_file),
+                    default_data=DoublyLinkedList(),
+                )
+            )
+            if isinstance(payments_data, DoublyLinkedList):
+                for payment in payments_data:
+                    if (
+                        isinstance(payment, HashTable)
+                        and payment.get("order_id") == order_id
+                        and payment.get("status") == "SUCCESS"
+                    ):
+                        return True
         return False
 
     def can_checkout(self, order_id: str) -> Tuple[bool, str]:
@@ -455,13 +514,22 @@ class OrderService:
         if order.status == OrderStatus.COMPLETED:
             return True
 
-        payments_data = JSONStorage.load_data(str(self.payments_file), default_data=[])
-        has_successful_payment = isinstance(payments_data, list) and any(
-            isinstance(payment, dict)
-            and payment.get("order_id") == order_id
-            and payment.get("status") == "SUCCESS"
-            for payment in payments_data
+        payments_data = JSONStorage.from_json_data(
+            JSONStorage.load_data(
+                str(self.payments_file),
+                default_data=DoublyLinkedList(),
+            )
         )
+        has_successful_payment = False
+        if isinstance(payments_data, DoublyLinkedList):
+            for payment in payments_data:
+                if (
+                    isinstance(payment, HashTable)
+                    and payment.get("order_id") == order_id
+                    and payment.get("status") == "SUCCESS"
+                ):
+                    has_successful_payment = True
+                    break
         if not has_successful_payment:
             raise ValueError(
                 f"Không thể hoàn thành đơn '{order_id}' khi chưa thanh toán SUCCESS."

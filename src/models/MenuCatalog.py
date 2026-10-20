@@ -1,5 +1,7 @@
 import sys
-from typing import Dict, List, Optional, Any
+
+from src.structures.linked_list import DoublyLinkedList
+from src.structures.hash_table import HashTable
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
@@ -8,129 +10,166 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 from .MenuItem import MenuItem
 
+
 class MenuCatalog:
     def __init__(self):
-        self._items: Dict[str, MenuItem] = {}
+        self._items = HashTable()          # id -> MenuItem (tra cứu nhanh)
+        self._list = DoublyLinkedList()    # các MenuItem theo thứ tự thêm vào (để hiển thị)
 
-    def load_from_dict(self, data: Any):
-        self._items.clear()
-        if not data:
+    # ---------- Nạp dữ liệu ----------
+
+    def load_from_dict(self, data):
+        self._items = HashTable()
+        self._list = DoublyLinkedList()
+
+        if data is None:
             return
-
-        if isinstance(data, list):
-            items_list = data
-        elif isinstance(data, dict):
-            items_list = data.values()
+        if isinstance(data, HashTable):
+            info_list = data.values()
+        elif isinstance(data, DoublyLinkedList):
+            info_list = data
+        elif isinstance(data, (list, tuple)):
+            info_list = data
         else:
             return
 
-        for info in items_list:
-            if not isinstance(info, dict):
+        for info in info_list:
+            if not isinstance(info, (HashTable, dict)):
                 continue
-            key = info.get("id", info.get("item_id", info.get("Item_id", "")))
             try:
-                item_data = {
-                    "id": str(key),
-                    "name": info.get("name", info.get("Name", "")),
-                    "category": info.get("category", info.get("item_type", info.get("Item_type", "Chưa phân loại"))),
-                    "price": info.get("price", info.get("unit_price", info.get("Unit_price", 1))),
-                    "unit": info.get("unit", info.get("Unit", "phần")),
-                    "is_available": info.get("is_available", info.get("status", info.get("Status_of_menuItem", True))),
-                    "description": info.get("description", info.get("Description", "")),
-                    "prep_time": int(info.get("prep_time", info.get("Prep_time", 0))),
-                    "image": info.get("image", ""),
-                    "color": info.get("color", "#68452f"),
-                }
-                item = MenuItem(**item_data)
-                self._items[item.id] = item
-            except Exception as e:
-                print(f"[Cảnh báo] Bỏ qua món ID {key} do dữ liệu không hợp lệ: {e}")
+                item = MenuItem.from_dict(info)
+                self.remove_item(item.id)      # trùng id thì món sau thay món trước
+                self.add_item(item)
+            except (ValueError, TypeError) as e:
+                print("[Cảnh báo] Bỏ qua món ID " + str(info.get("id")) + " do dữ liệu không hợp lệ: " + str(e))
 
-    def to_dict(self) -> list:
-        return [item.to_dict() for item in self._items.values()]
+    def to_dict(self):
+        """Trả về DoublyLinkedList các HashTable."""
+        result = DoublyLinkedList()
+        node = self._list.head
+        while node is not None:
+            result.add_last(node.data.to_dict())
+            node = node.next
+        return result
 
-    def to_list(self) -> list:
+    def to_list(self):
         return self.to_dict()
 
-    def add_item(self, item: MenuItem) -> bool:
+    # ---------- Thêm / sửa / xóa ----------
+
+    def add_item(self, item):
         if not isinstance(item, MenuItem):
             raise TypeError("Đối tượng thêm vào phải thuộc lớp MenuItem.")
-        
-        if item.id in self._items:
+        if self._items.contains(item.id):
             return False
-        
-        self._items[item.id] = item
+        self._items.put(item.id, item)
+        self._list.add_last(item)
         return True
 
-    def update_item(self, item_id: str, **kwargs) -> bool:
+    def update_item(
+        self,
+        item_id,
+        name=None,
+        category=None,
+        price=None,
+        unit=None,
+        is_available=None,
+        description=None,
+        prep_time=None,
+        image=None,
+        color=None,
+    ):
         item = self.get_item(item_id)
-        if not item:
+        if item is None:
             return False
-
-        kwargs.pop("id", None)
-        kwargs.pop("item_id", None)
-
-        key_mapping = {
-            "unit_price": "price",
-            "status": "is_available",
-            "item_type": "category"
-        }
-
-        
-        current_data = item.to_dict() if hasattr(item, "to_dict") else item.model_dump()
-
-        for k, v in kwargs.items():
-            actual_key = key_mapping.get(k, k)
-            if actual_key in current_data:
-                current_data[actual_key] = v
-
         try:
-            validated_item = MenuItem(**current_data)
-            self._items[item_id] = validated_item
+            item.update(
+                name=name,
+                category=category,
+                price=price,
+                unit=unit,
+                is_available=is_available,
+                description=description,
+                prep_time=prep_time,
+                image=image,
+                color=color,
+            )
             return True
-        except Exception as e:
-            print(f"[Lỗi cập nhật] Dữ liệu cập nhật món ID '{item_id}' không hợp lệ: {e}")
+        except ValueError as e:
+            print("[Lỗi cập nhật] Dữ liệu cập nhật món ID '" + str(item_id) + "' không hợp lệ: " + str(e))
             return False
 
-    def remove_item(self, item_id: str) -> bool:
-        return self._items.pop(item_id, None) is not None
+    def remove_item(self, item_id):
+        item = self._items.get(item_id)
+        if item is None:
+            return False
+        self._items.remove(item_id)
+        self._list.remove(item)
+        return True
 
-    def get_item(self, item_id: str) -> Optional[MenuItem]:
+    # ---------- Truy vấn items ----------
+
+    def get_item(self, item_id):
         return self._items.get(item_id)
 
-    def get_all_items(self) -> List[MenuItem]:
-        return list(self._items.values())
+    def get_all_items(self):
+        result = DoublyLinkedList()
+        node = self._list.head
+        while node is not None:
+            result.add_last(node.data)
+            node = node.next
+        return result
 
-    def search_items(self, keyword: str) -> List[MenuItem]:
+    def search_items(self, keyword):
+        result = DoublyLinkedList()
         if not keyword or not isinstance(keyword, str):
-            return []
+            return result
         kw = keyword.lower().strip()
         if not kw:
-            return []
-        return [
-            item for item in self._items.values()
-            if kw in item.name.lower() or kw in item.id.lower()
-        ]
+            return result
+        node = self._list.head
+        while node is not None:
+            item = node.data
+            if kw in item.name.lower() or kw in item.id.lower():
+                result.add_last(item)
+            node = node.next
+        return result
 
-    def filter_by_type(self, item_type: str) -> List[MenuItem]:
+    def filter_by_type(self, item_type):
+        result = DoublyLinkedList()
         if not item_type or not isinstance(item_type, str):
-            return []
+            return result
         target_type = item_type.lower().strip()
         if not target_type:
-            return []
-        return [
-            item for item in self._items.values()
-            if item.category.lower() == target_type
-        ]
+            return result
+        node = self._list.head
+        while node is not None:
+            if node.data.category.lower() == target_type:
+                result.add_last(node.data)
+            node = node.next
+        return result
 
-    def filter_by_category(self, category: str) -> List[MenuItem]:
-        """Bí danh cho filter_by_type để đồng nhất với trường 'category'."""
+    def filter_by_category(self, category):
+        """Tên khác của filter_by_type."""
         return self.filter_by_type(category)
 
-    def get_categories(self) -> List[str]:
-        """Lấy danh sách các phân loại món ăn hiện có."""
-        return list(dict.fromkeys(item.category for item in self._items.values()))
+    def get_categories(self):
+        result = DoublyLinkedList()
+        seen = HashTable()
+        node = self._list.head
+        while node is not None:
+            category = node.data.category
+            if not seen.contains(category):
+                seen.put(category, True)
+                result.add_last(category)
+            node = node.next
+        return result
 
-    def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
-        """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""
-        return [item for item in self._items.values() if item.is_available == is_available]
+    def filter_by_availability(self, is_available=True):
+        result = DoublyLinkedList()
+        node = self._list.head
+        while node is not None:
+            if node.data.is_available == is_available:
+                result.add_last(node.data)
+            node = node.next
+        return result

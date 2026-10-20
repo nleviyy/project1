@@ -1,41 +1,25 @@
-from importlib import import_module
-
-
-from .MenuItem import MenuItem
-from .MenuCatalog import MenuCatalog
+from .Invoice import Invoice
 from .JSONStorage import JSONStorage
+from .KitchenOrder import KitchenOrder
+from .MenuCatalog import MenuCatalog
+from .MenuItem import MenuItem
+from .Order import Order, OrderStatus
+from .OrderItem import OrderItem
+from .Payment import Payment, PaymentMethod, PaymentStatus
+from .Table import Table, TableStatus
 
 __all__ = [
-    "MenuItem",
-    "MenuCatalog",
+    "Invoice",
     "JSONStorage",
-    "Order",
     "KitchenOrder",
-    "OrderItem",
+    "MenuCatalog",
+    "MenuItem",
+    "Order",
     "OrderStatus",
-    "Table",
-    "TableStatus",
+    "OrderItem",
     "Payment",
     "PaymentMethod",
     "PaymentStatus",
-    "Invoice",
+    "Table",
+    "TableStatus",
 ]
-
-
-def __getattr__(name):
-    module_map = {
-        "Order": ".Order",
-        "KitchenOrder": ".KitchenOrder",
-        "OrderItem": ".OrderItem",
-        "OrderStatus": ".Order",
-        "Table": ".Table",
-        "TableStatus": ".Table",
-        "Payment": ".Payment",
-        "PaymentMethod": ".Payment",
-        "PaymentStatus": ".Payment",
-        "Invoice": ".Invoice",
-    }
-    if name in module_map:
-        module = import_module(module_map[name], __name__)
-        return getattr(module, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

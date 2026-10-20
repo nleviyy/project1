@@ -8,6 +8,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from src.models.Invoice import Invoice
+from src.models.JSONStorage import JSONStorage
 from src.models.Payment import Payment, PaymentMethod
 
 
@@ -235,7 +236,11 @@ class PaymentService:
                 temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
                 staged[target] = temporary
                 temporary.write_text(
-                    json.dumps(data, ensure_ascii=False, indent=2),
+                    json.dumps(
+                        JSONStorage.to_json_data(data),
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
                     encoding="utf-8",
                 )
             for target, temporary in staged.items():
