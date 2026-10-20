@@ -1,3 +1,62 @@
+from __future__ import annotations
+from typing import Any
+from src.models.MenuItem import MenuItem
+
+
+class _StackNode:
+    def __init__(self, data, next_node=None):
+        self.data = data
+        self.next = next_node
+
+
+class Stack:
+    """Ngăn xếp tự cài đặt bằng danh sách liên kết (LIFO)."""
+
+    def __init__(self):
+        self._top = None
+        self._size = 0
+
+    def push(self, data):
+        self._top = _StackNode(data, self._top)
+        self._size += 1
+
+    def pop(self):
+        if self._top is None:
+            raise IndexError("Ngăn xếp rỗng")
+        data = self._top.data
+        self._top = self._top.next
+        self._size -= 1
+        return data
+
+    def clear(self):
+        self._top = None
+        self._size = 0
+
+    def __len__(self):
+        return self._size
+
+    def __eq__(self, other):
+        if isinstance(other, list):
+            if len(self) != len(other):
+                return False
+            curr = self._top
+            items = []
+            while curr:
+                items.append(curr.data)
+                curr = curr.next
+            return items[::-1] == other
+        if isinstance(other, Stack):
+            if len(self) != len(other):
+                return False
+            c1, c2 = self._top, other._top
+            while c1 and c2:
+                if c1.data != c2.data:
+                    return False
+                c1, c2 = c1.next, c2.next
+            return True
+        return False
+
+
 class CartItem:
     def __init__(
         self,
@@ -42,11 +101,12 @@ class CartItem:
             data.get("prep_time", 0),
         )
 
+
 class Cart:
     def __init__(self):
-        self._items = []         
-        self.undo_stack = []
-        self.redo_stack = []
+        self._items = []
+        self.undo_stack = Stack()
+        self.redo_stack = Stack()
 
     def _snapshot(self):
         return [item.to_dict() for item in self._items]
@@ -55,21 +115,21 @@ class Cart:
         self._items = [CartItem.from_dict(data) for data in snapshot]
 
     def _save_for_undo(self):
-        self.undo_stack.append(self._snapshot())
-        self.redo_stack.clear()           
+        self.undo_stack.push(self._snapshot())
+        self.redo_stack.clear()
 
     def undo(self):
         if len(self.undo_stack) == 0:
             return False
-        self.redo_stack.append(self._snapshot())   
-        self._restore(self.undo_stack.pop())       
+        self.redo_stack.push(self._snapshot())
+        self._restore(self.undo_stack.pop())
         return True
 
     def redo(self):
         if len(self.redo_stack) == 0:
             return False
-        self.undo_stack.append(self._snapshot())   
-        self._restore(self.redo_stack.pop())       
+        self.undo_stack.push(self._snapshot())
+        self._restore(self.redo_stack.pop())
         return True
 
     def can_undo(self):
@@ -78,26 +138,29 @@ class Cart:
     def can_redo(self):
         return len(self.redo_stack) > 0
 
+    def count_lines(self):
+        return len(self._items)
+
     def _find(self, menu_item_id):
         for item in self._items:
             if item.menu_item_id == menu_item_id:
                 return item
         return None
 
-    def _get_value(self, menu_item, key, default=None):
-        if isinstance(menu_item, dict):
-            return menu_item.get(key, default)
-        return getattr(menu_item, key, default)
+    def _get_val(self, obj, key, default=None):
+        if isinstance(obj, dict):
+            return obj.get(key, default)
+        return getattr(obj, key, default)
 
-    def add_item(self, menu_item, quantity=1, note=""):
+    def add_item(self, menu_item, quantity: int = 1, note: str = ""):
         if not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
 
-        item_id = self._get_value(menu_item, "id")
-        item_name = self._get_value(menu_item, "name")
-        unit_price = self._get_value(menu_item, "price")
-        is_available = self._get_value(menu_item, "is_available", True)
-        prep_time = self._get_value(menu_item, "prep_time", 0)
+        item_id = self._get_val(menu_item, "id") or self._get_val(menu_item, "menu_item_id")
+        item_name = self._get_val(menu_item, "name") or self._get_val(menu_item, "item_name")
+        unit_price = self._get_val(menu_item, "price", self._get_val(menu_item, "unit_price", 0))
+        is_available = self._get_val(menu_item, "is_available", True)
+        prep_time = self._get_val(menu_item, "prep_time", 0) or 0
 
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
@@ -131,22 +194,24 @@ class Cart:
         self._save_for_undo()
         item.quantity = quantity
 
-    def update_item(self, menu_item_id, quantity, note=""):
-        if not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
-        item = self._find(menu_item_id)
-        if item is None:
-            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
-        self._save_for_undo()
-        item.quantity = quantity
-        item.note = note
-
     def set_note(self, menu_item_id, note):
         item = self._find(menu_item_id)
         if item is None:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.note = note
+
+    def update_item(self, menu_item_id, quantity=None, note=None):
+        if quantity is not None and (not isinstance(quantity, int) or quantity <= 0):
+            raise ValueError("Số lượng phải là số nguyên lớn hơn 0.")
+        item = self._find(menu_item_id)
+        if item is None:
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
+        self._save_for_undo()
+        if quantity is not None:
+            item.quantity = quantity
+        if note is not None:
+            item.note = note
 
     def clear(self):
         self._items = []
@@ -156,9 +221,6 @@ class Cart:
     def get_order_items(self):
         return self._snapshot()
 
-    def count_lines(self):
-        return len(self._items)
-
     def is_empty(self):
         return len(self._items) == 0
 
@@ -167,12 +229,3 @@ class Cart:
         for item in self._items:
             total += item.calculate_subtotal()
         return total
-
-    def to_text(self):
-        if len(self._items) == 0:
-            return "(giỏ hàng trống)"
-        lines = []
-        for item in self._items:
-            money = "{:,}".format(item.calculate_subtotal()).replace(",", ".")
-            lines.append("{} x{} = {}".format(item.item_name, item.quantity, money))
-        return "; ".join(lines)

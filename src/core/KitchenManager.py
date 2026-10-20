@@ -158,6 +158,27 @@ class KitchenManager:
         return order
 
 
+    def restore_orders(self, orders):
+        """Dựng lại hàng đợi và đơn đang chế biến từ danh sách đơn đã lưu.
+
+        Đơn PENDING vào hàng đợi theo thời gian tạo (FIFO). Đơn PREPARING đầu tiên là
+        đơn đang chế biến; các đơn PREPARING còn lại (không hợp lệ) được trả về PENDING.
+        Người gọi phải lưu lại OrderService sau khi khôi phục.
+        """
+        self._queue = DoublyLinkedList()
+        self._current_order = None
+        active = [o for o in orders if o.status in (OrderStatus.PENDING, OrderStatus.PREPARING)]
+        active.sort(key=lambda o: str(o.created_at))
+        preparing = [o for o in active if o.status == OrderStatus.PREPARING]
+        if preparing:
+            self._current_order = preparing[0]
+        for order in active:
+            if order is self._current_order:
+                continue
+            if order.status == OrderStatus.PREPARING:
+                order.status = "PENDING"
+            self._queue.add_last(order)
+
     def get_status(self, order_id):
         order = self._find_order(order_id)
         if order is None:

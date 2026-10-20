@@ -15,7 +15,6 @@ from src.models.MenuCatalog import MenuCatalog
 from src.models.MenuItem import MenuItem
 from src.models.Order import Order
 from src.models.Payment import Payment
-from src.models.Table import Table
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -194,6 +193,137 @@ def _read_payment_records(payment_service: PaymentService) -> list[dict]:
     return records
 
 
+def render_cart_component(
+    cart: Optional[Cart] = None,
+    order_service: Optional[OrderService] = None,
+    table_manager: Optional[TableManager] = None,
+    kitchen_manager: Optional[KitchenManager] = None,
+    menu_catalog: Optional[MenuCatalog] = None,
+) -> None:
+    """Render the cart (undo/redo, table choice, checkout) at the top of the page."""
+    menu_catalog = menu_catalog or _load_menu_catalog()
+    cart = cart or st.session_state.get("cart") or Cart()
+    order_service = order_service or st.session_state.get("order_service") or OrderService()
+    table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
+    kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
+    cart_column = st.container()
+    with cart_column:
+        st.subheader("🛒 Giỏ hàng của bạn")
+        undo_column, redo_column, clear_column = st.columns(3)
+        if undo_column.button("↶ Hoàn tác", disabled=not cart.can_undo(), width="stretch"):
+            cart.undo()
+            st.rerun()
+        if redo_column.button("↷ Làm lại", disabled=not cart.can_redo(), width="stretch"):
+            cart.redo()
+            st.rerun()
+        if clear_column.button("Xóa giỏ", disabled=cart.is_empty(), width="stretch"):
+            cart.clear()
+            st.rerun()
+
+        cart_items = cart.get_order_items()
+        if not cart_items:
+            st.info("Giỏ hàng đang trống. Hãy chọn món từ thực đơn.")
+        else:
+            for item in cart_items:
+                with st.container(border=True):
+                    details, actions = st.columns([3, 1])
+                    details.markdown(f"**{item['item_name']}**")
+                    details.caption(
+                        f"{_money(item['unit_price'])} × {item['quantity']} = "
+                        f"**{_money(item['subtotal'])}**"
+                    )
+                    if item.get("note"):
+                        details.caption(f"📝 {item['note']}")
+                    quantity = actions.number_input(
+                        "SL",
+                        min_value=1,
+                        max_value=20,
+                        value=int(item["quantity"]),
+                        key=f"cart_quantity_{item['menu_item_id']}",
+                    )
+                    if quantity != item["quantity"]:
+                        try:
+                            cart.update_quantity(item["menu_item_id"], int(quantity))
+                        except ValueError as error:
+                            st.error(str(error))
+                        else:
+                            st.rerun()
+                    if actions.button("Xóa món", key=f"remove_{item['menu_item_id']}"):
+                        cart.remove_item(item["menu_item_id"])
+                        st.rerun()
+
+            cart_total = cart.calculate_total()
+            st.metric("Tổng tiền thanh toán", _money(cart_total))
+
+            available_tables = table_manager.get_available_tables()
+            table_choices = [*available_tables, "Mang về (Takeaway)"]
+            selected_table = st.selectbox(
+                "🪑 Chọn bàn hoặc mang về",
+                table_choices,
+                format_func=lambda table: (
+                    f"{table.name} · {table.capacity} chỗ"
+                    if not isinstance(table, str)
+                    else table
+                ),
+            )
+            order_notes = st.text_area("Ghi chú đơn hàng", key="order_notes")
+            if st.button(
+                "✓ Xác nhận đơn hàng",
+                type="primary",
+                width="stretch",
+            ):
+                unavailable_items = [
+                    item["item_name"]
+                    for item in cart_items
+                    if (
+                        menu_catalog.get_item(item["menu_item_id"]) is None
+                        or not menu_catalog.get_item(item["menu_item_id"]).is_available
+                    )
+                ]
+                if unavailable_items:
+                    st.error("Món đã hết hoặc không còn: " + ", ".join(unavailable_items))
+                else:
+                    table_id = selected_table if isinstance(selected_table, str) else selected_table.id
+                    if not isinstance(selected_table, str) and not table_manager.is_table_available(table_id):
+                        st.error("Bàn vừa được nhận bởi đơn khác. Vui lòng chọn bàn khác.")
+                    else:
+                        order_items = [
+                            {
+                                "menu_item_id": item["menu_item_id"],
+                                "item_name": item["item_name"],
+                                "unit_price": item["unit_price"],
+                                "quantity": item["quantity"],
+                                "subtotal": item["subtotal"],
+                                "note": item.get("note", ""),
+                                "prep_time": item.get("prep_time", 0) or 0,
+                            }
+                            for item in cart_items
+                        ]
+                        try:
+                            order = order_service.create_order(
+                                table_id=table_id,
+                                items=order_items,
+                                notes=order_notes,
+                                discount_amount=0,
+                                check_existing_active=not isinstance(selected_table, str),
+                            )
+                            if not order_service.confirm_order(
+                                order.id,
+                                kitchen_manager=kitchen_manager,
+                            ):
+                                raise ValueError(f"Không thể xác nhận đơn hàng '{order.id}'.")
+                        except (KeyError, OSError, ValueError) as error:
+                            st.error(f"Không thể tạo đơn: {error}")
+                        else:
+                            wait_time = kitchen_manager.estimate_wait_time(order)
+                            cart.clear()
+                            st.session_state.checkout_notice = (
+                                f"Đã tạo đơn {order.id} và đưa vào hàng đợi bếp. "
+                                f"Thời gian chờ dự kiến: {wait_time} phút."
+                            )
+                            st.rerun()
+
+
 def render_ordering_component(
     menu_catalog: Optional[MenuCatalog] = None,
     cart: Optional[Cart] = None,
@@ -210,7 +340,8 @@ def render_ordering_component(
     tab_order = st.container()
 
     with tab_order:
-        menu_column, cart_column = st.columns([1.45, 1], gap="large")
+        menu_column = st.container()
+
         with menu_column:
             st.subheader("📜 Thực đơn")
             items = menu_catalog.get_all_items()
@@ -286,121 +417,6 @@ def render_ordering_component(
                                 width="stretch",
                             )
 
-        with cart_column:
-            st.subheader("🛒 Giỏ hàng của bạn")
-            undo_column, redo_column, clear_column = st.columns(3)
-            if undo_column.button("↶ Hoàn tác", disabled=not cart.can_undo(), width="stretch"):
-                cart.undo()
-                st.rerun()
-            if redo_column.button("↷ Làm lại", disabled=not cart.can_redo(), width="stretch"):
-                cart.redo()
-                st.rerun()
-            if clear_column.button("Xóa giỏ", disabled=cart.is_empty(), width="stretch"):
-                cart.clear()
-                st.rerun()
-
-            cart_items = cart.get_order_items()
-            if not cart_items:
-                st.info("Giỏ hàng đang trống. Hãy chọn món từ thực đơn.")
-            else:
-                for item in cart_items:
-                    with st.container(border=True):
-                        details, actions = st.columns([3, 1])
-                        details.markdown(f"**{item['item_name']}**")
-                        details.caption(
-                            f"{_money(item['unit_price'])} × {item['quantity']} = "
-                            f"**{_money(item['subtotal'])}**"
-                        )
-                        if item.get("note"):
-                            details.caption(f"📝 {item['note']}")
-                        quantity = actions.number_input(
-                            "SL",
-                            min_value=1,
-                            max_value=20,
-                            value=int(item["quantity"]),
-                            key=f"cart_quantity_{item['menu_item_id']}",
-                        )
-                        if quantity != item["quantity"]:
-                            try:
-                                cart.update_quantity(item["menu_item_id"], int(quantity))
-                            except ValueError as error:
-                                st.error(str(error))
-                            else:
-                                st.rerun()
-                        if actions.button("Xóa món", key=f"remove_{item['menu_item_id']}"):
-                            cart.remove_item(item["menu_item_id"])
-                            st.rerun()
-
-                cart_total = cart.calculate_total()
-                st.metric("Tổng tiền thanh toán", _money(cart_total))
-
-                available_tables = table_manager.get_available_tables()
-                table_choices = [*available_tables, "Mang về (Takeaway)"]
-                selected_table = st.selectbox(
-                    "🪑 Chọn bàn hoặc mang về",
-                    table_choices,
-                    format_func=lambda table: (
-                        f"{table.name} · {table.capacity} chỗ"
-                        if not isinstance(table, str)
-                        else table
-                    ),
-                )
-                order_notes = st.text_area("Ghi chú đơn hàng", key="order_notes")
-                if st.button(
-                    "✓ Xác nhận đơn hàng",
-                    type="primary",
-                    width="stretch",
-                ):
-                    unavailable_items = [
-                        item["item_name"]
-                        for item in cart_items
-                        if (
-                            menu_catalog.get_item(item["menu_item_id"]) is None
-                            or not menu_catalog.get_item(item["menu_item_id"]).is_available
-                        )
-                    ]
-                    if unavailable_items:
-                        st.error("Món đã hết hoặc không còn: " + ", ".join(unavailable_items))
-                    else:
-                        table_id = selected_table if isinstance(selected_table, str) else selected_table.id
-                        if not isinstance(selected_table, str) and not table_manager.is_table_available(table_id):
-                            st.error("Bàn vừa được nhận bởi đơn khác. Vui lòng chọn bàn khác.")
-                        else:
-                            order_items = [
-                                {
-                                    "menu_item_id": item["menu_item_id"],
-                                    "item_name": item["item_name"],
-                                    "unit_price": item["unit_price"],
-                                    "quantity": item["quantity"],
-                                    "subtotal": item["subtotal"],
-                                    "note": item.get("note", ""),
-                                    "prep_time": item.get("prep_time", 0) or 0,
-                                }
-                                for item in cart_items
-                            ]
-                            try:
-                                order = order_service.create_order(
-                                    table_id=table_id,
-                                    items=order_items,
-                                    notes=order_notes,
-                                    discount_amount=0,
-                                    check_existing_active=not isinstance(selected_table, str),
-                                )
-                                if not order_service.confirm_order(
-                                    order.id,
-                                    kitchen_manager=kitchen_manager,
-                                ):
-                                    raise ValueError(f"Không thể xác nhận đơn hàng '{order.id}'.")
-                            except (KeyError, OSError, ValueError) as error:
-                                st.error(f"Không thể tạo đơn: {error}")
-                            else:
-                                wait_time = kitchen_manager.estimate_wait_time(order)
-                                cart.clear()
-                                st.session_state.checkout_notice = (
-                                    f"Đã tạo đơn {order.id} và đưa vào hàng đợi bếp. "
-                                    f"Thời gian chờ dự kiến: {wait_time} phút."
-                                )
-                                st.rerun()
 
 
 def render_tables_component(
@@ -443,57 +459,7 @@ def render_tables_component(
                             for item in active_order.items
                         )
                     )
-                elif table.status == "AVAILABLE":
-                    if st.button("📌 Đặt trước bàn", key=f"btn_reserve_tbl_{table.id}", width="stretch"):
-                        table_manager.reserve_table(table.id)
-                        st.toast(f"Đã chuyển {table.name} sang Đã đặt trước.")
-                        st.rerun()
-                elif table.status == "RESERVED":
-                    if st.button("🔓 Mở lại bàn trống", key=f"btn_vacate_tbl_{table.id}", width="stretch"):
-                        table_manager.vacate_table(table.id)
-                        st.toast(f"Đã mở lại {table.name} thành bàn trống.")
-                        st.rerun()
 
-    st.divider()
-    col_add_tbl, col_del_tbl = st.columns(2, gap="large")
-    with col_add_tbl:
-        with st.container(border=True):
-            st.markdown("#### ➕ Thêm bàn mới (data/tables.json)")
-            next_tbl_id = max([t.id for t in tables], default=0) + 1
-            with st.form("form_add_table"):
-                new_t_id = st.number_input("Mã số bàn (ID)", min_value=1, value=next_tbl_id, step=1)
-                new_t_name = st.text_input("Tên bàn", value=f"Bàn {new_t_id:02d}")
-                new_t_cap = st.number_input("Sức chứa (người)", min_value=1, max_value=20, value=4, step=1)
-                if st.form_submit_button("Thêm bàn", type="primary", width="stretch"):
-                    try:
-                        new_table = Table(id=int(new_t_id), name=new_t_name.strip(), capacity=int(new_t_cap))
-                        if not table_manager.add_table(new_table):
-                            st.error(f"Bàn số {new_t_id} đã tồn tại trong hệ thống!")
-                        else:
-                            st.success(f"Đã thêm {new_t_name} và lưu vào data/tables.json.")
-                            st.rerun()
-                    except Exception as err:
-                        st.error(f"Lỗi: {err}")
-
-    with col_del_tbl:
-        with st.container(border=True):
-            st.markdown("#### 🗑️ Xóa bàn ăn (data/tables.json)")
-            deletable_tables = [t for t in tables if t.status != "OCCUPIED"]
-            if not deletable_tables:
-                st.info("Hiện không có bàn nào có thể xóa (tất cả đang có khách).")
-            else:
-                with st.form("form_delete_table"):
-                    del_tbl = st.selectbox(
-                        "Chọn bàn cần xóa",
-                        deletable_tables,
-                        format_func=lambda t: f"{t.name} (Sức chứa {t.capacity} chỗ - {t.status})",
-                    )
-                    if st.form_submit_button("Xác nhận xóa bàn", width="stretch"):
-                        if table_manager.remove_table(del_tbl.id):
-                            st.success(f"Đã xóa {del_tbl.name} khỏi data/tables.json.")
-                            st.rerun()
-                        else:
-                            st.error("Không thể xóa bàn đã chọn.")
 
 
 def render_kitchen_component(
@@ -576,6 +542,14 @@ def render_kitchen_component(
                         )
                     )
                 with col_o_btn:
+                    if position > 1 and st.button("⬆ Ưu tiên", key=f"prio_{order.id}", width="stretch"):
+                        try:
+                            order_service.prioritize_order(order.id, kitchen_manager=kitchen_manager)
+                        except (KeyError, OSError, ValueError) as error:
+                            st.error(f"Không thể ưu tiên: {error}")
+                        else:
+                            st.toast(f"Đã đưa {order.id} lên đầu hàng đợi.")
+                            st.rerun()
                     if st.button("Hủy đơn", key=f"cancel_wait_{order.id}", width="stretch"):
                         order_service.cancel_order(
                             order.id,
@@ -584,6 +558,21 @@ def render_kitchen_component(
                         )
                         st.toast(f"Đã hủy đơn chờ {order.id}.")
                         st.rerun()
+                with st.expander("🔎 Xem chi tiết & ghi chú bếp"):
+                    st.caption(f"Ghi chú khách: {order.notes or '—'}")
+                    kitchen_note = st.text_area(
+                        "Ghi chú của bếp",
+                        value=order.kitchen_note,
+                        key=f"kitchen_note_{order.id}",
+                    )
+                    if st.button("Lưu ghi chú", key=f"save_note_{order.id}"):
+                        try:
+                            order_service.set_kitchen_note(order.id, kitchen_note)
+                        except (KeyError, OSError, ValueError) as error:
+                            st.error(f"Không thể lưu ghi chú: {error}")
+                        else:
+                            st.toast(f"Đã lưu ghi chú bếp cho {order.id}.")
+                            st.rerun()
         if st.button("▶ Bắt đầu đơn tiếp theo", type="primary"):
             try:
                 started_order = kitchen_manager.start_next_order()
@@ -858,7 +847,6 @@ def render_dashboard_component(
         payment_records = []
     unique_paid_orders: set[str] = set()
     revenue = 0
-    method_revenue: dict[str, int] = {"CASH": 0, "BANK_TRANSFER": 0, "CARD": 0}
     for record in payment_records:
         order_id = record.get("order_id")
         if (
@@ -869,11 +857,6 @@ def render_dashboard_component(
             unique_paid_orders.add(order_id)
             amount = int(record.get("amount_paid", record.get("amount", 0)) or 0)
             revenue += amount
-            m = record.get("method", "CASH")
-            if m in method_revenue:
-                method_revenue[m] += amount
-            else:
-                method_revenue[m] = amount
 
     metrics = st.columns(4)
     metrics[0].metric("Doanh thu tổng", _money(revenue))
@@ -935,154 +918,3 @@ def render_dashboard_component(
                 hide_index=True,
                 width="stretch",
             )
-
-    st.divider()
-    col_dishes, col_methods = st.columns([1.2, 1], gap="large")
-    with col_dishes:
-        st.markdown("### 🏆 Top món bán chạy nhất")
-        item_counts: dict[str, dict] = {}
-        for order in orders:
-            if order.status != "CANCELLED":
-                for it in order.items:
-                    if it.item_name not in item_counts:
-                        item_counts[it.item_name] = {
-                            "quantity": 0,
-                            "revenue": 0,
-                        }
-                    item_counts[it.item_name]["quantity"] += it.quantity
-                    item_counts[it.item_name]["revenue"] += it.subtotal
-
-        top_dishes = sorted(
-            item_counts.items(),
-            key=lambda x: x[1]["quantity"],
-            reverse=True,
-        )[:5]
-
-        if top_dishes:
-            st.dataframe(
-                [
-                    {
-                        "Hạng": f"#{idx + 1}",
-                        "Tên món": dish_name,
-                        "Số lượng": f"{data['quantity']} phần",
-                        "Doanh thu": _money(data["revenue"]),
-                    }
-                    for idx, (dish_name, data) in enumerate(top_dishes)
-                ],
-                hide_index=True,
-                width="stretch",
-            )
-        else:
-            st.caption("Chưa có dữ liệu món bán ra.")
-
-    with col_methods:
-        st.markdown("### 💳 Doanh thu theo phương thức")
-        pm_labels = {
-            "CASH": "💵 Tiền mặt",
-            "BANK_TRANSFER": "🏦 Chuyển khoản",
-            "CARD": "💳 Quẹt thẻ",
-        }
-        st.dataframe(
-            [
-                {
-                    "Phương thức": pm_labels.get(k, k),
-                    "Doanh thu": _money(v),
-                    "Tỷ lệ": f"{(v / revenue * 100):.1f}%" if revenue > 0 else "0.0%",
-                }
-                for k, v in method_revenue.items()
-            ],
-            hide_index=True,
-            width="stretch",
-        )
-
-
-def render_settings_component(
-    order_service: Optional[OrderService] = None,
-    table_manager: Optional[TableManager] = None,
-    kitchen_manager: Optional[KitchenManager] = None,
-    payment_service: Optional[PaymentService] = None,
-    menu_catalog: Optional[MenuCatalog] = None,
-) -> None:
-    """Render system settings, file inspectors, and reload controls."""
-    order_service = order_service or st.session_state.get("order_service") or OrderService()
-    table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
-    kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
-    payment_service = payment_service or st.session_state.get("payment_service") or PaymentService()
-
-    st.subheader("⚙️ Quản trị hệ thống & Tệp dữ liệu (Data Storage)")
-    st.caption("Quản lý trạng thái kết nối dữ liệu giữa giao diện và các tệp JSON trong thư mục data/.")
-
-    data_files = [
-        {"key": "menu", "name": "Thực đơn (menu.json)", "path": MENU_PATH},
-        {"key": "tables", "name": "Bàn ăn (tables.json)", "path": TABLES_PATH},
-        {"key": "orders", "name": "Đơn hàng (orders.json)", "path": ORDERS_PATH},
-        {"key": "payments", "name": "Thanh toán (payments.json)", "path": PAYMENTS_PATH},
-    ]
-
-    file_info_rows = []
-    for f in data_files:
-        p: Path = f["path"]
-        exists = p.exists()
-        size_kb = f"{(p.stat().st_size / 1024):.1f} KB" if exists else "—"
-        count = 0
-        if exists:
-            try:
-                with p.open(encoding="utf-8") as fp:
-                    data = json.load(fp)
-                    if isinstance(data, list):
-                        count = len(data)
-                    elif isinstance(data, dict):
-                        count = len(data)
-            except Exception:
-                count = -1
-        file_info_rows.append(
-            {
-                "Tệp dữ liệu": f["name"],
-                "Đường dẫn": str(p),
-                "Kích thước": size_kb,
-                "Số bản ghi": f"{count} mục" if count >= 0 else "Lỗi đọc",
-                "Trạng thái": "🟢 Sẵn sàng" if exists else "🔴 Chưa tạo",
-            }
-        )
-    st.dataframe(file_info_rows, hide_index=True, width="stretch")
-    st.markdown("#### 🔄 Đồng bộ & Tải lại dữ liệu")
-    col_act1, col_act2 = st.columns(2)
-    with col_act1:
-        if st.button("🔄 Tải lại dữ liệu từ tất cả tệp JSON", width="stretch", type="primary"):
-            try:
-                order_service.load_orders()
-                table_manager.load_tables()
-                if hasattr(kitchen_manager, "restore_orders"):
-                    kitchen_manager.restore_orders(order_service.get_all_orders())
-                st.session_state.cart = Cart()
-                st.success("Đã đồng bộ lại toàn bộ dữ liệu từ các file JSON vào bộ nhớ hệ thống!")
-                st.rerun()
-            except Exception as e:
-                st.error(f"Lỗi khi tải lại dữ liệu: {e}")
-
-    with col_act2:
-        if st.button("🧹 Làm rỗng giỏ hàng tạm thời", width="stretch"):
-            st.session_state.cart = Cart()
-            st.toast("Đã đặt lại giỏ hàng rỗng.")
-            st.rerun()
-
-    st.divider()
-    st.markdown("#### 📄 Xem chi tiết tệp dữ liệu")
-    selected_file_key = st.selectbox(
-        "Chọn tệp dữ liệu để xem nội dung",
-        options=[f["key"] for f in data_files],
-        format_func=lambda k: next(f["name"] for f in data_files if f["key"] == k),
-        key="settings_selected_file_key",
-    )
-    selected_target = next(f for f in data_files if f["key"] == selected_file_key)
-    target_path: Path = selected_target["path"]
-    if target_path.exists():
-        with target_path.open(encoding="utf-8") as fp:
-            content_str = fp.read()
-        col_meta1, col_meta2 = st.columns(2)
-        col_meta1.caption(f"📁 Đường dẫn: `{target_path}`")
-        col_meta2.caption(f"📊 Kích thước: {len(content_str)} ký tự")
-        with st.expander(f"Xem nội dung `{target_path.name}`", expanded=True):
-            st.code(content_str, language="json")
-    else:
-        st.warning(f"Tệp `{target_path}` chưa tồn tại.")

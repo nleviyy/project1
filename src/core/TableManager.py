@@ -47,14 +47,14 @@ class TableManager:
             self._tables = {}
 
     def save_tables(self) -> None:
-        """Lưu danh sách bàn vào file tables.json."""
+        """Lưu danh sách bàn vào file tables.json. Ném OSError nếu không ghi được."""
         try:
             self.tables_file.parent.mkdir(parents=True, exist_ok=True)
             data = [table.to_dict() for table in self._tables.values()]
             with open(self.tables_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
-        except Exception as e:
-            print(f"Lỗi khi lưu file tables.json: {e}")
+        except OSError as e:
+            raise OSError(f"Không thể lưu file tables.json: {e}") from e
 
     def get_all_tables(self) -> List[Table]:
         """Lấy toàn bộ danh sách bàn."""
@@ -87,8 +87,13 @@ class TableManager:
         if not table.is_available and table.current_order_id != str(order_id):
             return False
 
+        prev_status, prev_order_id = table.status, table.current_order_id
         table.occupy(order_id)
-        self.save_tables()
+        try:
+            self.save_tables()
+        except OSError:
+            table.status, table.current_order_id = prev_status, prev_order_id
+            raise
         return True
 
     def release_table(self, table_id: int) -> bool:
@@ -99,8 +104,13 @@ class TableManager:
         if not table:
             return False
 
+        prev_status, prev_order_id = table.status, table.current_order_id
         table.release()
-        self.save_tables()
+        try:
+            self.save_tables()
+        except OSError:
+            table.status, table.current_order_id = prev_status, prev_order_id
+            raise
         return True
 
     def reserve_table(self, table_id: int) -> bool:
@@ -158,4 +168,3 @@ class TableManager:
             table.capacity = int(capacity)
         self.save_tables()
         return True
-

@@ -9,15 +9,37 @@ def now_time():
 
 
 class KitchenOrder:
-    def __init__(self, order_id, table_id=1, items=None, notes="", prep_time=0):
+    def __init__(
+        self,
+        order_id,
+        table_id=1,
+        items=None,
+        notes="",
+        prep_time=0,
+        status=None,
+        created_at=None,
+        updated_at=None,
+    ):
         self.order_id = order_id
         self.table_id = table_id
         self.items = items if items is not None else []
         self.notes = notes
         self._prep_time = prep_time
-        self.status = OrderStatus.PENDING
-        self.created_at = now_time()
-        self.updated_at = self.created_at
+        self.status = self._normalize_status(status) if status is not None else OrderStatus.PENDING
+        self.created_at = created_at or now_time()
+        self.updated_at = updated_at or self.created_at
+
+    @staticmethod
+    def _normalize_status(status):
+        if status is None:
+            return OrderStatus.PENDING
+        if isinstance(status, OrderStatus):
+            return status
+        value = getattr(status, "value", status)
+        value = str(value).upper()
+        if value in {member.value for member in OrderStatus}:
+            return OrderStatus(value)
+        return value
 
     @property
     def id(self):
@@ -28,16 +50,18 @@ class KitchenOrder:
         return True
 
     def set_status(self, new_status):
-        allowed = ORDER_STATUS_TRANSITIONS.get(self.status, [])
-        if new_status not in allowed:
+        current_status = self._normalize_status(self.status)
+        target_status = self._normalize_status(new_status)
+        allowed = ORDER_STATUS_TRANSITIONS.get(current_status.value if isinstance(current_status, OrderStatus) else str(current_status), [])
+        if target_status not in allowed:
             raise ValueError(
                 "Không thể chuyển từ '"
-                + OrderStatus.get_label(self.status)
+                + OrderStatus.get_label(current_status)
                 + "' sang '"
-                + OrderStatus.get_label(new_status)
+                + OrderStatus.get_label(target_status)
                 + "'"
             )
-        self.status = new_status
+        self.status = target_status
         self.updated_at = now_time()
 
     def calculate_prep_time(self):

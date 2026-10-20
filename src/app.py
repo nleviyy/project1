@@ -16,12 +16,12 @@ from src.core.PaymentService import PaymentService
 from src.core.TableManager import TableManager
 from src.ui import (
     apply_custom_styles,
+    render_cart_component,
     render_dashboard_component,
     render_kitchen_component,
     render_ordering_component,
     render_orders_component,
     render_payment_component,
-    render_settings_component,
     render_tables_component,
 )
 
@@ -32,7 +32,6 @@ PAGE_OPTIONS = (
     "💳  Thanh toán",
     "📈  Thống kê",
     "🪑  Quản lý bàn",
-    "⚙️  Cài đặt",
 )
 PAGE_LABELS = {
     "🍽️  Thực đơn": "Thực đơn",
@@ -41,7 +40,6 @@ PAGE_LABELS = {
     "💳  Thanh toán": "Thanh toán",
     "📈  Thống kê": "Thống kê",
     "🪑  Quản lý bàn": "Quản lý bàn",
-    "⚙️  Cài đặt": "Cài đặt",
 }
 
 st.set_page_config(
@@ -115,6 +113,14 @@ section[data-testid="stSidebar"] {
     background: rgba(255,255,255,.12);
 }
 [data-testid="stSidebar"] [data-testid="stRadioOption"] > div > div:first-child {
+    display: none !important;
+}
+[data-testid="stSidebar"] [data-baseweb="radio"] > div:first-child,
+[data-testid="stSidebar"] [data-baseweb="radio"] > label > div:first-child,
+[data-testid="stSidebar"] [role="radiogroup"] > label > div:first-child {
+    display: none !important;
+}
+[data-testid="stSidebar"] [data-testid="stRadioOption"] > div:first-child {
     display: none !important;
 }
 [data-testid="stSidebar"] [data-testid="stRadioOption"] > div {
@@ -217,7 +223,7 @@ with st.sidebar:
         f"{1 if kitchen_manager.get_current_order() else 0} đang nấu · "
         f"{kitchen_manager.count_waiting()} chờ"
     )
-    st.caption(f"🛒 Giỏ hàng  {cart.count_lines()} món")
+    st.caption(f"🛒 Giỏ hàng  {len(cart.get_order_items())} món")
     st.markdown(
         '<div style="margin-top:2rem;padding:.8rem;border-radius:14px;'
         'background:rgba(255,255,255,.12);color:#fff">'
@@ -234,11 +240,14 @@ header_left, header_search = st.columns(
     [1.1, 1],
     vertical_alignment="center",
 )
-header_left.markdown(
-    '<div><span class="welcome-label">Xin chào!</span>'
-    '<h2 class="welcome-title">Chúc bạn có một bữa ăn ngon miệng!</h2></div>',
-    unsafe_allow_html=True,
-)
+if selected_page == "🍽️  Thực đơn":
+    with header_left:
+        render_cart_component(
+            cart=cart,
+            order_service=order_service,
+            table_manager=table_manager,
+            kitchen_manager=kitchen_manager,
+        )
 header_search.text_input(
     "Tìm món ăn theo tên hoặc mã món",
     placeholder="⌕  Tìm món ăn theo tên hoặc mã món",
@@ -302,12 +311,4 @@ elif selected_page == "🪑  Quản lý bàn":
     render_tables_component(
         table_manager=table_manager,
         order_service=order_service,
-    )
-else:
-    st.title("Cài đặt hệ thống")
-    render_settings_component(
-        order_service=order_service,
-        table_manager=table_manager,
-        kitchen_manager=kitchen_manager,
-        payment_service=payment_service,
     )

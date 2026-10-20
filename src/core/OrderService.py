@@ -23,15 +23,18 @@ try:
     from src.models.Order import Order, OrderStatus
     from src.models.OrderItem import OrderItem
     from src.models.JSONStorage import JSONStorage
+    from src.models.HashTable import HashTable
 except ImportError:
     try:
         from models.Order import Order, OrderStatus
         from models.OrderItem import OrderItem
         from models.JSONStorage import JSONStorage
+        from models.HashTable import HashTable
     except ImportError:
         from ..models.Order import Order, OrderStatus
         from ..models.OrderItem import OrderItem
         from ..models.JSONStorage import JSONStorage
+        from ..models.HashTable import HashTable
 
 
 class OrderService:
@@ -55,7 +58,7 @@ class OrderService:
     ):
         self.orders_file: Path = Path(orders_file) if orders_file else (DATA_DIR / "orders.json")
         self.payments_file: Path = Path(payments_file) if payments_file else (DATA_DIR / "payments.json")
-        self._orders: Dict[str, Order] = {}
+        self._orders: HashTable = HashTable()
         self.table_manager = table_manager
         self.kitchen_manager = kitchen_manager
 
@@ -122,6 +125,7 @@ class OrderService:
         discount_amount: int = 0,
         custom_order_id: Optional[str] = None,
         check_existing_active: bool = False,
+        table_manager: Optional[Any] = None,
     ) -> Order:
         """
         Tạo đơn hàng mới cho bàn ăn.
@@ -157,11 +161,12 @@ class OrderService:
             notes=notes,
         )
 
+        tm = table_manager or self.table_manager
         occupied_table = False
-        if self.table_manager is not None and str(table_id).isdigit():
-            if not self.table_manager.is_table_available(int(table_id)):
+        if tm is not None and str(table_id).isdigit():
+            if not tm.is_table_available(int(table_id)):
                 raise ValueError(f"Bàn số {table_id} hiện không còn trống.")
-            occupied_table = self.table_manager.occupy_table(int(table_id), order.id)
+            occupied_table = tm.occupy_table(int(table_id), order.id)
             if not occupied_table:
                 raise ValueError(f"Không thể nhận bàn số {table_id}; vui lòng chọn bàn khác.")
 
@@ -169,7 +174,7 @@ class OrderService:
         if not self.save_orders():
             self._orders.pop(order.id, None)
             if occupied_table:
-                self.table_manager.release_table(int(table_id))
+                tm.release_table(int(table_id))
             raise OSError(f"Không thể lưu đơn hàng '{order.id}'.")
 
         return order
@@ -246,15 +251,12 @@ class OrderService:
         Tìm đơn hàng đang phục vụ tại bàn (trạng thái PENDING, PREPARING hoặc SERVED).
         Nếu có nhiều đơn, trả về đơn mới nhất.
         """
-        active_orders = [
-            order for order in self._orders.values()
-            if order.table_id == int(table_id) and order.is_active
-        ]
-        if not active_orders:
-            return None
-        # Sắp xếp theo created_at giảm dần, lấy đơn mới nhất
-        active_orders.sort(key=lambda o: o.created_at, reverse=True)
-        return active_orders[0]
+        latest: Optional[Order] = None
+        for order in self._orders.values():
+            if order.table_id == int(table_id) and order.is_active:
+                if latest is None or str(order.created_at) > str(latest.created_at):
+                    latest = order
+        return latest
 
     def get_all_orders(self) -> List[Order]:
         """Lấy toàn bộ danh sách đơn hàng."""
@@ -428,6 +430,93 @@ class OrderService:
         if order.remove_item(menu_item_id):
             return self.save_orders()
         return False
+
+    # -------------------------------------------------------------
+    # 8. Đồng bộ với bếp: mọi thay đổi trạng thái bếp được lưu tại đây
+    # -------------------------------------------------------------
+    def place_order(
+        self,
+        table_id: int | str,
+        items: List[OrderItem],
+        notes: str = "",
+        *,
+        table_manager: Optional[Any] = None,
+        kitchen_manager: Optional[Any] = None,
+    ) -> Order:
+        """Luồng đặt món: kiểm tra bàn -> tạo đơn -> chiếm bàn -> đưa vào hàng đợi bếp.
+
+        Nếu bước nào thất bại, đơn và bàn được hoàn lại để dữ liệu luôn nhất quán.
+        """
+        if not items:
+            raise ValueError("Giỏ hàng trống, không thể tạo đơn.")
+        tm = table_manager or self.table_manager
+        dine_in = str(table_id).isdigit()
+        if dine_in and tm is None:
+            raise ValueError("Chưa kết nối quản lý bàn, không thể nhận bàn.")
+
+        # 1. Kiểm tra bàn trước khi tạo đơn
+        if dine_in:
+            if not tm.is_table_available(int(table_id)):
+                raise ValueError(f"Bàn số {table_id} hiện không còn trống.")
+            if self.get_active_order_by_table(int(table_id)) is not None:
+                raise ValueError(f"Bàn số {table_id} đang có đơn chưa hoàn thành.")
+
+        # 2. Tạo đơn và chiếm bàn (create_order tự hoàn tác nếu lưu thất bại)
+        order = self.create_order(
+            table_id,
+            items=items,
+            notes=notes,
+            check_existing_active=dine_in,
+            table_manager=tm,
+        )
+
+        # 3. Đưa vào hàng đợi bếp; nếu thất bại thì hoàn tác đơn và bàn
+        try:
+            if not self.confirm_order(order.id, kitchen_manager=kitchen_manager):
+                raise ValueError(f"Không thể xác nhận đơn hàng '{order.id}'.")
+        except Exception:
+            self._rollback_order(order, tm)
+            raise
+        return order
+
+    def _rollback_order(self, order: Order, table_manager: Optional[Any]) -> None:
+        """Hoàn tác đơn chưa được xác nhận và trả bàn về trống."""
+        self._orders.pop(order.id, None)
+        if table_manager is not None and str(order.table_id).isdigit():
+            table_manager.release_table(int(order.table_id))
+        self.save_orders()
+
+    def sync_kitchen(self, kitchen_manager: Any) -> None:
+        """Dựng lại hàng đợi bếp từ đơn đã lưu. Gọi sau mỗi lần load_orders()."""
+        kitchen_manager.restore_orders(self.get_all_orders())
+        if not self.save_orders():
+            raise OSError("Không thể lưu lại đơn hàng sau khi khôi phục bếp.")
+
+    def _save_or_raise(self, order_id: str) -> None:
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu trạng thái đơn hàng '{order_id}'.")
+
+    def kitchen_start_next(self, kitchen_manager: Any) -> Optional[Order]:
+        """Bếp lấy đơn đầu hàng đợi (PENDING -> PREPARING) và lưu lại."""
+        order = kitchen_manager.start_next_order()
+        if order is not None:
+            self._save_or_raise(order.id)
+        return order
+
+    def kitchen_advance(self, kitchen_manager: Any) -> str:
+        """Chuyển đơn đang chế biến sang bước kế tiếp (PREPARING -> SERVED) và lưu lại."""
+        current = kitchen_manager.get_current_order()
+        if current is None:
+            raise ValueError("Bếp chưa làm đơn nào.")
+        status = kitchen_manager.advance_status()
+        self._save_or_raise(current.id)
+        return status
+
+    def kitchen_finish(self, kitchen_manager: Any) -> Order:
+        """Kết thúc đơn đang chế biến sau khi đã lên món và lưu lại."""
+        order = kitchen_manager.finish_current_order()
+        self._save_or_raise(order.id)
+        return order
 
     def update_item_quantity_in_order(self, order_id: str, menu_item_id: str, quantity: int) -> bool:
         """Cập nhật số lượng món trong đơn và tự động lưu."""
