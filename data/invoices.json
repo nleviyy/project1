@@ -92,5 +92,53 @@
     "final_amount": 207000,
     "payment_method": "CASH",
     "cashier_name": "Thu ngân chính"
+  },
+  {
+    "id": "INV-17875B38C40443FFBB583A82C5CFD675",
+    "payment_id": "PAY-0D2C920FEBC44AADB95D50A370A4203F",
+    "order_id": "ORD-20261020-001",
+    "table_id": 1,
+    "issued_at": "2026-10-20T03:36:20",
+    "items": [
+      {
+        "menu_item_id": "M14",
+        "item_name": "Nem lụi",
+        "unit_price": 35000,
+        "quantity": 1,
+        "subtotal": 35000,
+        "note": "",
+        "prep_time": 15
+      }
+    ],
+    "subtotal": 35000,
+    "discount_amount": 0,
+    "total_amount": 35000,
+    "final_amount": 35000,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
+  },
+  {
+    "id": "INV-5B5C38152FD643608B361593065D538A",
+    "payment_id": "PAY-B839389A03D34A1982C903D64CE8A525",
+    "order_id": "ORD-20261020-002",
+    "table_id": 2,
+    "issued_at": "2026-10-20T03:36:28",
+    "items": [
+      {
+        "menu_item_id": "M20",
+        "item_name": "Trà Atiso",
+        "unit_price": 20,
+        "quantity": 1,
+        "subtotal": 20,
+        "note": "",
+        "prep_time": 10
+      }
+    ],
+    "subtotal": 20,
+    "discount_amount": 0,
+    "total_amount": 20,
+    "final_amount": 20,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
   }
 ]

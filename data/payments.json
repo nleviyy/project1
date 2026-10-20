@@ -78,5 +78,37 @@
     "note": "",
     "cash_received": 207000,
     "change_due": 0
+  },
+  {
+    "id": "PAY-0D2C920FEBC44AADB95D50A370A4203F",
+    "order_id": "ORD-20261020-001",
+    "table_id": 1,
+    "payment_time": "2026-10-20T03:36:20.145678",
+    "amount": 35000,
+    "discount_rate": 0.0,
+    "amount_paid": 35000,
+    "method": "CASH",
+    "status": "SUCCESS",
+    "cashier_name": "Thu ngân chính",
+    "transaction_code": null,
+    "note": "",
+    "cash_received": 40000,
+    "change_due": 5000
+  },
+  {
+    "id": "PAY-B839389A03D34A1982C903D64CE8A525",
+    "order_id": "ORD-20261020-002",
+    "table_id": 2,
+    "payment_time": "2026-10-20T03:36:28.337256",
+    "amount": 20,
+    "discount_rate": 0.0,
+    "amount_paid": 20,
+    "method": "CASH",
+    "status": "SUCCESS",
+    "cashier_name": "Thu ngân chính",
+    "transaction_code": null,
+    "note": "",
+    "cash_received": 20,
+    "change_due": 0
   }
 ]

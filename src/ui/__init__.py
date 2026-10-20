@@ -1,4 +1,6 @@
 
+import json
+from html import escape
 from pathlib import Path
 from typing import Optional
 
@@ -15,7 +17,6 @@ from src.models.MenuItem import MenuItem
 from src.models.Order import Order
 from src.models.OrderItem import OrderItem
 from src.models.Payment import Payment
-from src.models.Table import Table
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -105,10 +106,60 @@ h1, h2, h3, h4 {
 }
 [data-testid="stImage"] img {
     width: 100%;
-    height: auto;
-    aspect-ratio: 2 / 3;
+    height: 100px;
+    aspect-ratio: 4 / 3;
     object-fit: cover;
     border-radius: 12px;
+}
+.menu-item-title {
+    overflow: hidden;
+    font-size: .875rem;
+    font-weight: 700;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.menu-item-price {
+    font-size: .65rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+[class*="st-key-add_menu_"] button {
+    min-height: 1.8rem;
+    padding: .15rem .2rem;
+    border: 0;
+    border-radius: 999px;
+    color: #fff;
+    background: #155c45;
+    font-size: .55rem;
+    white-space: nowrap;
+}
+[class*="st-key-add_menu_"] button:hover {
+    border-color: transparent;
+    color: #fff;
+    background: #104b39;
+    box-shadow: none;
+}
+[data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+}
+[data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) > [data-testid="stColumn"] {
+    width: auto !important;
+    min-width: 0;
+    flex: none !important;
+}
+[data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) [data-testid="stVerticalBlockBorderWrapper"] {
+    padding: .5rem;
+}
+[data-testid="stHorizontalBlock"]:has(.menu-item-price) {
+    gap: .25rem;
+}
+@media (max-width: 700px) {
+    [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 .stButton > button, .stFormSubmitButton > button {
     min-height: 2.55rem;
@@ -173,6 +224,12 @@ def _load_menu_catalog() -> MenuCatalog:
         raise ValueError("Thực đơn có món không hợp lệ hoặc mã món bị trùng.")
     return catalog
 
+def _ensure_kitchen_synced(order_service: OrderService, kitchen_manager: KitchenManager) -> None:
+    """Khôi phục hàng đợi bếp từ file một lần cho mỗi phiên làm việc."""
+    if not st.session_state.get("kitchen_synced"):
+        order_service.sync_kitchen(kitchen_manager)
+        st.session_state.kitchen_synced = True
+
 def _money(value: int | float) -> str:
     return f"{value:,.0f} VNĐ"
 
@@ -205,10 +262,15 @@ def render_ordering_component(
     order_service = order_service or st.session_state.get("order_service") or OrderService()
     table_manager = table_manager or st.session_state.get("table_manager") or TableManager()
     kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
+    _ensure_kitchen_synced(order_service, kitchen_manager)
+    if notice := st.session_state.pop("checkout_notice", None):
+        st.success(notice)
     tab_order = st.container()
 
     with tab_order:
-        menu_column, cart_column = st.columns([1.45, 1], gap="large")
+        cart_columns = st.columns([4, 2], gap="large")
+        cart_column = cart_columns[0]
+        menu_column = st.container()
         with menu_column:
             st.subheader("📜 Thực đơn")
             items = menu_catalog.get_all_items()
@@ -238,9 +300,10 @@ def render_ordering_component(
                     or search.strip().casefold() in item.id.casefold()
                 )
             ]
-            cards = st.columns(2, gap="medium")
             for index, item in enumerate(filtered):
-                with cards[index % len(cards)]:
+                if index % 4 == 0:
+                    cards = st.columns(4, gap="small")
+                with cards[index % 4]:
                     with st.container(border=True):
                         if item.image:
                             st.image(item.image, width="stretch")
@@ -248,36 +311,39 @@ def render_ordering_component(
                             f"{item.category} · "
                             f"{'🟢 Còn món' if item.is_available else '🔴 Tạm hết'}"
                         )
-                        st.markdown(f"### {item.name}")
-                        st.markdown(f"**{_money(item.price)}**")
-                        st.caption(f"◷ {item.prep_time} phút · {item.unit}")
-                        if item.description:
-                            st.write(item.description)
+                        st.markdown(
+                            f'<div class="menu-item-title">{escape(item.name)}</div>',
+                            unsafe_allow_html=True,
+                        )
+                        price_columns = st.columns(
+                            [1.25, 1.4],
+                            vertical_alignment="center",
+                        )
+                        price_columns[0].markdown(
+                            f'<div class="menu-item-price">{item.price:,.0f} đ</div>',
+                            unsafe_allow_html=True,
+                        )
                         if item.is_available:
-                            with st.form(f"add_menu_{item.id}"):
-                                quantity = st.number_input(
-                                    "Số lượng",
-                                    min_value=1,
-                                    max_value=20,
-                                    value=1,
-                                    step=1,
-                                    key=f"quantity_{item.id}",
-                                )
-                                note = st.text_input(
-                                    "Ghi chú món",
-                                    placeholder="Ít đá, không hành...",
-                                    key=f"note_{item.id}",
-                                )
-                                if st.form_submit_button("＋ Thêm vào giỏ", width="stretch"):
+                            with price_columns[1]:
+                                if st.button(
+                                    "＋ Thêm món",
+                                    key=f"add_menu_{item.id}",
+                                    help="Thêm vào giỏ",
+                                    width="stretch",
+                                ):
                                     try:
-                                        cart.add_item(item, int(quantity), note)
+                                        cart.add_item(item)
                                     except ValueError as error:
                                         st.error(str(error))
                                     else:
                                         _refresh_cart_widgets()
                                         st.toast(f"Đã thêm {item.name} vào giỏ.")
                                         st.rerun()
-                        else:
+                        st.caption(f"◷ {item.prep_time} phút · {item.unit}")
+                        if item.description:
+                            with st.expander("Mô tả món"):
+                                st.write(item.description)
+                        if not item.is_available:
                             st.button(
                                 "Tạm hết món",
                                 key=f"unavailable_{item.id}",
@@ -310,7 +376,10 @@ def render_ordering_component(
             else:
                 for item in cart_items:
                     with st.container(border=True):
-                        details, actions = st.columns([3, 1])
+                        details, actions = st.columns(
+                            [3, 4],
+                            vertical_alignment="center",
+                        )
                         details.markdown(f"**{item['item_name']}**")
                         details.caption(
                             f"{_money(item['unit_price'])} × {item['quantity']} = "
@@ -414,7 +483,8 @@ def render_ordering_component(
                                         items=order_items,
                                         notes=order_notes,
                                         discount_amount=0,
-                                        check_existing_active=not isinstance(selected_table, str),
+                                        kitchen_manager=kitchen_manager,
+                                        table_manager=table_manager,
                                     )
                                     if not order_service.confirm_order(
                                         order.id,
@@ -542,6 +612,7 @@ def render_kitchen_component(
 ) -> None:
     kitchen_manager = kitchen_manager or st.session_state.get("kitchen_manager") or KitchenManager()
     order_service = order_service or st.session_state.get("order_service") or OrderService()
+    _ensure_kitchen_synced(order_service, kitchen_manager)
     st.subheader("🍳 Điều phối bếp · Hàng đợi FIFO")
     current_order = kitchen_manager.get_current_order()
     waiting_orders = kitchen_manager.get_waiting_orders()
@@ -829,9 +900,9 @@ def render_payment_component(
                     else:
                         order_service.load_orders()
                         table_manager.load_tables()
-                        kitchen = st.session_state.get("kitchen_manager")
-                        if kitchen is not None:
-                            kitchen.restore_orders(order_service.get_all_orders())
+                        order_service.sync_kitchen(
+                            st.session_state.get("kitchen_manager") or KitchenManager()
+                        )
                         st.session_state.payment_notice = (
                             f"Thanh toán thành công cho đơn {selected_order.id} (Mã GD: {result.payment.id})."
                         )
@@ -1046,7 +1117,6 @@ def render_dashboard_component(
             hide_index=True,
             width="stretch",
         )
-
 def render_settings_component(
     order_service: Optional[OrderService] = None,
     table_manager: Optional[TableManager] = None,

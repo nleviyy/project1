@@ -1,168 +1,23 @@
+import json
+import unicodedata
 from pathlib import Path
-import sys
 from typing import Dict, List, Optional, Any, Union
 
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8')
-
-from .MenuItem import MenuItem
-from .JSONStorage import JSONStorage
+from src.models.MenuItem import MenuItem
+from src.models.HashTable import HashNode, HashTable
+from src.models.JSONStorage import JSONStorage
 
 __all__ = ["HashNode", "HashTable", "MenuCatalog"]
 
-class HashNode:
 
-    def __init__(self, key: Any, value: Any):
-        self.key = key
-        self.value = value
-        self.next: Optional["HashNode"] = None
+def _normalize_text(text: str) -> str:
+    """Normalize Vietnamese accents and casefold for resilient matching."""
+    text = text.replace("đ", "d").replace("Đ", "d")
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    ).casefold()
 
-class HashTable:
-    def __init__(self, capacity: int = 32):
-        if capacity < 1:
-            capacity = 32
-        self.capacity: int = capacity
-        self.size: int = 0
-        self.buckets: List[Optional[HashNode]] = [None] * self.capacity
-        self._keys_order: List[Any] = []
-
-    def _hash(self, key: Any) -> int:
-        key_str = str(key)
-        hash_val = 0
-        for char in key_str:
-            hash_val = (hash_val * 31 + ord(char)) % self.capacity
-        return hash_val
-
-    def _resize(self) -> None:
-        old_buckets = self.buckets
-        self.capacity *= 2
-        self.buckets = [None] * self.capacity
-        self.size = 0
-        order_backup = list(self._keys_order)
-        self._keys_order.clear()
-
-        for head in old_buckets:
-            current = head
-            while current is not None:
-                self.put(current.key, current.value)
-                current = current.next
-        self._keys_order = [k for k in order_backup if self.contains(k)]
-
-    def put(self, key: Any, value: Any) -> None:
-        index = self._hash(key)
-        current = self.buckets[index]
-
-        while current is not None:
-            if current.key == key:
-                current.value = value
-                return
-            current = current.next
-
-        new_node = HashNode(key, value)
-        new_node.next = self.buckets[index]
-        self.buckets[index] = new_node
-        self.size += 1
-        self._keys_order.append(key)
-
-        if self.size / self.capacity >= 0.75:
-            self._resize()
-
-    def get(self, key: Any, default: Any = None) -> Any:
-        index = self._hash(key)
-        current = self.buckets[index]
-        while current is not None:
-            if current.key == key:
-                return current.value
-            current = current.next
-        return default
-
-    def remove(self, key: Any) -> bool:
-        index = self._hash(key)
-        current = self.buckets[index]
-        prev = None
-
-        while current is not None:
-            if current.key == key:
-                if prev is None:
-                    self.buckets[index] = current.next
-                else:
-                    prev.next = current.next
-                self.size -= 1
-                if key in self._keys_order:
-                    self._keys_order.remove(key)
-                return True
-            prev = current
-            current = current.next
-
-        return False
-
-    def pop(self, key: Any, default: Any = None) -> Any:
-        index = self._hash(key)
-        current = self.buckets[index]
-        prev = None
-
-        while current is not None:
-            if current.key == key:
-                val = current.value
-                if prev is None:
-                    self.buckets[index] = current.next
-                else:
-                    prev.next = current.next
-                self.size -= 1
-                if key in self._keys_order:
-                    self._keys_order.remove(key)
-                return val
-            prev = current
-            current = current.next
-
-        return default
-
-    def contains(self, key: Any) -> bool:
-        index = self._hash(key)
-        current = self.buckets[index]
-        while current is not None:
-            if current.key == key:
-                return True
-            current = current.next
-        return False
-
-    def clear(self) -> None:
-        self.buckets = [None] * self.capacity
-        self.size = 0
-        self._keys_order.clear()
-
-    def values(self) -> List[Any]:
-        return [self.get(k) for k in self._keys_order]
-
-    def keys(self) -> List[Any]:
-        return list(self._keys_order)
-
-    def items(self) -> List[tuple]:
-        return [(k, self.get(k)) for k in self._keys_order]
-
-    def __len__(self) -> int:
-        return self.size
-
-    def __getitem__(self, key: Any) -> Any:
-        val = self.get(key)
-        if val is None and not self.contains(key):
-            raise KeyError(key)
-        return val
-
-    def __setitem__(self, key: Any, value: Any) -> None:
-        self.put(key, value)
-
-    def __delitem__(self, key: Any) -> None:
-        if not self.remove(key):
-            raise KeyError(key)
-
-    def __contains__(self, key: Any) -> bool:
-        return self.contains(key)
-
-    def __iter__(self):
-        return iter(self.keys())
 
 class MenuCatalog:
     def __init__(self):
@@ -300,6 +155,7 @@ class MenuCatalog:
         keyword: str,
         max_results: int = 5,
     ) -> List[MenuItem]:
+        """Return menu items matching prefix of full name, ID, or individual words."""
         if not isinstance(keyword, str) or max_results < 1:
             return []
 
@@ -307,19 +163,42 @@ class MenuCatalog:
         if not query:
             return []
 
-        suggestions: List[MenuItem] = []
+        query_fold = query.casefold()
+        norm_query = _normalize_text(query)
+
+        tier1: List[MenuItem] = []
+        tier2: List[MenuItem] = []
+        tier3: List[MenuItem] = []
+        seen_ids = set()
+
         for item in self._items.values():
-            matches_name = self._matches_prefix(item.name, query)
-            matches_id = self._matches_prefix(item.id, query)
-            is_exact_match = (
-                item.name.casefold() == query.casefold()
-                or item.id.casefold() == query.casefold()
-            )
-            if (matches_name or matches_id) and not is_exact_match:
-                suggestions.append(item)
-                if len(suggestions) >= max_results:
-                    break
-        return suggestions
+            name_fold = item.name.casefold()
+            id_fold = item.id.casefold()
+            is_exact = (name_fold == query_fold or id_fold == query_fold)
+            if is_exact:
+                continue
+
+            # Tier 1: Direct prefix on whole name or whole ID
+            if self._matches_prefix(item.name, query) or self._matches_prefix(item.id, query):
+                tier1.append(item)
+                seen_ids.add(item.id)
+                continue
+
+            # Tier 2: Word-level prefix in name
+            words = name_fold.split()
+            if any(self._matches_prefix(w, query_fold) for w in words):
+                tier2.append(item)
+                seen_ids.add(item.id)
+                continue
+
+            # Tier 3: Unaccented prefix (whole name or any word)
+            norm_name = _normalize_text(item.name)
+            if norm_name.startswith(norm_query) or any(w.startswith(norm_query) for w in norm_name.split()):
+                tier3.append(item)
+                seen_ids.add(item.id)
+
+        combined = tier1 + tier2 + tier3
+        return combined[:max_results]
 
     def filter_by_type(self, item_type: str) -> List[MenuItem]:
         if not item_type or not isinstance(item_type, str):
@@ -345,4 +224,6 @@ class MenuCatalog:
         return categories
 
     def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
+        return [item for item in self._items.values() if item.is_available == is_available]
+
         return [item for item in self._items.values() if item.is_available == is_available]

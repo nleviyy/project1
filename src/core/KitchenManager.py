@@ -5,6 +5,109 @@ from typing import List, Optional
 from src.models.Order import ORDER_STATUS_TRANSITIONS, Order, OrderStatus
 from src.models.OrderItem import OrderItem
 
+class Node:
+    def __init__(self, data):
+        self.data = data
+        self.prev = None
+        self.next = None
+
+
+class DoublyLinkedList:
+    def __init__(self):
+        self.head = None   
+        self.tail = None   
+        self.size = 0     
+
+    def is_empty(self):
+        return self.size == 0
+
+    def add_last(self, data):
+        new_node = Node(data)
+        if self.tail is None:          
+            self.head = new_node
+            self.tail = new_node
+        else:
+            new_node.prev = self.tail
+            self.tail.next = new_node
+            self.tail = new_node
+        self.size += 1
+
+    def remove_first(self):
+        if self.head is None:
+            return None
+        data = self.head.data
+        self.head = self.head.next
+        if self.head is None:          
+            self.tail = None
+        else:
+            self.head.prev = None
+        self.size -= 1
+        return data
+
+    def peek_first(self):
+        if self.head is None:
+            return None
+        return self.head.data
+
+    def remove(self, data):
+        node = self.head
+        while node is not None:
+            if node.data == data:
+                break
+            node = node.next
+
+        if node is None:               
+            return False
+
+        if node.prev is None:          
+            self.head = node.next
+        else:
+            node.prev.next = node.next
+
+        if node.next is None:         
+            self.tail = node.prev
+        else:
+            node.next.prev = node.prev
+
+        self.size -= 1
+        return True
+
+    def add_first(self, data):
+        new_node = Node(data)
+        if self.head is None:
+            self.head = new_node
+            self.tail = new_node
+        else:
+            new_node.next = self.head
+            self.head.prev = new_node
+            self.head = new_node
+        self.size += 1
+
+    def pop_where(self, predicate):
+        node = self.head
+        while node is not None and not predicate(node.data):
+            node = node.next
+        if node is None:
+            return None
+        if node.prev is None:
+            self.head = node.next
+        else:
+            node.prev.next = node.next
+        if node.next is None:
+            self.tail = node.prev
+        else:
+            node.next.prev = node.prev
+        self.size -= 1
+        return node.data
+
+    def to_list(self):
+        result = []
+        node = self.head
+        while node is not None:
+            result.append(node.data)
+            node = node.next
+        return result
+
 
 class KitchenManager:
     def __init__(self):
@@ -147,6 +250,61 @@ class KitchenManager:
         self._current_order = None
         return order
 
+
+    def restore_orders(self, orders):
+        """Dựng lại hàng đợi và đơn đang chế biến từ danh sách đơn đã lưu.
+
+        Đơn PENDING vào hàng đợi theo thời gian tạo (FIFO). Đơn PREPARING đầu tiên là
+        đơn đang chế biến; các đơn PREPARING còn lại (không hợp lệ) được trả về PENDING.
+        Người gọi phải lưu lại OrderService sau khi khôi phục.
+        """
+        self._queue = DoublyLinkedList()
+        self._current_order = None
+        active = [o for o in orders if o.status in (OrderStatus.PENDING, OrderStatus.PREPARING)]
+        active.sort(key=lambda o: str(o.created_at))
+        preparing = [o for o in active if o.status == OrderStatus.PREPARING]
+        if preparing:
+            self._current_order = preparing[0]
+        waiting = [o for o in active if o is not self._current_order]
+        for order in waiting:
+            if order.status == OrderStatus.PREPARING:
+                order.status = "PENDING"
+        prioritized = sorted(
+            [o for o in waiting if getattr(o, "priority_at", None)],
+            key=lambda o: str(o.priority_at),
+            reverse=True,
+        )
+        normal = sorted(
+            [o for o in waiting if not getattr(o, "priority_at", None)],
+            key=lambda o: str(o.created_at),
+        )
+        for order in prioritized + normal:
+            self._queue.add_last(order)
+
+    def prioritize_order(self, order_id):
+        """Đưa đơn đang chờ lên đầu hàng đợi (ngay sau đơn đang chế biến)."""
+        if self._get_order_id(self._current_order) == order_id:
+            raise ValueError("Đơn " + str(order_id) + " đang chế biến, không thể ưu tiên")
+        order = self._queue.pop_where(lambda o: self._get_order_id(o) == order_id)
+        if order is None:
+            raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong hàng đợi")
+        self._queue.add_first(order)
+        return order
+
+    def move_waiting(self, order_id, step):
+        """Đổi chỗ đơn đang chờ với đơn liền kề trong hàng đợi (step = -1 lên, +1 xuống)."""
+        orders = self._queue.to_list()
+        index = next((i for i, o in enumerate(orders) if self._get_order_id(o) == order_id), None)
+        if index is None:
+            raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong hàng đợi")
+        target = index + step
+        if not 0 <= target < len(orders):
+            raise ValueError("Đơn đã ở vị trí " + ("đầu" if step < 0 else "cuối") + " hàng đợi")
+        orders[index], orders[target] = orders[target], orders[index]
+        self._queue = DoublyLinkedList()
+        for order in orders:
+            self._queue.add_last(order)
+        return orders
 
     def get_status(self, order_id):
         order = self._find_order(order_id)
