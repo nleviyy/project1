@@ -239,6 +239,7 @@ class OrderService:
         order_id: str,
         reason: str = "",
         kitchen_manager: Optional[Any] = None,
+        table_manager: Optional[Any] = None,
     ) -> bool:
         """Hủy đơn hàng và giải phóng bàn liên kết."""
         order = self.get_order_by_id(order_id)
@@ -262,10 +263,11 @@ class OrderService:
 
         self.save_orders()
 
-        if self.table_manager and order.table_id:
+        tm = table_manager or self.table_manager
+        if tm and order.table_id:
             try:
                 t_id = int(order.table_id) if str(order.table_id).isdigit() else order.table_id
-                self.table_manager.release_table(t_id, order_id=order.id)
+                tm.release_table(t_id, order_id=order.id)
             except Exception:
                 pass
 
@@ -334,6 +336,10 @@ class OrderService:
 
         return self.save_orders()
 
+    def _save_or_raise(self, order_id: str) -> None:
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu trạng thái đơn hàng '{order_id}'.")
+
     def kitchen_start_next(self, kitchen_manager: Any) -> Optional[Order]:
         """Bắt đầu làm đơn kế tiếp trong bếp."""
         started = kitchen_manager.start_next_order()
@@ -343,10 +349,119 @@ class OrderService:
             if order:
                 order.status = "PREPARING"
                 order.updated_at = datetime.now().isoformat()
-                self.save_orders()
+            self._save_or_raise(str(oid))
         return started
+
+    def kitchen_advance(self, kitchen_manager: Any) -> str:
+        """Chuyển đơn đang chế biến sang bước kế tiếp (PREPARING -> SERVED) và lưu lại."""
+        current = kitchen_manager.get_current_order()
+        if current is None:
+            raise ValueError("Bếp chưa làm đơn nào.")
+        status = kitchen_manager.advance_status()
+        oid = getattr(current, "id", None) or getattr(current, "order_id", None)
+        order = self.get_order_by_id(oid)
+        if order:
+            order.status = status
+            order.updated_at = datetime.now().isoformat()
+        self._save_or_raise(str(oid))
+        return status
+
+    def kitchen_finish(self, kitchen_manager: Any) -> Order:
+        """Kết thúc đơn đang chế biến sau khi đã lên món và lưu lại."""
+        order = kitchen_manager.finish_current_order()
+        oid = getattr(order, "id", None) or getattr(order, "order_id", None)
+        o = self.get_order_by_id(oid)
+        if o:
+            o.status = getattr(order, "status", "SERVED")
+            o.updated_at = datetime.now().isoformat()
+        self._save_or_raise(str(oid))
+        return order
 
     def sync_kitchen(self, kitchen_manager: Any) -> None:
         """Đồng bộ danh sách đơn hàng đang hoạt động vào bếp."""
         if kitchen_manager:
-            kitchen_manager.restore_orders(list(self._orders.values()))
+            kitchen_manager.restore_orders(self.get_all_orders())
+            if not self.save_orders():
+                raise OSError("Không thể lưu lại đơn hàng sau khi khôi phục bếp.")
+
+    def add_item_to_order(self, order_id: str, item: OrderItem) -> bool:
+        """Thêm món vào đơn hàng hiện có và tự động lưu."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+
+        order.add_item(item)
+        return self.save_orders()
+
+    def remove_item_from_order(self, order_id: str, menu_item_id: str) -> bool:
+        """Xóa món khỏi đơn hàng hiện có và tự động lưu."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+
+        if order.remove_item(menu_item_id):
+            return self.save_orders()
+        return False
+
+    def update_item_quantity_in_order(self, order_id: str, menu_item_id: str, quantity: int) -> bool:
+        """Cập nhật số lượng món trong đơn và tự động lưu."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+
+        if order.update_item_quantity(menu_item_id, quantity):
+            return self.save_orders()
+        return False
+
+    def place_order(
+        self,
+        table_id: Union[int, str],
+        items: Union[List[OrderItem], List[Dict[str, Any]]],
+        notes: str = "",
+        *,
+        table_manager: Optional[Any] = None,
+        kitchen_manager: Optional[Any] = None,
+    ) -> Order:
+        """Luồng đặt món: kiểm tra bàn -> tạo đơn -> chiếm bàn -> đưa vào hàng đợi bếp.
+
+        Nếu bước nào thất bại, đơn và bàn được hoàn lại để dữ liệu luôn nhất quán.
+        """
+        if not items:
+            raise ValueError("Giỏ hàng trống, không thể tạo đơn.")
+        tm = table_manager or self.table_manager
+        dine_in = str(table_id).isdigit()
+        if dine_in and tm is None:
+            raise ValueError("Chưa kết nối quản lý bàn, không thể nhận bàn.")
+
+        # 1. Kiểm tra bàn trước khi tạo đơn
+        if dine_in:
+            if not tm.is_table_available(int(table_id)):
+                raise ValueError(f"Bàn số {table_id} hiện không còn trống.")
+            if self.get_active_order_by_table(int(table_id)) is not None:
+                raise ValueError(f"Bàn số {table_id} đang có đơn chưa hoàn thành.")
+
+        # 2. Tạo đơn và chiếm bàn (create_order tự hoàn tác nếu lưu thất bại)
+        order = self.create_order(
+            table_id,
+            items=items,
+            notes=notes,
+            check_existing_active=dine_in,
+            table_manager=tm,
+        )
+
+        # 3. Đưa vào hàng đợi bếp; nếu thất bại thì hoàn tác đơn và bàn
+        try:
+            if not self.confirm_order(order.id, kitchen_manager=kitchen_manager):
+                raise ValueError(f"Không thể xác nhận đơn hàng '{order.id}'.")
+        except Exception:
+            self._rollback_order(order, tm)
+            raise
+        return order
+
+    def _rollback_order(self, order: Order, table_manager: Optional[Any]) -> None:
+        """Hoàn tác đơn chưa được xác nhận và trả bàn về trống."""
+        self._orders.pop(order.id, None)
+        if table_manager is not None and str(order.table_id).isdigit():
+            table_manager.release_table(int(order.table_id), order_id=order.id)
+        self.save_orders()
+

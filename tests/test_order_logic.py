@@ -312,6 +312,36 @@ class TestOrderService:
         assert allowed is False
         assert "bị hủy" in reason
 
+    def test_place_order_and_kitchen_sync(self, tmp_path):
+        """Kiểm tra luồng place_order đầy đủ với TableManager và KitchenManager."""
+        from src.core.TableManager import TableManager
+        from src.core.KitchenManager import KitchenManager
+
+        tables_file = tmp_path / "tables.json"
+        tables_file.write_text(
+            json.dumps([{"id": 1, "name": "Bàn 1", "capacity": 4, "status": "AVAILABLE", "current_order_id": None}]),
+            encoding="utf-8"
+        )
+        orders_file = tmp_path / "orders.json"
+        tm = TableManager(tables_file=tables_file)
+        km = KitchenManager()
+        service = OrderService(orders_file=orders_file, auto_load=False, table_manager=tm, kitchen_manager=km)
+
+        items = [{"menu_item_id": "M01", "item_name": "Cà phê đen", "unit_price": 25000, "quantity": 2, "prep_time": 5}]
+        order = service.place_order(1, items, notes="Ít đường", table_manager=tm, kitchen_manager=km)
+
+        assert order.status == OrderStatus.PENDING
+        assert order.table_id == 1
+        assert len(order.items) == 1
+        assert order.items[0].quantity == 2
+        # Bàn 1 phải chuyển sang OCCUPIED
+        assert tm.get_table(1).is_occupied is True
+        assert tm.get_table(1).current_order_id == order.id
+
+        # Đặt lại bàn 1 khi đang OCCUPIED phải ném ValueError
+        with pytest.raises(ValueError, match="không còn trống"):
+            service.place_order(1, items, table_manager=tm, kitchen_manager=km)
+
 
 # =====================================================================
 # 4. KIỂM THỬ TASK P1: Table & TableManager
