@@ -2,9 +2,10 @@
     {
         "id": "ORD-20261014-003",
         "table_id": 1,
+        "status": "COMPLETED",
         "created_at": "2026-10-14T18:30:00",
         "updated_at": "2026-10-14T19:20:00",
-        "status": "COMPLETED",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M01",
@@ -16,17 +17,20 @@
                 "prep_time": 5
             }
         ],
-        "total_amount": 25000,
+        "notes": "Khách mang về một phần",
         "discount_amount": 0,
-        "final_amount": 25000,
-        "notes": "Khách mang về một phần"
+        "kitchen_note": "",
+        "priority_at": null,
+        "total_amount": 25000,
+        "final_amount": 25000
     },
     {
         "id": "ORD-20261014-001",
         "table_id": 2,
+        "status": "COMPLETED",
         "created_at": "2026-10-14T20:15:00",
         "updated_at": "2026-10-19T02:51:03",
-        "status": "COMPLETED",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M02",
@@ -47,17 +51,20 @@
                 "prep_time": 15
             }
         ],
-        "total_amount": 113000,
+        "notes": "Khách ngồi gần cửa sổ",
         "discount_amount": 0,
-        "final_amount": 113000,
-        "notes": "Khách ngồi gần cửa sổ"
+        "kitchen_note": "",
+        "priority_at": null,
+        "total_amount": 113000,
+        "final_amount": 113000
     },
     {
         "id": "ORD-20261014-002",
         "table_id": 5,
+        "status": "COMPLETED",
         "created_at": "2026-10-14T21:00:00",
         "updated_at": "2026-10-20T01:32:30",
-        "status": "COMPLETED",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M03",
@@ -87,10 +94,12 @@
                 "prep_time": 10
             }
         ],
-        "total_amount": 287000,
+        "notes": "Tiệc sinh nhật, áp dụng voucher 17k",
         "discount_amount": 17000,
-        "final_amount": 270000,
-        "notes": "Tiệc sinh nhật, áp dụng voucher 17k"
+        "kitchen_note": "",
+        "priority_at": null,
+        "total_amount": 287000,
+        "final_amount": 270000
     },
     {
         "id": "ORD-20261019-001",
@@ -98,6 +107,7 @@
         "status": "COMPLETED",
         "created_at": "2026-10-19T03:27:04",
         "updated_at": "2026-10-20T01:34:20",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M06",
@@ -111,6 +121,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 207000,
         "final_amount": 207000
     },
@@ -120,6 +132,7 @@
         "status": "CANCELLED",
         "created_at": "2026-10-19T23:20:31",
         "updated_at": "2026-10-20T03:35:46.474593",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M07",
@@ -133,6 +146,8 @@
         ],
         "notes": "[Hủy: Hủy từ điều phối bếp]",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 32000,
         "final_amount": 32000
     },
@@ -142,6 +157,7 @@
         "status": "COMPLETED",
         "created_at": "2026-10-20T01:43:26",
         "updated_at": "2026-10-20T03:36:20",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M14",
@@ -155,6 +171,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 35000,
         "final_amount": 35000
     },
@@ -164,6 +182,7 @@
         "status": "COMPLETED",
         "created_at": "2026-10-20T01:43:43",
         "updated_at": "2026-10-20T03:36:28",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M20",
@@ -177,6 +196,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 20,
         "final_amount": 20
     },
@@ -186,6 +207,7 @@
         "status": "CANCELLED",
         "created_at": "2026-10-20T03:35:28",
         "updated_at": "2026-10-20T22:20:44.090835",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M10",
@@ -199,6 +221,8 @@
         ],
         "notes": "[Hủy: Hủy từ điều phối bếp]",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 25000,
         "final_amount": 25000
     },
@@ -208,6 +232,7 @@
         "status": "PENDING",
         "created_at": "2026-10-21T00:40:41",
         "updated_at": "2026-10-21T00:40:41",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M01",
@@ -248,6 +273,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 195000,
         "final_amount": 195000
     },
@@ -257,6 +284,7 @@
         "status": "PENDING",
         "created_at": "2026-10-21T02:05:48",
         "updated_at": "2026-10-21T02:05:48",
+        "preparing_started_at": null,
         "items": [
             {
                 "menu_item_id": "M20",
@@ -270,6 +298,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 20000,
         "final_amount": 20000
     }
