@@ -162,17 +162,21 @@ class Payment:
 
     @classmethod
     def calculate_revenue(cls, payments):
-
         total_revenue = 0
         processed_payment_ids = HashTable()
         paid_orders = HashTable()
         paid_order_ids = DoublyLinkedList()
 
-        node = payments.head
-        while node is not None:
-            payment = node.data
-            node = node.next
+        payment_list = []
+        if isinstance(payments, DoublyLinkedList):
+            node = payments.head
+            while node is not None:
+                payment_list.append(node.data)
+                node = node.next
+        elif payments is not None:
+            payment_list = list(payments)
 
+        for payment in payment_list:
             if not payment.is_successful:
                 continue
             if processed_payment_ids.contains(payment.id):
