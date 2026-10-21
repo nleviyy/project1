@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import sys
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Callable
 
 from src.structures.hash_table import HashTable
 from src.structures.linked_list import DoublyLinkedList
