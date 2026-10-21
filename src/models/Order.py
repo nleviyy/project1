@@ -39,7 +39,7 @@ ORDER_STATUS_LABELS: dict[str, str] = {
 
 class Order(BaseModel):
     id: str = Field(..., description="Mã đơn hàng (VD: ORD-20261014-001)")
-    table_id: Union[int, str] = Field(..., description="Bàn đặt món")
+    table_id: Union[int, str] = Field(default=1, description="Bàn đặt món")
     status: StatusType = Field(default="PENDING", description="Trạng thái hiện tại")
     created_at: str = Field(
         default_factory=lambda: datetime.now().isoformat(), 
@@ -54,8 +54,24 @@ class Order(BaseModel):
     discount_amount: int = Field(default=0, ge=0, description="Tiền giảm giá (VNĐ)")
     kitchen_note: str = Field(default="", description="Ghi chú của bếp")
     priority_at: Optional[str] = Field(default=None, description="Thời điểm bếp ưu tiên đơn (ISO)")
+    prep_time: int = Field(default=0, ge=0, description="Thời gian chế biến độc lập (phút)")
 
     VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = ORDER_STATUS_TRANSITIONS
+
+    def __init__(self, *args, **data):
+        if args:
+            # Hỗ trợ khởi tạo Order(order_id, ...) kiểu cũ
+            if "id" not in data and "order_id" not in data:
+                data["id"] = args[0]
+            if len(args) > 1 and "table_id" not in data:
+                data["table_id"] = args[1]
+            if len(args) > 2 and "items" not in data:
+                data["items"] = args[2]
+            if len(args) > 3 and "notes" not in data:
+                data["notes"] = args[3]
+        if "order_id" in data and "id" not in data:
+            data["id"] = data.pop("order_id")
+        super().__init__(**data)
 
     @property
     def order_id(self) -> str:
@@ -82,7 +98,7 @@ class Order(BaseModel):
     def calculate_prep_time(self) -> int:
         """Tính tổng thời gian chế biến dự kiến cho toàn bộ đơn hàng."""
         if not self.items:
-            return 0
+            return self.prep_time
         total = 0
         for item in self.items:
             if isinstance(item, dict):
@@ -92,7 +108,7 @@ class Order(BaseModel):
                 qty = int(getattr(item, "quantity", 1))
                 pt = int(getattr(item, "prep_time", 0) or 0)
             total += qty * pt
-        return total
+        return total if total > 0 else self.prep_time
 
     @property
     def is_pending(self) -> bool:
@@ -139,7 +155,7 @@ class Order(BaseModel):
         self.updated_at = datetime.now().isoformat()
         return True
 
-    def change_status(self, new_status: StatusType) -> bool:
+    def change_status(self, new_status: Union[StatusType, OrderStatus]) -> bool:
         """Kiểm tra và cập nhật trạng thái theo đúng luồng nghiệp vụ."""
         new_status = new_status.value if isinstance(new_status, OrderStatus) else new_status
         if self.status == new_status:
@@ -200,8 +216,6 @@ class Order(BaseModel):
     @classmethod
     def from_dict(cls, data: dict) -> "Order":
         return cls.model_validate(data)
-
-    # ---------- Các hàm chuyển đổi nhanh theo từng công đoạn ----------
 
     def mark_preparing(self) -> bool:
         """Bếp tiếp nhận và bắt đầu nấu (PENDING -> PREPARING)."""

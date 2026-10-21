@@ -9,11 +9,9 @@ __all__ = [
     "MenuCatalog",
     "JSONStorage",
     "Order",
-    "KitchenOrder",
     "OrderItem",
     "OrderStatus",
     "Table",
-    "TableStatus",
     "Payment",
     "PaymentMethod",
     "PaymentStatus",
@@ -24,11 +22,10 @@ __all__ = [
 def __getattr__(name):
     module_map = {
         "Order": ".Order",
-        "KitchenOrder": ".KitchenOrder",
+        "KitchenOrder": ".Order",  # Alias sang Order
         "OrderItem": ".OrderItem",
         "OrderStatus": ".Order",
         "Table": ".Table",
-        "TableStatus": ".Table",
         "Payment": ".Payment",
         "PaymentMethod": ".Payment",
         "PaymentStatus": ".Payment",

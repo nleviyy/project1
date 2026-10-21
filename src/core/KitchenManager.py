@@ -1,5 +1,7 @@
-from src.models.KitchenOrder import KitchenOrder
-from src.models.Order import ORDER_STATUS_TRANSITIONS, OrderStatus
+from typing import Optional, List, Any
+from src.models.Order import Order, OrderStatus, ORDER_STATUS_TRANSITIONS
+from src.models.OrderItem import OrderItem
+from src.core.sorting import merge_sort
 
 
 class Node:
@@ -112,7 +114,6 @@ class KitchenManager:
         self._current_order = None         
         self._next_id = 1                 
 
-
     def _get_order_id(self, order):
         if order is None:
             return None
@@ -135,7 +136,7 @@ class KitchenManager:
     def _is_in_kitchen(self, order_id):
         return self._find_order(order_id) is not None
 
-    def add_order(self, order):
+    def add_order(self, order: Order):
         oid = self._get_order_id(order)
         if self._is_in_kitchen(oid):
             raise ValueError("Đơn " + str(oid) + " đã có trong bếp rồi")
@@ -150,16 +151,34 @@ class KitchenManager:
     def receive_order(self, table_id, items, notes=""):
         order_id = "ORD-" + str(self._next_id).zfill(4)   
         self._next_id += 1
-        order = KitchenOrder(
-            order_id=order_id,
+        
+        parsed_items = []
+        if items:
+            raw_items = items.values() if isinstance(items, dict) else items
+            for it in raw_items:
+                if isinstance(it, OrderItem):
+                    parsed_items.append(it)
+                elif isinstance(it, dict):
+                    parsed_items.append(
+                        OrderItem(
+                            menu_item_id=it.get("menu_item_id", it.get("item_id", "M01")),
+                            item_name=it.get("item_name", it.get("name", "Món")),
+                            unit_price=int(it.get("unit_price", it.get("price", 0))),
+                            quantity=int(it.get("quantity", it.get("sl", 1))),
+                            note=it.get("note", ""),
+                            prep_time=int(it.get("prep_time", 0) or 0),
+                        )
+                    )
+
+        order = Order(
+            id=order_id,
             table_id=table_id,
-            items=items,
+            items=parsed_items,
             notes=notes,
         )
         order.calculate_prep_time()
         self.add_order(order)
         return self.estimate_wait_time(order)
-
 
     def start_next_order(self):
         if self._current_order is not None:
@@ -185,34 +204,36 @@ class KitchenManager:
         self._current_order = None
         return order
 
-
-    def restore_orders(self, orders):
-        """Dựng lại hàng đợi và đơn đang chế biến từ danh sách đơn đã lưu.
-
-        Đơn PENDING vào hàng đợi theo thời gian tạo (FIFO). Đơn PREPARING đầu tiên là
-        đơn đang chế biến; các đơn PREPARING còn lại (không hợp lệ) được trả về PENDING.
-        Người gọi phải lưu lại OrderService sau khi khôi phục.
+    def restore_orders(self, orders: List[Order]):
+        """
+        Dựng lại hàng đợi và đơn đang chế biến từ danh sách đơn đã lưu.
+        Sử dụng merge_sort tự cài (ổn định, O(n log n)).
+        - Đơn có priority_at được đưa lên trước, sắp giảm dần theo priority_at.
+        - Phần còn lại giữ FIFO theo created_at tăng dần.
         """
         self._queue = DoublyLinkedList()
         self._current_order = None
         active = [o for o in orders if o.status in (OrderStatus.PENDING, OrderStatus.PREPARING)]
-        active.sort(key=lambda o: str(o.created_at))
+        # Sắp xếp tăng dần theo created_at bằng merge_sort tự cài
+        active = merge_sort(active, key=lambda o: str(o.created_at))
+
         preparing = [o for o in active if o.status == OrderStatus.PREPARING]
         if preparing:
             self._current_order = preparing[0]
+
         waiting = [o for o in active if o is not self._current_order]
         for order in waiting:
             if order.status == OrderStatus.PREPARING:
                 order.status = "PENDING"
-        prioritized = sorted(
-            [o for o in waiting if getattr(o, "priority_at", None)],
-            key=lambda o: str(o.priority_at),
-            reverse=True,
-        )
-        normal = sorted(
-            [o for o in waiting if not getattr(o, "priority_at", None)],
-            key=lambda o: str(o.created_at),
-        )
+
+        prioritized = [o for o in waiting if getattr(o, "priority_at", None)]
+        normal = [o for o in waiting if not getattr(o, "priority_at", None)]
+
+        # Sắp xếp prioritized giảm dần theo priority_at bằng merge_sort
+        prioritized = merge_sort(prioritized, key=lambda o: str(o.priority_at), reverse=True)
+        # Sắp xếp normal tăng dần theo created_at bằng merge_sort
+        normal = merge_sort(normal, key=lambda o: str(o.created_at))
+
         for order in prioritized + normal:
             self._queue.add_last(order)
 
@@ -229,7 +250,12 @@ class KitchenManager:
     def move_waiting(self, order_id, step):
         """Đổi chỗ đơn đang chờ với đơn liền kề trong hàng đợi (step = -1 lên, +1 xuống)."""
         orders = self._queue.to_list()
-        index = next((i for i, o in enumerate(orders) if self._get_order_id(o) == order_id), None)
+        index = None
+        for i, o in enumerate(orders):
+            if self._get_order_id(o) == order_id:
+                index = i
+                break
+
         if index is None:
             raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong hàng đợi")
         target = index + step
@@ -261,12 +287,11 @@ class KitchenManager:
         order = self._current_order
         if order.status == OrderStatus.SERVED:
             raise ValueError("Đơn đã lên món, hãy gọi finish_current_order()")
-        next_statuses = ORDER_STATUS_TRANSITIONS[order.status]
+        next_statuses = ORDER_STATUS_TRANSITIONS.get(order.status, [])
         if not next_statuses:
             raise ValueError("Đơn đã ở trạng thái cuối cùng")
         self._set_status(order, next_statuses[0])
         return order.status
-
 
     def cancel_order(self, order_id):
         if self._get_order_id(self._current_order) == order_id:
@@ -280,7 +305,6 @@ class KitchenManager:
                 self._queue.remove(order)
                 return
         raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong bếp")
-
 
     def peek_next_order(self):
         return self._queue.peek_first()

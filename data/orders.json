@@ -25,6 +25,8 @@
         ],
         "notes": "Khách ngồi gần cửa sổ",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 113000,
         "final_amount": 113000
     },
@@ -62,6 +64,8 @@
         ],
         "notes": "Tiệc sinh nhật, áp dụng voucher 17k",
         "discount_amount": 17000,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 287000,
         "final_amount": 270000
     },
@@ -83,6 +87,8 @@
         ],
         "notes": "Khách mang về một phần",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 25000,
         "final_amount": 25000
     },
@@ -104,6 +110,8 @@
         ],
         "notes": "Khách quen bàn 8",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 58000,
         "final_amount": 58000
     },
@@ -126,6 +134,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 207000,
         "final_amount": 207000
     },
@@ -148,6 +158,8 @@
         ],
         "notes": "[Hủy: Hủy từ điều phối bếp]",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 32000,
         "final_amount": 32000
     },
@@ -170,6 +182,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 35000,
         "final_amount": 35000
     },
@@ -192,6 +206,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 20,
         "final_amount": 20
     },
@@ -214,6 +230,8 @@
         ],
         "notes": "[Hủy: Hủy từ điều phối bếp]",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 25000,
         "final_amount": 25000
     },
@@ -263,6 +281,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 195000,
         "final_amount": 195000
     },
@@ -285,6 +305,8 @@
         ],
         "notes": "",
         "discount_amount": 0,
+        "kitchen_note": "",
+        "priority_at": null,
         "total_amount": 20000,
         "final_amount": 20000
     }

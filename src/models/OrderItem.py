@@ -3,10 +3,10 @@ from pydantic import BaseModel, Field, model_validator
 
 
 class OrderItem(BaseModel):
-    menu_item_id: str = Field(..., description="Mã món ăn từ menu (VD: M02)")
-    item_name: str = Field(..., description="Tên món ăn")
-    unit_price: int = Field(..., description="Đơn giá (VNĐ)", ge=0)
-    quantity: int = Field(..., description="Số lượng món", gt=0)
+    menu_item_id: str = Field(default="M01", description="Mã món ăn từ menu (VD: M02)")
+    item_name: str = Field(default="Món", description="Tên món ăn")
+    unit_price: int = Field(default=0, description="Đơn giá (VNĐ)", ge=0)
+    quantity: int = Field(default=1, description="Số lượng món", gt=0)
     subtotal: Optional[int] = Field(default=None, description="Thành tiền món này (VNĐ)", ge=0)
     note: Optional[str] = Field(default="", description="Ghi chú món ăn")
     prep_time: int = Field(
@@ -15,6 +15,20 @@ class OrderItem(BaseModel):
         ge=0,
         exclude_if=lambda value: value == 0,
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def populate_defaults(cls, data):
+        if isinstance(data, dict):
+            if "menu_item_id" not in data:
+                data["menu_item_id"] = data.get("item_id", "M01")
+            if "item_name" not in data:
+                data["item_name"] = data.get("name", "Món")
+            if "unit_price" not in data:
+                data["unit_price"] = data.get("price", 0)
+            if "quantity" not in data:
+                data["quantity"] = data.get("sl", 1)
+        return data
 
     @model_validator(mode='after')
     def auto_calculate_subtotal(self):
@@ -34,8 +48,12 @@ class OrderItem(BaseModel):
 
     def to_dict(self) -> dict:
         data = self.model_dump(mode="json")
+        if self.prep_time == 0 and "prep_time" in data:
+            del data["prep_time"]
         return data
 
     @classmethod
     def from_dict(cls, data: dict) -> "OrderItem":
         return cls.model_validate(data)
+
+

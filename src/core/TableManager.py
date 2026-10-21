@@ -1,58 +1,73 @@
 """
 TableManager: Quản lý danh sách bàn và điều phối trạng thái bàn ăn (P1).
-Hiện thực hóa yêu cầu của Mentor trong mục 2.2 và B:
 - Quản lý trạng thái bàn ăn từ data/tables.json.
 - Kiểm tra bàn trống trước khi nhận đơn.
 - Chiếm bàn khi có đơn hoạt động và giải phóng bàn khi đơn hoàn thành hoặc bị hủy.
 """
-import json
-import os
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List, Optional, Union
 
-from src.models.Table import Table, TableStatus
+from src.core.JSONStorage import save_data, load_data, CorruptDataError
+from src.core.paths import TABLES_PATH
+from src.models.HashTable import HashTable
+from src.models.Table import Table
+
+
+class TableDataError(Exception):
+    """Ngoại lệ khi đọc hoặc nạp dữ liệu tables.json thất bại."""
+    pass
 
 
 class TableManager:
-    def __init__(self, tables_file: Optional[str] = None, auto_load: bool = True):
-        if tables_file:
-            self.tables_file = Path(tables_file)
-        else:
-            # Tìm đường dẫn mặc định tới data/tables.json
-            current_dir = Path(__file__).resolve().parent
-            project_root = current_dir.parent.parent
-            self.tables_file = project_root / "data" / "tables.json"
+    def __init__(self, tables_file: Optional[Union[str, Path]] = None, auto_load: bool = True):
+        self.tables_file = Path(tables_file) if tables_file else TABLES_PATH
+        self._tables: HashTable = HashTable()
+        self._load_failed: bool = False
 
-        self._tables: Dict[int, Table] = {}
         if auto_load:
             self.load_tables()
 
     def load_tables(self) -> None:
-        """Đọc danh sách bàn từ file tables.json."""
+        """
+        Đọc danh sách bàn từ file tables.json.
+        - File không tồn tại: khởi tạo danh sách rỗng.
+        - File tồn tại nhưng hỏng hoặc không phải list hợp lệ: ném TableDataError rõ ràng,
+          KHÔNG gán dict rỗng, đánh dấu _load_failed = True.
+        """
         if not self.tables_file.exists():
-            self._tables = {}
+            self._tables = HashTable()
+            self._load_failed = False
             return
 
         try:
-            with open(self.tables_file, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if isinstance(data, list):
-                    self._tables = {
-                        int(item["id"]): Table.from_dict(item)
-                        for item in data
-                        if isinstance(item, dict) and "id" in item
-                    }
+            data = load_data(self.tables_file, default_data=None)
+            if not isinstance(data, list):
+                raise TableDataError(f"Dữ liệu trong {self.tables_file} phải là danh sách bàn (list).")
+
+            new_tables = HashTable()
+            for item in data:
+                if not isinstance(item, dict) or "id" not in item:
+                    raise TableDataError(f"Phần tử bàn không hợp lệ trong {self.tables_file}: {item}")
+                table = Table.from_dict(item)
+                new_tables.put(int(table.id), table)
+
+            self._tables = new_tables
+            self._load_failed = False
+        except (CorruptDataError, TableDataError) as e:
+            self._load_failed = True
+            raise TableDataError(f"Không thể đọc file bàn ăn: {e}") from e
         except Exception as e:
-            print(f"Lỗi khi đọc file tables.json: {e}")
-            self._tables = {}
+            self._load_failed = True
+            raise TableDataError(f"Lỗi không xác định khi nạp bàn ăn: {e}") from e
 
     def save_tables(self) -> None:
-        """Lưu danh sách bàn vào file tables.json. Ném OSError nếu không ghi được."""
+        """Lưu danh sách bàn vào file tables.json. Ném TableDataError nếu nạp thất bại."""
+        if self._load_failed:
+            raise TableDataError("Không thể lưu tables.json vì trạng thái nạp dữ liệu trước đó đã thất bại.")
+
         try:
-            self.tables_file.parent.mkdir(parents=True, exist_ok=True)
             data = [table.to_dict() for table in self._tables.values()]
-            with open(self.tables_file, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=2)
+            save_data(self.tables_file, data)
         except OSError as e:
             raise OSError(f"Không thể lưu file tables.json: {e}") from e
 
@@ -76,9 +91,7 @@ class TableManager:
     def occupy_table(self, table_id: int, order_id: str) -> bool:
         """
         Chiếm bàn khi đơn hàng được tạo.
-        :param table_id: Mã bàn cần chiếm
-        :param order_id: Mã đơn hàng liên kết
-        :return: True nếu chiếm bàn thành công, False nếu bàn không tồn tại hoặc đã có khách
+        Rollback trạng thái bộ nhớ nếu lưu file thất bại.
         """
         table = self.get_table(table_id)
         if not table:
@@ -96,13 +109,18 @@ class TableManager:
             raise
         return True
 
-    def release_table(self, table_id: int) -> bool:
+    def release_table(self, table_id: int, order_id: Optional[str] = None) -> bool:
         """
         Giải phóng bàn khi đơn hàng thanh toán xong hoặc bị hủy.
+        Nếu truyền order_id thì chỉ giải phóng khi current_order_id khớp; không khớp thì trả False.
         """
         table = self.get_table(table_id)
         if not table:
             return False
+
+        if order_id is not None:
+            if str(table.current_order_id) != str(order_id):
+                return False
 
         prev_status, prev_order_id = table.status, table.current_order_id
         table.release()
@@ -114,42 +132,64 @@ class TableManager:
         return True
 
     def reserve_table(self, table_id: int) -> bool:
-        """Đặt trước bàn (chuyển sang RESERVED)."""
+        """Đặt trước bàn (chuyển sang RESERVED). Rollback nếu lưu file thất bại."""
         table = self.get_table(table_id)
         if not table or not table.is_available:
             return False
 
+        prev_status, prev_order_id = table.status, table.current_order_id
         table.reserve()
-        self.save_tables()
+        try:
+            self.save_tables()
+        except OSError:
+            table.status, table.current_order_id = prev_status, prev_order_id
+            raise
         return True
 
     def vacate_table(self, table_id: int) -> bool:
-        """Giải phóng bàn từ trạng thái RESERVED về AVAILABLE."""
+        """Giải phóng bàn từ trạng thái RESERVED về AVAILABLE. Rollback nếu lưu thất bại."""
         table = self.get_table(table_id)
         if not table:
             return False
 
+        prev_status, prev_order_id = table.status, table.current_order_id
         table.vacate()
-        self.save_tables()
+        try:
+            self.save_tables()
+        except OSError:
+            table.status, table.current_order_id = prev_status, prev_order_id
+            raise
         return True
 
     def add_table(self, table: Table) -> bool:
-        """Thêm bàn mới vào hệ thống và lưu vào tables.json."""
+        """Thêm bàn mới vào hệ thống và lưu vào tables.json. Rollback nếu lưu thất bại."""
         if not isinstance(table, Table):
             raise TypeError("Đối tượng thêm vào phải thuộc lớp Table.")
-        if table.id in self._tables:
+        t_id = int(table.id)
+        if t_id in self._tables:
             return False
-        self._tables[table.id] = table
-        self.save_tables()
+
+        self._tables.put(t_id, table)
+        try:
+            self.save_tables()
+        except OSError:
+            self._tables.remove(t_id)
+            raise
         return True
 
     def remove_table(self, table_id: int) -> bool:
-        """Xóa bàn khỏi hệ thống nếu bàn không bận (OCCUPIED)."""
-        table = self.get_table(table_id)
+        """Xóa bàn khỏi hệ thống nếu bàn không bận (OCCUPIED). Rollback nếu lưu thất bại."""
+        t_id = int(table_id)
+        table = self.get_table(t_id)
         if not table or table.status == "OCCUPIED":
             return False
-        del self._tables[int(table_id)]
-        self.save_tables()
+
+        self._tables.remove(t_id)
+        try:
+            self.save_tables()
+        except OSError:
+            self._tables.put(t_id, table)
+            raise
         return True
 
     def update_table(
@@ -158,13 +198,39 @@ class TableManager:
         name: Optional[str] = None,
         capacity: Optional[int] = None,
     ) -> bool:
-        """Cập nhật tên và sức chứa của bàn ăn."""
+        """
+        Cập nhật tên và sức chứa của bàn ăn.
+        Sức chứa không hợp lệ phải ném ValueError. Rollback nếu lưu thất bại.
+        """
         table = self.get_table(table_id)
         if not table:
             return False
+
+        if capacity is not None:
+            try:
+                cap_val = int(capacity)
+            except (ValueError, TypeError) as err:
+                raise ValueError(f"Sức chứa bàn không hợp lệ: {capacity}") from err
+            if cap_val <= 0:
+                raise ValueError("Sức chứa bàn phải lớn hơn 0.")
+        else:
+            cap_val = None
+
+        prev_name = table.name
+        prev_cap = table.capacity
+
         if name:
-            table.name = str(name).strip()
-        if capacity is not None and int(capacity) > 0:
-            table.capacity = int(capacity)
-        self.save_tables()
+            clean_name = str(name).strip()
+            if not clean_name:
+                raise ValueError("Tên bàn ăn không được để trống.")
+            table.name = clean_name
+        if cap_val is not None:
+            table.capacity = cap_val
+
+        try:
+            self.save_tables()
+        except OSError:
+            table.name = prev_name
+            table.capacity = prev_cap
+            raise
         return True

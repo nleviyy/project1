@@ -1,21 +1,13 @@
 import json
-import unicodedata
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Union
+from typing import List, Optional, Any, Union
 
 from src.models.MenuItem import MenuItem
 from src.models.HashTable import HashNode, HashTable
+from src.core.paths import MENU_PATH
+from src.core.JSONStorage import load_data, save_data
 
 __all__ = ["HashNode", "HashTable", "MenuCatalog"]
-
-
-def _normalize_text(text: str) -> str:
-    """Normalize Vietnamese accents and casefold for resilient matching."""
-    text = text.replace("đ", "d").replace("Đ", "d")
-    return "".join(
-        c for c in unicodedata.normalize("NFD", text)
-        if unicodedata.category(c) != "Mn"
-    ).casefold()
 
 
 class MenuCatalog:
@@ -37,33 +29,20 @@ class MenuCatalog:
         for info in items_list:
             if not isinstance(info, dict):
                 continue
-            key = info.get("id", info.get("item_id", info.get("Item_id", "")))
             try:
-                item_data = {
-                    "id": str(key),
-                    "name": info.get("name", info.get("Name", "")),
-                    "category": info.get("category", info.get("item_type", info.get("Item_type", "Chưa phân loại"))),
-                    "price": info.get("price", info.get("unit_price", info.get("Unit_price", 1))),
-                    "unit": info.get("unit", info.get("Unit", "phần")),
-                    "is_available": info.get("is_available", info.get("status", info.get("Status_of_menuItem", True))),
-                    "description": info.get("description", info.get("Description", "")),
-                    "prep_time": int(info.get("prep_time", info.get("Prep_time", 0))),
-                    "image": info.get("image", ""),
-                    "color": info.get("color", "#68452f"),
-                }
-                item = MenuItem(**item_data)
-                self._items[item.id] = item
+                item = MenuItem.from_dict(info)
+                self._items.put(item.id, item)
             except Exception as e:
+                key = info.get("id", info.get("item_id", ""))
                 print(f"[Cảnh báo] Bỏ qua món ID {key} do dữ liệu không hợp lệ: {e}")
 
     def load_from_file(self, file_path: Optional[Union[str, Path]] = None) -> bool:
         """Đọc thực đơn trực tiếp từ file JSON."""
-        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        target = Path(file_path) if file_path else MENU_PATH
         if not target.exists():
             return False
         try:
-            with open(target, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            data = load_data(target, default_data=[])
             self.load_from_dict(data)
             return True
         except Exception as e:
@@ -72,11 +51,9 @@ class MenuCatalog:
 
     def save_to_file(self, file_path: Optional[Union[str, Path]] = None) -> bool:
         """Lưu toàn bộ danh mục món ăn hiện tại ra file JSON."""
-        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        target = Path(file_path) if file_path else MENU_PATH
         try:
-            target.parent.mkdir(parents=True, exist_ok=True)
-            with open(target, "w", encoding="utf-8") as f:
-                json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            save_data(target, self.to_dict())
             return True
         except Exception as e:
             print(f"[Lỗi MenuCatalog] Không thể lưu file '{target}': {e}")
@@ -95,7 +72,7 @@ class MenuCatalog:
         if item.id in self._items:
             return False
         
-        self._items[item.id] = item
+        self._items.put(item.id, item)
         return True
 
     def update_item(self, item_id: str, **kwargs) -> bool:
@@ -121,14 +98,14 @@ class MenuCatalog:
 
         try:
             validated_item = MenuItem(**current_data)
-            self._items[item_id] = validated_item
+            self._items.put(item_id, validated_item)
             return True
         except Exception as e:
             print(f"[Lỗi cập nhật] Dữ liệu cập nhật món ID '{item_id}' không hợp lệ: {e}")
             return False
 
     def remove_item(self, item_id: str) -> bool:
-        return self._items.pop(item_id, None) is not None
+        return self._items.remove(item_id)
 
     def get_item(self, item_id: str) -> Optional[MenuItem]:
         return self._items.get(item_id)
@@ -137,36 +114,28 @@ class MenuCatalog:
         return list(self._items.values())
 
     def search_items(self, keyword: str) -> List[MenuItem]:
+        """Tìm món theo tên hoặc mã món qua vòng lặp tuyến tính (tự viết)."""
         if not keyword or not isinstance(keyword, str):
             return []
         kw = keyword.lower().strip()
         if not kw:
             return []
-        return [
-            item for item in self._items.values()
-            if kw in item.name.lower() or kw in item.id.lower()
-        ]
-
-    @staticmethod
-    def _matches_prefix(value: str, keyword: str) -> bool:
-        value = value.casefold()
-        keyword = keyword.casefold()
-        if len(keyword) > len(value):
-            return False
-
-        index = 0
-        while index < len(keyword):
-            if value[index] != keyword[index]:
-                return False
-            index += 1
-        return True
+        results = []
+        for item in self._items.values():
+            if kw in item.name.lower() or kw in item.id.lower():
+                results.append(item)
+        return results
 
     def autocomplete_items(
         self,
         keyword: str,
         max_results: int = 5,
     ) -> List[MenuItem]:
-        """Return menu items matching prefix of full name, ID, or individual words."""
+        """
+        Gợi ý món ăn có tên hoặc mã món bắt đầu bằng keyword.
+        Sử dụng str.startswith trên bản đã casefold.
+        Lưu ý: Giữ nguyên hành vi bỏ qua món khớp hoàn toàn (is_exact) theo code hiện tại.
+        """
         if not isinstance(keyword, str) or max_results < 1:
             return []
 
@@ -175,51 +144,32 @@ class MenuCatalog:
             return []
 
         query_fold = query.casefold()
-        norm_query = _normalize_text(query)
 
-        tier1: List[MenuItem] = []
-        tier2: List[MenuItem] = []
-        tier3: List[MenuItem] = []
-        seen_ids = set()
-
+        suggestions: List[MenuItem] = []
         for item in self._items.values():
             name_fold = item.name.casefold()
             id_fold = item.id.casefold()
-            is_exact = (name_fold == query_fold or id_fold == query_fold)
-            if is_exact:
-                continue
 
-            # Tier 1: Direct prefix on whole name or whole ID
-            if self._matches_prefix(item.name, query) or self._matches_prefix(item.id, query):
-                tier1.append(item)
-                seen_ids.add(item.id)
-                continue
+            matches_name = name_fold.startswith(query_fold)
+            matches_id = id_fold.startswith(query_fold)
+            is_exact_match = (name_fold == query_fold or id_fold == query_fold)
 
-            # Tier 2: Word-level prefix in name
-            words = name_fold.split()
-            if any(self._matches_prefix(w, query_fold) for w in words):
-                tier2.append(item)
-                seen_ids.add(item.id)
-                continue
-
-            # Tier 3: Unaccented prefix (whole name or any word)
-            norm_name = _normalize_text(item.name)
-            if norm_name.startswith(norm_query) or any(w.startswith(norm_query) for w in norm_name.split()):
-                tier3.append(item)
-                seen_ids.add(item.id)
-
-        combined = tier1 + tier2 + tier3
-        return combined[:max_results]
+            if (matches_name or matches_id) and not is_exact_match:
+                suggestions.append(item)
+                if len(suggestions) >= max_results:
+                    break
+        return suggestions
 
     def filter_by_type(self, item_type: str) -> List[MenuItem]:
+        """Lọc món theo danh mục (so sánh không phân biệt hoa thường)."""
         if not item_type or not isinstance(item_type, str):
             return []
-        target_type = item_type.lower().strip()
+        target_type = item_type.casefold().strip()
         if not target_type:
             return []
         return [
             item for item in self._items.values()
-            if item.category.lower() == target_type
+            if item.category.casefold().strip() == target_type
         ]
 
     def filter_by_category(self, category: str) -> List[MenuItem]:
@@ -227,17 +177,20 @@ class MenuCatalog:
         return self.filter_by_type(category)
 
     def get_categories(self) -> List[str]:
-        """Lấy danh sách các phân loại món ăn hiện có."""
-        seen = set()
-        categories = []
+        """
+        Lấy danh sách các phân loại món ăn hiện có (so sánh không phân biệt hoa thường).
+        Dùng HashTable tự cài làm bảng tra cứu đã thấy, không dùng set built-in.
+        """
+        seen_categories = HashTable()
+        categories: List[str] = []
         for item in self._items.values():
-            if item.category not in seen:
-                seen.add(item.category)
-                categories.append(item.category)
+            cat = item.category.strip()
+            cat_fold = cat.casefold()
+            if cat_fold not in seen_categories:
+                seen_categories.put(cat_fold, True)
+                categories.append(cat)
         return categories
 
     def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
         """Lọc danh sách món ăn theo trạng thái phục vụ (còn món / hết món)."""
-        return [item for item in self._items.values() if item.is_available == is_available]
-
         return [item for item in self._items.values() if item.is_available == is_available]

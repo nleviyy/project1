@@ -2,7 +2,7 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from typing import Optional, Set
 
-VALID_TABLE_STATUSES: Set[str] = {"AVAILABLE", "OCCUPIED", "RESERVED"}
+from src.models.HashTable import HashTable
 
 
 class TableStatus(str, Enum):
@@ -11,12 +11,15 @@ class TableStatus(str, Enum):
     RESERVED = "RESERVED"
 
 
+VALID_TABLE_STATUSES: Set[str] = {s.value for s in TableStatus}
+
+
 @dataclass
 class Table:
     id: int
     name: str
     capacity: int
-    status: str = "AVAILABLE"
+    status: str = TableStatus.AVAILABLE.value
     current_order_id: Optional[str] = None
 
     def __post_init__(self):
@@ -38,7 +41,12 @@ class Table:
         if self.capacity <= 0:
             raise ValueError("Sức chứa của bàn phải lớn hơn 0.")
 
-        self.status = str(self.status).upper().strip()
+        # Chuẩn hóa status thành chuỗi khớp TableStatus
+        if isinstance(self.status, TableStatus):
+            self.status = self.status.value
+        else:
+            self.status = str(self.status).upper().strip()
+
         if self.status not in VALID_TABLE_STATUSES:
             raise ValueError(
                 f"Trạng thái bàn '{self.status}' không hợp lệ. Phải thuộc {VALID_TABLE_STATUSES}."
@@ -49,10 +57,10 @@ class Table:
             if not self.current_order_id:
                 self.current_order_id = None
 
-        if self.status == "AVAILABLE" and self.current_order_id is not None:
+        if self.status == TableStatus.AVAILABLE.value and self.current_order_id is not None:
             raise ValueError("Bàn ở trạng thái AVAILABLE thì current_order_id bắt buộc là None.")
 
-        if self.status == "OCCUPIED" and self.current_order_id is None:
+        if self.status == TableStatus.OCCUPIED.value and self.current_order_id is None:
             raise ValueError("Bàn ở trạng thái OCCUPIED thì bắt buộc phải có current_order_id.")
 
     def occupy(self, order_id: str) -> bool:
@@ -60,23 +68,36 @@ class Table:
         if not order_id or not str(order_id).strip():
             raise ValueError("Mã đơn hàng gắn vào bàn không được để trống.")
         clean_order_id = str(order_id).strip()
-        self.status = "OCCUPIED"
+
+        # Kiểm tra không được chiếm bàn đang OCCUPIED bởi đơn khác
+        if self.status == TableStatus.OCCUPIED.value and self.current_order_id != clean_order_id:
+            raise ValueError(
+                f"Bàn '{self.name}' đang được sử dụng bởi đơn '{self.current_order_id}', "
+                f"không thể gán cho đơn '{clean_order_id}'."
+            )
+
+        self.status = TableStatus.OCCUPIED.value
         self.current_order_id = clean_order_id
         return True
 
     def vacate(self) -> bool:
         """Giải phóng bàn về trạng thái AVAILABLE."""
-        self.status = "AVAILABLE"
+        self.status = TableStatus.AVAILABLE.value
         self.current_order_id = None
         return True
 
     def release(self) -> bool:
-        """Alias cho vacate."""
+        """Giải phóng bàn về trạng thái AVAILABLE."""
         return self.vacate()
 
     def reserve(self) -> bool:
-        """Đặt trước bàn (RESERVED)."""
-        self.status = "RESERVED"
+        """Đặt trước bàn (chuyển sang RESERVED). Không được đặt bàn đang OCCUPIED."""
+        if self.status == TableStatus.OCCUPIED.value:
+            raise ValueError(
+                f"Bàn '{self.name}' đang có khách phục vụ (đơn {self.current_order_id}), "
+                f"không thể đặt trước."
+            )
+        self.status = TableStatus.RESERVED.value
         self.current_order_id = None
         return True
 
@@ -93,7 +114,7 @@ class Table:
                 name=self.name,
                 capacity=self.capacity,
                 status=target_status,
-                current_order_id=target_order_id
+                current_order_id=target_order_id,
             )
             self.status = temp_table.status
             self.current_order_id = temp_table.current_order_id
@@ -105,32 +126,24 @@ class Table:
     def to_dict(self) -> dict:
         return asdict(self)
 
-    def model_dump(self) -> dict:
-        return asdict(self)
-
-    def dict(self) -> dict:
-        return asdict(self)
-
     @classmethod
     def from_dict(cls, data: dict) -> "Table":
         return cls(
             id=data.get("id"),
             name=data.get("name", ""),
             capacity=data.get("capacity", 4),
-            status=data.get("status", "AVAILABLE"),
-            current_order_id=data.get("current_order_id")
+            status=data.get("status", TableStatus.AVAILABLE.value),
+            current_order_id=data.get("current_order_id"),
         )
+
     @property
     def is_available(self) -> bool:
         """Kiểm tra xem bàn có đang thực sự trống (AVAILABLE) và không có đơn hàng không."""
-        return self.status == "AVAILABLE" and self.current_order_id is None
+        return self.status == TableStatus.AVAILABLE.value and self.current_order_id is None
 
     @property
     def is_occupied(self) -> bool:
-        return self.status == "OCCUPIED"
-
-    def release(self) -> bool:
-        return self.vacate()
+        return self.status == TableStatus.OCCUPIED.value
 
     def check_and_occupy(self, order_id: str) -> bool:
         """

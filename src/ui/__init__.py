@@ -66,7 +66,7 @@ html, body, [class*="css"], .stApp {
     background: var(--canvas);
 }
 .block-container {
-    max-width: 1500px;
+    max-width: 95%; /* Mở rộng tối đa chiều rộng trang */
     padding-top: 1.35rem;
     padding-bottom: 3rem;
 }
@@ -270,7 +270,8 @@ def render_ordering_component(
     tab_order = st.container()
 
     with tab_order:
-        cart_columns = st.columns([4, 2], gap="large")
+        # Điều chỉnh tỷ lệ cột Thực đơn (5) và Giỏ hàng (2) để khu vực món ăn rộng rãi hơn
+        cart_columns = st.columns([5, 2], gap="large")
         cart_column = cart_columns[0]
         menu_column = st.container()
         with menu_column:
@@ -969,5 +970,18 @@ def render_dashboard_component(
             hide_index=True,
             width="stretch",
         )
+
+
 def render_settings_component(*args, **kwargs) -> None:
+    st.info("Trang Cài đặt đã được gỡ khỏi phạm vi dự án.")
+
+
+def render_cart_component(*args, **kwargs) -> None:
+    """Compatibility placeholder for legacy render_cart_component callers."""
+    pass
+
+
+def render_cart_component(*args, **kwargs) -> None:
+    """Compatibility placeholder for legacy render_cart_component callers."""
+    pass
     st.info("Trang Cài đặt đã được gỡ khỏi phạm vi dự án.")

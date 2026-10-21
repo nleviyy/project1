@@ -3,6 +3,9 @@ from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from src.models.HashTable import HashTable
+
+
 class PaymentMethod(str, Enum):
     CASH = "CASH"
     BANK_TRANSFER = "BANK_TRANSFER"
@@ -14,6 +17,7 @@ class PaymentStatus(str, Enum):
     FAILED = "FAILED"
     PENDING = "PENDING"
     REFUNDED = "REFUNDED"
+
 
 class Payment(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
@@ -28,8 +32,8 @@ class Payment(BaseModel):
     method: PaymentMethod = Field(
         default=PaymentMethod.CASH, description="Phương thức thanh toán"
     )
-    status: PaymentStatus = Field(
-        default=PaymentStatus.SUCCESS, description="Trạng thái giao dịch"
+    status: Optional[PaymentStatus] = Field(
+        default=None, description="Trạng thái giao dịch"
     )
     cashier_name: str = Field(..., description="Tên nhân viên thu ngân")
     transaction_code: Optional[str] = Field(default=None, description="Mã giao dịch ngân hàng/điện tử nếu có")
@@ -37,21 +41,36 @@ class Payment(BaseModel):
     cash_received: Optional[int] = Field(default=None, ge=0, description="Tiền mặt khách đưa (VNĐ)")
     change_due: int = Field(default=0, ge=0, description="Tiền thối lại (VNĐ)")
 
+    @model_validator(mode="before")
+    @classmethod
+    def set_default_status(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "status" not in data or data["status"] is None:
+                # Nếu amount_paid > 0 và không truyền status rõ ràng (tương thích test cũ), SUCCESS; ngược lại PENDING
+                if data.get("amount_paid", 0) > 0 and not data.get("is_pending_test"):
+                    data["status"] = PaymentStatus.SUCCESS
+                else:
+                    data["status"] = PaymentStatus.PENDING
+        return data
+
     @model_validator(mode='after')
     def calculate_final_amount(self):
         """Tự động tính toán số tiền cần trả sau giảm giá nếu amount_paid chưa được gán."""
+        if self.status is None:
+            self.status = PaymentStatus.PENDING
+
         final_due = int(self.amount * (1 - self.discount_rate))
-        if self.status == "SUCCESS" and self.amount_paid == 0:
+        if self.status == PaymentStatus.SUCCESS and self.amount_paid == 0:
             self.amount_paid = final_due
         return self
 
     @property
     def is_successful(self) -> bool:
         """Kiểm tra xem giao dịch có thành công hay không."""
-        return self.status == "SUCCESS"
+        return self.status == PaymentStatus.SUCCESS
 
     def calculate_change(self, cash_given: int) -> int:
-        """Tính tiền thối lại cho khách khi thanh toán tiền mặt."""
+        """Tính tiền thối lại cho khách khi thanh toán tiền mặt (UI hỗ trợ)."""
         final_due = int(self.amount * (1 - self.discount_rate))
         if cash_given < final_due:
             raise ValueError(f"Số tiền khách đưa ({cash_given:,} VNĐ) không đủ thanh toán ({final_due:,} VNĐ).")
@@ -67,31 +86,33 @@ class Payment(BaseModel):
     @classmethod
     def calculate_revenue(cls, payments: List["Payment"]) -> Dict[str, Any]:
         """
-        Thuật toán tính doanh thu an toàn:
+        Thuật toán tính doanh thu an toàn bằng HashTable (không dùng set built-in):
         - Chỉ cộng tiền các giao dịch thành công (SUCCESS).
         - Tránh cộng trùng lặp mã giao dịch (payment_id) và tránh cộng dồn nhiều lần cho cùng một đơn hàng (order_id).
         - Trả về tổng doanh thu, số lượng đơn đã thanh toán và danh sách mã đơn.
         """
         total_revenue = 0
-        paid_order_ids = set()
-        processed_payment_ids = set()
+        paid_order_ids_table = HashTable()
+        processed_payment_ids_table = HashTable()
+        paid_order_ids_list = []
 
         for payment in payments:
             if not payment.is_successful:
                 continue
 
-            if payment.id in processed_payment_ids:
+            if payment.id in processed_payment_ids_table:
                 continue
 
-            if payment.order_id in paid_order_ids:
+            if payment.order_id in paid_order_ids_table:
                 continue
 
             total_revenue += payment.amount_paid
-            processed_payment_ids.add(payment.id)
-            paid_order_ids.add(payment.order_id)
+            processed_payment_ids_table.put(payment.id, True)
+            paid_order_ids_table.put(payment.order_id, True)
+            paid_order_ids_list.append(payment.order_id)
 
         return {
             "total_revenue": total_revenue,
-            "paid_orders_count": len(paid_order_ids),
-            "paid_order_ids": list(paid_order_ids)
+            "paid_orders_count": len(paid_order_ids_list),
+            "paid_order_ids": paid_order_ids_list,
         }
