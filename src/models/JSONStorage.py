@@ -3,23 +3,63 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import Dict, Any
-from uuid import uuid4
+
+from src.structures.linked_list import DoublyLinkedList
+from src.structures.hash_table import HashTable
 
 if hasattr(sys.stdout, 'reconfigure'):
     sys.stdout.reconfigure(encoding='utf-8')
 if hasattr(sys.stderr, 'reconfigure'):
     sys.stderr.reconfigure(encoding='utf-8')
 
+
+def _from_json(value):
+    if isinstance(value, dict):
+        table = HashTable()
+        for key in value:
+            table.put(key, _from_json(value[key]))
+        return table
+    if isinstance(value, list):
+        linked = DoublyLinkedList()
+        for element in value:
+            linked.add_last(_from_json(element))
+        return linked
+    return value
+
+
+def _to_json(value):
+    """HashTable -> dict, DoublyLinkedList -> list (đổi đệ quy)."""
+    if isinstance(value, dict):
+        return {key: _to_json(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_to_json(item) for item in value]
+    if isinstance(value, HashTable):
+        result = {}
+        node = value.keys().head
+        while node is not None:
+            result[node.data] = _to_json(value.get(node.data))
+            node = node.next
+        return result
+    if isinstance(value, DoublyLinkedList):
+        result = []
+        node = value.head
+        while node is not None:
+            result.append(_to_json(node.data))
+            node = node.next
+        return result
+    if hasattr(value, "to_dict"):
+        return _to_json(value.to_dict())
+    return value
+
+
+def _is_empty(data):
+    if isinstance(data, HashTable) or isinstance(data, DoublyLinkedList):
+        return data.is_empty()
+    return not data
+
+
 class JSONStorage:
     @staticmethod
-<<<<<<< Updated upstream
-    def load_data(file_path: str, default_data: Any, *, strict: bool = False) -> Any:
-        if not os.path.exists(file_path):
-            if strict:
-                return default_data
-            print(f"Thông báo: File '{file_path}' không tồn tại. Đang tạo dữ liệu mặc định...")
-=======
     def from_json_data(data):
         return _from_json(data)
 
@@ -33,52 +73,36 @@ class JSONStorage:
             if strict:
                 return default_data
             print("Thông báo: File '" + file_path + "' không tồn tại. Đang tạo dữ liệu mặc định...")
->>>>>>> Stashed changes
             JSONStorage.save_data(file_path, default_data)
             return default_data
 
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
-<<<<<<< Updated upstream
-                if not data:
-                    if strict:
-                        return data
-                    print(f"Cảnh báo: File '{file_path}' trống. Sử dụng dữ liệu mặc định.")
-=======
                 if _is_empty(data):
                     if strict:
                         return data
                     print("Cảnh báo: File '" + file_path + "' trống. Sử dụng dữ liệu mặc định.")
->>>>>>> Stashed changes
                     return default_data
                 return data
         except json.JSONDecodeError:
             if strict:
                 raise
-<<<<<<< Updated upstream
-            print(f"Lỗi: Dữ liệu trong '{file_path}' bị hỏng (Invalid JSON). Sử dụng dữ liệu mặc định.")
-=======
             print("Lỗi: Dữ liệu trong '" + file_path + "' bị hỏng (Invalid JSON). Sử dụng dữ liệu mặc định.")
->>>>>>> Stashed changes
             return default_data
         except Exception as e:
             if strict:
                 raise
-<<<<<<< Updated upstream
-            print(f"Lỗi không xác định khi đọc '{file_path}': {str(e)}")
-=======
             print("Lỗi không xác định khi đọc '" + file_path + "': " + str(e))
->>>>>>> Stashed changes
             return default_data
 
-
     @staticmethod
-    def save_data(file_path: str, data: Any) -> bool:
+    def save_data(file_path, data):
         temporary_path = None
         try:
             destination = Path(file_path)
             destination.parent.mkdir(parents=True, exist_ok=True)
+            json_data = _to_json(data)
             with tempfile.NamedTemporaryFile(
                 mode="w",
                 encoding="utf-8",
@@ -87,58 +111,14 @@ class JSONStorage:
                 suffix=".tmp",
             ) as file:
                 temporary_path = Path(file.name)
-                json.dump(data, file, ensure_ascii=False, indent=4)
+                json.dump(json_data, file, ensure_ascii=False, indent=4)
                 file.flush()
                 os.fsync(file.fileno())
             os.replace(temporary_path, destination)
             return True
         except Exception as e:
-            print(f"Lỗi khi lưu dữ liệu vào '{file_path}': {str(e)}")
+            print("Lỗi khi lưu dữ liệu vào '" + file_path + "': " + str(e))
             return False
         finally:
             if temporary_path is not None and temporary_path.exists():
                 temporary_path.unlink()
-
-    @staticmethod
-    def save_many(updates: Dict[str | Path, Any]) -> None:
-        staged: Dict[Path, Path] = {}
-        originals: Dict[Path, bytes | None] = {}
-        replaced: list[Path] = []
-        try:
-            for raw_target, data in updates.items():
-                target = Path(raw_target)
-                target.parent.mkdir(parents=True, exist_ok=True)
-                originals[target] = target.read_bytes() if target.exists() else None
-                temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
-                staged[target] = temporary
-                with temporary.open("w", encoding="utf-8") as file:
-                    json.dump(data, file, ensure_ascii=False, indent=2)
-                    file.flush()
-                    os.fsync(file.fileno())
-            for target, temporary in staged.items():
-                os.replace(temporary, target)
-                replaced.append(target)
-        except OSError as write_error:
-            rollback_errors = []
-            for target in reversed(replaced):
-                try:
-                    original = originals[target]
-                    if original is None:
-                        target.unlink(missing_ok=True)
-                    else:
-                        rollback = target.with_name(
-                            f".{target.name}.{uuid4().hex}.rollback"
-                        )
-                        rollback.write_bytes(original)
-                        os.replace(rollback, target)
-                except OSError as rollback_error:
-                    rollback_errors.append(f"{target}: {rollback_error}")
-            if rollback_errors:
-                raise RuntimeError(
-                    f"Không thể ghi đồng bộ các file JSON ({write_error}); "
-                    "lỗi khi khôi phục: " + "; ".join(rollback_errors)
-                ) from write_error
-            raise
-        finally:
-            for temporary in staged.values():
-                temporary.unlink(missing_ok=True)

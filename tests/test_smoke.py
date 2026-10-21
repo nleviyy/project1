@@ -52,11 +52,7 @@ def test_orders_schema():
     order_fields = {
         "id", "table_id", "created_at", "updated_at", "status", "items",
         "total_amount", "discount_amount", "final_amount", "notes",
-<<<<<<< Updated upstream
-        "kitchen_note", "preparing_started_at", "priority_at",
-=======
         "preparing_started_at",
->>>>>>> Stashed changes
     }
 
     item_fields = {
