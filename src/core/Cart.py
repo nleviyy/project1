@@ -160,6 +160,7 @@ class Cart:
             return obj.get(key, default)
         return getattr(obj, key, default)
 
+<<<<<<< Updated upstream
     def add_item(self, menu_item, quantity=1, note="", *extra_args):
         if extra_args:
             item_id = menu_item
@@ -169,6 +170,22 @@ class Cart:
             note = extra_args[1] if len(extra_args) > 1 else ""
             prep_time = 0
             is_available = True
+=======
+    @staticmethod
+    def _validate_quantity(quantity):
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
+            raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
+
+    def add_item(self, menu_item, quantity=1, note=""):
+        self._validate_quantity(quantity)
+
+        if isinstance(menu_item, dict):
+            item_id = menu_item.get("id")
+            item_name = menu_item.get("name")
+            unit_price = menu_item.get("price")
+            is_available = menu_item.get("is_available", True)
+            prep_time = menu_item.get("prep_time")
+>>>>>>> Stashed changes
         else:
             item_id = self._get_val(menu_item, "id") or self._get_val(menu_item, "menu_item_id")
             item_name = self._get_val(menu_item, "name") or self._get_val(menu_item, "item_name")
@@ -176,8 +193,6 @@ class Cart:
             is_available = self._get_val(menu_item, "is_available", True)
             prep_time = self._get_val(menu_item, "prep_time", 0) or 0
 
-        if not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
         if unit_price < 0:
@@ -202,8 +217,7 @@ class Cart:
         self._items.remove(item)
 
     def update_quantity(self, menu_item_id, quantity):
-        if not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
+        self._validate_quantity(quantity)
         item = self._find(menu_item_id)
         if item is None:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
@@ -218,8 +232,8 @@ class Cart:
         item.note = note
 
     def update_item(self, menu_item_id, quantity=None, note=None):
-        if quantity is not None and (not isinstance(quantity, int) or quantity <= 0):
-            raise ValueError("Số lượng phải là số nguyên lớn hơn 0.")
+        if quantity is not None:
+            self._validate_quantity(quantity)
         item = self._find(menu_item_id)
         if item is None:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")

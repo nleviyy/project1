@@ -1,13 +1,23 @@
 import json
+<<<<<<< Updated upstream
 import unicodedata
 from pathlib import Path
 from typing import Dict, List, Optional, Any, Union
+=======
+import sys
+import unicodedata
+from pathlib import Path
+from typing import Optional, Union
+
+from src.structures.linked_list import DoublyLinkedList
+from src.structures.hash_table import HashNode, HashTable
+>>>>>>> Stashed changes
 
 from src.models.MenuItem import MenuItem
-from src.models.HashTable import HashNode, HashTable
 from src.models.JSONStorage import JSONStorage
 
 __all__ = ["HashNode", "HashTable", "MenuCatalog"]
+
 
 
 def _normalize_text(text: str) -> str:
@@ -87,7 +97,57 @@ class MenuCatalog:
         self._items[item.id] = item
         return True
 
+<<<<<<< Updated upstream
     def update_item(self, item_id: str, **kwargs) -> bool:
+=======
+    def load_from_file(self, file_path=None) -> bool:
+        """Đọc thực đơn trực tiếp từ file JSON."""
+        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        if not target.exists():
+            return False
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.load_from_dict(data)
+            return True
+        except Exception as e:
+            print(f"[Lỗi MenuCatalog] Không thể tải dữ liệu từ '{target}': {e}")
+            return False
+
+    def save_to_file(self, file_path=None) -> bool:
+        """Lưu toàn bộ danh mục món ăn hiện tại ra file JSON."""
+        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "w", encoding="utf-8") as f:
+                json.dump(JSONStorage.to_json_data(self.to_dict()), f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"[Lỗi MenuCatalog] Không thể lưu file '{target}': {e}")
+            return False
+
+    def update_item(
+        self,
+        item_id,
+        name=None,
+        category=None,
+        price=None,
+        unit=None,
+        is_available=None,
+        description=None,
+        prep_time=None,
+        image=None,
+        color=None,
+        **kwargs,
+    ):
+        if price is None and "unit_price" in kwargs:
+            price = kwargs["unit_price"]
+        if is_available is None and "status" in kwargs:
+            is_available = kwargs["status"]
+        if category is None and "item_type" in kwargs:
+            category = kwargs["item_type"]
+
+>>>>>>> Stashed changes
         item = self.get_item(item_id)
         if not item:
             return False
@@ -116,8 +176,19 @@ class MenuCatalog:
             print(f"[Lỗi cập nhật] Dữ liệu cập nhật món ID '{item_id}' không hợp lệ: {e}")
             return False
 
+<<<<<<< Updated upstream
     def remove_item(self, item_id: str) -> bool:
         return self._items.pop(item_id, None) is not None
+=======
+
+    def remove_item(self, item_id):
+        item = self._items.get(item_id)
+        if item is None:
+            return False
+        self._items.remove(item_id)
+        self._list.remove(item)
+        return True
+>>>>>>> Stashed changes
 
     def get_item(self, item_id: str) -> Optional[MenuItem]:
         return self._items.get(item_id)
@@ -223,7 +294,63 @@ class MenuCatalog:
                 categories.append(item.category)
         return categories
 
+<<<<<<< Updated upstream
     def filter_by_availability(self, is_available: bool = True) -> List[MenuItem]:
         return [item for item in self._items.values() if item.is_available == is_available]
 
         return [item for item in self._items.values() if item.is_available == is_available]
+=======
+    def filter_by_availability(self, is_available=True):
+        result = DoublyLinkedList()
+        node = self._list.head
+        while node is not None:
+            if node.data.is_available == is_available:
+                result.add_last(node.data)
+            node = node.next
+        return result
+
+    @staticmethod
+    def _matches_prefix(value: str, keyword: str) -> bool:
+        value = value.casefold()
+        keyword = keyword.casefold()
+        if len(keyword) > len(value):
+            return False
+
+        index = 0
+        while index < len(keyword):
+            if value[index] != keyword[index]:
+                return False
+            index += 1
+        return True
+
+    def autocomplete_items(
+        self,
+        keyword: str,
+        max_results: int = 5,
+    ) -> list:
+        """Trả về danh sách món có tên hoặc mã bắt đầu bằng keyword."""
+        if not isinstance(keyword, str) or max_results < 1:
+            return []
+
+        query = keyword.strip()
+        if not query:
+            return []
+
+        suggestions = []
+        node = self._list.head
+        while node is not None:
+            item = node.data
+            matches_name = self._matches_prefix(item.name, query)
+            matches_id = self._matches_prefix(item.id, query)
+            is_exact_match = (
+                item.name.casefold() == query.casefold()
+                or item.id.casefold() == query.casefold()
+            )
+            if (matches_name or matches_id) and not is_exact_match:
+                suggestions.append(item)
+                if len(suggestions) >= max_results:
+                    break
+            node = node.next
+        return suggestions
+
+>>>>>>> Stashed changes

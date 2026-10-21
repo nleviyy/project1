@@ -13,33 +13,65 @@ if hasattr(sys.stderr, 'reconfigure'):
 
 class JSONStorage:
     @staticmethod
+<<<<<<< Updated upstream
     def load_data(file_path: str, default_data: Any, *, strict: bool = False) -> Any:
         if not os.path.exists(file_path):
             if strict:
                 return default_data
             print(f"Thông báo: File '{file_path}' không tồn tại. Đang tạo dữ liệu mặc định...")
+=======
+    def from_json_data(data):
+        return _from_json(data)
+
+    @staticmethod
+    def to_json_data(data):
+        return _to_json(data)
+
+    @staticmethod
+    def load_data(file_path, default_data, *, strict: bool = False):
+        if not os.path.exists(file_path):
+            if strict:
+                return default_data
+            print("Thông báo: File '" + file_path + "' không tồn tại. Đang tạo dữ liệu mặc định...")
+>>>>>>> Stashed changes
             JSONStorage.save_data(file_path, default_data)
             return default_data
 
         try:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
+<<<<<<< Updated upstream
                 if not data:
                     if strict:
                         return data
                     print(f"Cảnh báo: File '{file_path}' trống. Sử dụng dữ liệu mặc định.")
+=======
+                if _is_empty(data):
+                    if strict:
+                        return data
+                    print("Cảnh báo: File '" + file_path + "' trống. Sử dụng dữ liệu mặc định.")
+>>>>>>> Stashed changes
                     return default_data
                 return data
         except json.JSONDecodeError:
             if strict:
                 raise
+<<<<<<< Updated upstream
             print(f"Lỗi: Dữ liệu trong '{file_path}' bị hỏng (Invalid JSON). Sử dụng dữ liệu mặc định.")
+=======
+            print("Lỗi: Dữ liệu trong '" + file_path + "' bị hỏng (Invalid JSON). Sử dụng dữ liệu mặc định.")
+>>>>>>> Stashed changes
             return default_data
         except Exception as e:
             if strict:
                 raise
+<<<<<<< Updated upstream
             print(f"Lỗi không xác định khi đọc '{file_path}': {str(e)}")
+=======
+            print("Lỗi không xác định khi đọc '" + file_path + "': " + str(e))
+>>>>>>> Stashed changes
             return default_data
+
 
     @staticmethod
     def save_data(file_path: str, data: Any) -> bool:

@@ -59,7 +59,51 @@ class Order(BaseModel):
     kitchen_note: str = Field(default="", description="Ghi chú của bếp")
     priority_at: Optional[str] = Field(default=None, description="Thời điểm bếp ưu tiên đơn (ISO)")
 
+<<<<<<< Updated upstream
     VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = ORDER_STATUS_TRANSITIONS
+=======
+
+class Order:
+    def __init__(
+        self,
+        id,
+        table_id,
+        items=None,
+        notes="",
+        status="PENDING",
+        discount_amount=0,
+        created_at=None,
+        updated_at=None,
+        preparing_started_at=None,
+    ):
+        if not isinstance(id, str) or id.strip() == "":
+            raise ValueError("Mã đơn hàng không được để trống.")
+        if not ORDER_STATUS_LABELS.contains(status):
+            raise ValueError("Trạng thái đơn không hợp lệ: " + str(status))
+        if isinstance(discount_amount, bool) or not isinstance(discount_amount, int) or discount_amount < 0:
+            raise ValueError("Tiền giảm giá phải là số nguyên không âm.")
+        if items is not None and not isinstance(items, DoublyLinkedList):
+            normalized_items = DoublyLinkedList()
+            try:
+                for item in items:
+                    normalized_items.add_last(item)
+            except TypeError as error:
+                raise TypeError("items phải là danh sách các OrderItem.") from error
+            items = normalized_items
+
+        self.id = id
+        self.table_id = table_id
+        self.status = status
+        self.items = items if items is not None else DoublyLinkedList()
+        self.notes = notes if notes is not None else ""
+        self.discount_amount = discount_amount
+        self.created_at = created_at if created_at is not None else _now()
+        self.updated_at = updated_at if updated_at is not None else _now()
+        self.preparing_started_at = preparing_started_at
+
+
+    # ---------- Thông tin chung ----------
+>>>>>>> Stashed changes
 
     @property
     def order_id(self) -> str:
@@ -159,6 +203,7 @@ class Order(BaseModel):
             return False
 
         self.status = new_status
+<<<<<<< Updated upstream
         now = datetime.now().isoformat()
         self.updated_at = now
         if new_status == "PREPARING":
@@ -166,6 +211,12 @@ class Order(BaseModel):
         elif new_status == "PENDING":
             self.preparing_started_at = None
         elif new_status == "SERVED":
+=======
+        self._touch()
+        if new_status == "PREPARING":
+            self.preparing_started_at = self.updated_at
+        elif new_status in ("PENDING", "SERVED", "COMPLETED", "CANCELLED"):
+>>>>>>> Stashed changes
             self.preparing_started_at = None
         return True
 
@@ -239,7 +290,12 @@ class Order(BaseModel):
                 f"Không thể hoàn tất đơn khi đang ở trạng thái '{self.status}'."
             )
         self.status = "COMPLETED"
+<<<<<<< Updated upstream
         self.updated_at = datetime.now().isoformat()
+=======
+        self._touch()
+        self.preparing_started_at = None
+>>>>>>> Stashed changes
         return True
 
     def cancel(self) -> bool:
@@ -248,6 +304,7 @@ class Order(BaseModel):
             return False
         return self.change_status("CANCELLED")
 
+<<<<<<< Updated upstream
     @classmethod
     def from_cart(cls, order_id: str, table_id: Union[int, str], cart_items: Dict[str, Any], notes: str = "") -> "Order":
         """Chuyển đổi dữ liệu từ Giỏ hàng Streamlit sang đối tượng Order."""
@@ -263,6 +320,69 @@ class Order(BaseModel):
                     note=item_info.get("ghi_chu", "")
                 )
             )
+=======
+    # ---------- Chuyển đổi dữ liệu ----------
+
+    def to_dict(self):
+        items_data = DoublyLinkedList()
+        node = self.items.head
+        while node is not None:
+            items_data.add_last(node.data.to_dict())
+            node = node.next
+
+        data = HashTable()
+        data.put("id", self.id)
+        data.put("table_id", self.table_id)
+        data.put("status", self.status)
+        data.put("created_at", self.created_at)
+        data.put("updated_at", self.updated_at)
+        data.put("preparing_started_at", self.preparing_started_at)
+        data.put("items", items_data)
+        data.put("notes", self.notes)
+        data.put("discount_amount", self.discount_amount)
+        data.put("total_amount", self.total_amount)
+        data.put("final_amount", self.final_amount)
+        return data
+
+    @classmethod
+    def from_dict(cls, data):
+        items = DoublyLinkedList()
+        items_data = data.get("items")
+        if items_data is not None:
+            for item_data in items_data:
+                if isinstance(item_data, OrderItem):
+                    items.add_last(item_data)
+                else:
+                    items.add_last(OrderItem.from_dict(item_data))
+
+        status = data.get("status")
+        if status is None:
+            status = "PENDING"
+        discount_amount = data.get("discount_amount")
+        if discount_amount is None:
+            discount_amount = 0
+
+        return cls(
+            id=data.get("id"),
+            table_id=data.get("table_id"),
+            items=items,
+            notes=data.get("notes"),
+            status=status,
+            discount_amount=discount_amount,
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+            preparing_started_at=data.get("preparing_started_at"),
+        )
+
+
+    @classmethod
+    def from_cart(cls, order_id, table_id, cart_items, notes=""):
+        order_items = DoublyLinkedList()
+        node = cart_items.head
+        while node is not None:
+            order_items.add_last(OrderItem.from_dict(node.data))
+            node = node.next
+>>>>>>> Stashed changes
 
         return cls(
             id=order_id,

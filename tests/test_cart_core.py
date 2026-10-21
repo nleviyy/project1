@@ -48,6 +48,32 @@ def test_cart_rejects_unavailable_menu_item():
     assert cart.is_empty()
     assert not cart.can_undo()
 
+
+@pytest.mark.parametrize("quantity", [True, False, 0, -1, 1.5, "2"])
+def test_cart_rejects_invalid_quantities_without_changing_cart_or_history(quantity):
+    cart = Cart()
+    item = make_item()
+
+    with pytest.raises(ValueError, match="Số lượng"):
+        cart.add_item(item, quantity=quantity)
+    assert cart.is_empty()
+    assert not cart.can_undo()
+    assert not cart.can_redo()
+
+    cart.add_item(item, quantity=2, note="ít đá")
+    original_items = cart.get_order_items()
+    original_undo_size = len(cart.undo_stack)
+
+    with pytest.raises(ValueError, match="Số lượng"):
+        cart.update_quantity(item.id, quantity)
+    with pytest.raises(ValueError, match="Số lượng"):
+        cart.update_item(item.id, quantity=quantity)
+
+    assert cart.get_order_items() == original_items
+    assert len(cart.undo_stack) == original_undo_size
+    assert not cart.can_redo()
+
+
 def test_cart_update_quantity_and_note_is_one_undo_action():
     cart = Cart()
     item = make_item()

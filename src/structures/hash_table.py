@@ -9,9 +9,11 @@ class HashNode:
 
 
 class HashTable:
+    LOAD_FACTOR = 0.75
+
     def __init__(self, capacity=16):
-        self.capacity = capacity
-        self.buckets = [None] * capacity
+        self.capacity = capacity if capacity >= 1 else 16
+        self.buckets = [None] * self.capacity
         self.size = 0
 
     def _hash(self, key):
@@ -28,6 +30,19 @@ class HashTable:
             node = node.next
         return None
 
+    def _resize(self):
+        old_buckets = self.buckets
+        self.capacity *= 2
+        self.buckets = [None] * self.capacity
+        for head in old_buckets:
+            node = head
+            while node is not None:
+                following = node.next
+                index = self._hash(node.key)
+                node.next = self.buckets[index]
+                self.buckets[index] = node
+                node = following
+
     # ---------- Các thao tác chính ----------
 
     def put(self, key, value):
@@ -41,6 +56,9 @@ class HashTable:
         new_node.next = self.buckets[index]
         self.buckets[index] = new_node
         self.size += 1
+        if self.size / self.capacity >= self.LOAD_FACTOR:
+            self._resize()
+
 
     def get(self, key, default=None):
         node = self._find_node(key)
@@ -67,6 +85,24 @@ class HashTable:
             node = node.next
         return False
 
+    def pop(self, key, default=None):
+        index = self._hash(key)
+        prev = None
+        node = self.buckets[index]
+        while node is not None:
+            if node.key == key:
+                if prev is None:
+                    self.buckets[index] = node.next
+                else:
+                    prev.next = node.next
+                self.size -= 1
+                return node.value
+            prev = node
+            node = node.next
+        if default is not None:
+            return default
+        raise KeyError(key)
+
     def is_empty(self):
         return self.size == 0
 
@@ -89,11 +125,16 @@ class HashTable:
     def __setitem__(self, key, value):
         self.put(key, value)
 
+    def __delitem__(self, key):
+        if not self.remove(key):
+            raise KeyError(key)
+
     def __iter__(self):
         node = self.keys().head
         while node is not None:
             yield node.data
             node = node.next
+
 
     def __eq__(self, other):
         if isinstance(other, HashTable):
@@ -130,3 +171,12 @@ class HashTable:
                 result.add_last(node.value)
                 node = node.next
         return result
+
+    def items(self):
+        result = DoublyLinkedList()
+        for i in range(self.capacity):
+            node = self.buckets[i]
+            while node is not None:
+                result.add_last((node.key, node.value))
+                node = node.next
+        return result

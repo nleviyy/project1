@@ -141,6 +141,11 @@ class KitchenManager:
     def _is_in_kitchen(self, order_id):
         return self._find_order(order_id) is not None
 
+<<<<<<< Updated upstream
+=======
+
+
+>>>>>>> Stashed changes
     def add_order(self, order):
         if not isinstance(order, Order):
             raise TypeError("KitchenManager chỉ nhận đối tượng Order.")
@@ -250,6 +255,7 @@ class KitchenManager:
         self._current_order = None
         return order
 
+<<<<<<< Updated upstream
 
     def restore_orders(self, orders):
         """Dựng lại hàng đợi và đơn đang chế biến từ danh sách đơn đã lưu.
@@ -305,6 +311,35 @@ class KitchenManager:
         for order in orders:
             self._queue.add_last(order)
         return orders
+=======
+    def restore_current_order_to_queue(self, order_id):
+        order = self._current_order
+        if (
+            order is None
+            or self._get_order_id(order) != order_id
+            or order.status != OrderStatus.PREPARING
+        ):
+            return False
+
+        order.status = OrderStatus.PENDING
+        order.preparing_started_at = None
+        order._touch()
+        self._current_order = None
+        self._queue.add_first(order)
+        return True
+
+    def restore_order_to_queue(self, order, position):
+        if not isinstance(order, Order) or order.status != OrderStatus.PENDING:
+            return False
+        if self._is_in_kitchen(self._get_order_id(order)):
+            return False
+        pos = min(max(position, 0), self._queue.size)
+        self._queue.insert(pos, order)
+        return True
+
+
+    # ---------- Trạng thái ----------
+>>>>>>> Stashed changes
 
     def get_status(self, order_id):
         order = self._find_order(order_id)
@@ -332,6 +367,10 @@ class KitchenManager:
         self._set_status(order, next_statuses[0])
         return order.status
 
+<<<<<<< Updated upstream
+=======
+
+>>>>>>> Stashed changes
 
     def cancel_order(self, order_id):
         if self._get_order_id(self._current_order) == order_id:
@@ -345,6 +384,10 @@ class KitchenManager:
                 return
         raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong bếp")
 
+<<<<<<< Updated upstream
+=======
+ 
+>>>>>>> Stashed changes
 
     def peek_next_order(self):
         return self._queue[0] if self._queue else None
@@ -353,12 +396,49 @@ class KitchenManager:
         return self._current_order
 
     def get_waiting_orders(self):
+<<<<<<< Updated upstream
         return list(self._queue)
 
     def synchronize_orders(self, orders):
+=======
+        """Trả về một DoublyLinkedList mới chứa các đơn đang chờ."""
+        result = DoublyLinkedList()
+        node = self._queue.head
+        while node is not None:
+            result.add_last(node.data)
+            node = node.next
+        return result
+
+    def restore_current_order_to_queue(self, order_id):
+        if (
+            self._current_order is None
+            or self._get_order_id(self._current_order) != order_id
+        ):
+            return False
+        order = self._current_order
+        order.status = OrderStatus.PENDING
+        order._touch()
+        self._queue.add_first(order)
+        self._current_order = None
+        return True
+
+    def synchronize_orders(self, orders):
+        """
+        Đồng bộ lại hàng đợi và đơn đang làm theo danh sách orders (list hoặc DoublyLinkedList).
+        """
+        orders_list = []
+        if isinstance(orders, DoublyLinkedList):
+            node = orders.head
+            while node is not None:
+                orders_list.append(node.data)
+                node = node.next
+        elif orders is not None:
+            orders_list = list(orders)
+
+>>>>>>> Stashed changes
         active_orders = [
             order
-            for order in orders
+            for order in orders_list
             if order.status in (OrderStatus.PENDING, OrderStatus.PREPARING)
         ]
         active_orders.sort(key=lambda order: str(order.created_at or ""))
@@ -368,14 +448,14 @@ class KitchenManager:
         if len(preparing_orders) > 1:
             raise ValueError("Chỉ được có một đơn PREPARING trong bếp.")
 
-        for order in orders:
+        for order in orders_list:
             order_id = self._get_order_id(order)
             if isinstance(order_id, str) and order_id.startswith("ORD-"):
                 sequence = order_id.rsplit("-", 1)[-1]
                 if sequence.isdigit():
                     self._next_id = max(self._next_id, int(sequence) + 1)
 
-        self._queue = []
+        self._queue = DoublyLinkedList()
         self._current_order = preparing_orders[0] if preparing_orders else None
         for order in active_orders:
             if order.status == OrderStatus.PENDING:

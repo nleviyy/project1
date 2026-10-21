@@ -24,8 +24,8 @@ try:
     from src.models.OrderItem import OrderItem
     from src.models.JSONStorage import JSONStorage
     from src.models.MenuCatalog import MenuCatalog
-    from src.models.HashTable import HashTable
 except ImportError:
+
     try:
         from models.Order import Order, OrderStatus
         from models.OrderItem import OrderItem
@@ -82,10 +82,19 @@ class OrderService:
     # -------------------------------------------------------------
     def load_orders(self) -> bool:
         """Đọc danh sách đơn hàng từ file JSON vào bộ nhớ."""
+<<<<<<< Updated upstream
         data = JSONStorage.load_data(
             str(self.orders_file),
             default_data=[],
             strict=True,
+=======
+        data = JSONStorage.from_json_data(
+            JSONStorage.load_data(
+                str(self.orders_file),
+                default_data=DoublyLinkedList(),
+                strict=True,
+            )
+>>>>>>> Stashed changes
         )
         if not isinstance(data, list) or any(not isinstance(row, dict) for row in data):
             raise ValueError(f"Dữ liệu đơn hàng trong '{self.orders_file}' phải là danh sách object.")
@@ -98,6 +107,7 @@ class OrderService:
                 default_data=[],
                 strict=True,
             )
+<<<<<<< Updated upstream
             if not isinstance(menu_data, list):
                 raise ValueError(f"Dữ liệu thực đơn trong '{menu_path}' phải là danh sách.")
             menu.load_from_dict(menu_data)
@@ -107,9 +117,15 @@ class OrderService:
                 )
 
         loaded_orders = {}
+=======
+
+        new_orders = HashTable()
+        new_order_ids = DoublyLinkedList()
+>>>>>>> Stashed changes
         for order_data in data:
             try:
                 order = Order.from_dict(order_data)
+<<<<<<< Updated upstream
             except ValueError as error:
                 raise ValueError(
                     f"Dữ liệu đơn hàng '{order_data.get('id', 'không rõ mã')}' không hợp lệ."
@@ -123,7 +139,24 @@ class OrderService:
                         item.prep_time = menu_item.prep_time
             loaded_orders[order.id] = order
         self._orders = loaded_orders
+=======
+                for item in order.items:
+                    if item.prep_time is None:
+                        menu_item = menu.get_item(item.menu_item_id)
+                        item.prep_time = (
+                            menu_item.prep_time if menu_item is not None else 0
+                        )
+                if not new_orders.contains(order.id):
+                    new_order_ids.add_last(order.id)
+                new_orders.put(order.id, order)
+            except (AttributeError, TypeError, ValueError) as error:
+                print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {error}")
+
+        self._orders = new_orders
+        self._order_ids = new_order_ids
+>>>>>>> Stashed changes
         return True
+
 
     def save_orders(self) -> bool:
         """Ghi toàn bộ đơn hàng hiện có ra file JSON."""
