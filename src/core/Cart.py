@@ -245,3 +245,9 @@ class Cart:
         for item in self._items:
             total += item.calculate_subtotal()
         return total
+
+    def to_text(self):
+        if not self._items:
+            return "[Giỏ hàng trống]"
+        parts = [f"{item.item_name} (x{item.quantity})" for item in self._items]
+        return ", ".join(parts)
