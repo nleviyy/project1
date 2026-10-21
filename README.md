@@ -1,4 +1,4 @@
-# DŨNG FATFOOD — Quản lý nhà hàng
+# DŨNG FAST FOOD — Quản lý nhà hàng
 
 Ứng dụng quản lý nhà hàng viết bằng Python, Streamlit và JSON. Code được chia theo
 trách nhiệm: `models/` biểu diễn dữ liệu, `core/` xử lý nghiệp vụ, `ui/` nhận thao
