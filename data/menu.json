@@ -8,7 +8,7 @@
     "is_available": true,
     "description": "Cà phê Robusta truyền thống, thơm đậm vị",
     "prep_time": 5,
-    "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=700&q=85",
+    "image": "https://cdn2.tuoitre.vn/phunuonline/image/fckeditor/upload/2025/20251207/images/3-mon-ca-phe-cua-viet-nam-_671765098950.jpg",
     "color": "#68452f"
   },
   {
@@ -18,7 +18,7 @@
     "price": 28000,
     "unit": "ly",
     "is_available": true,
-    "description": "Cà phê pha phin hòa quyện cùng sữa đặc béo ngậy",
+    "description": "https://cdn2.tuoitre.vn/phunuonline/image/fckeditor/upload/2025/20251207/images/3-mon-ca-phe-cua-viet-nam-_671765098950.jpg",
     "prep_time": 6,
     "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=700&q=85",
     "color": "#68452f"
@@ -32,7 +32,7 @@
     "is_available": true,
     "description": "Trà đen hương đào thanh mát, sả tươi và lát cam vàng",
     "prep_time": 7,
-    "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=700&q=85",
+    "image": "https://cdn2.fptshop.com.vn/unsafe/1920x0/filters:format(webp):quality(75)/cach_lam_tra_dao_cam_sa_2313d177e5.jpg",
     "color": "#80452f"
   },
   {
@@ -44,7 +44,7 @@
     "is_available": true,
     "description": "Trà sữa đậm vị kèm trân châu hoàng kim dai giòn",
     "prep_time": 8,
-    "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?auto=format&fit=crop&w=700&q=85",
+    "image": "https://bizweb.dktcdn.net/thumb/1024x1024/100/004/714/products/tran-chau-hoang-kim-3kg-3-48ed4be4-9d83-4843-9ee5-cd3ae575bdf5.png?v=1686136024743",
     "color": "#5b3c55"
   },
   {
@@ -56,7 +56,7 @@
     "is_available": true,
     "description": "Bò sốt tiêu, trứng ốp la, xíu mại, xúc xích và bánh mì giòn",
     "prep_time": 15,
-    "image": "https://cdn-i.doisongphapluat.com.vn/media/nguyen-thi-linh/2024/03/13/ban-my-viet-nam-dung-dau-danh-sach-top-100-mon-banh-sandwich-ngon-nhat-the-gioi-dspl1.png",
+    "image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQl6i1N4ES_70gzsXYrTaaItaqoXZHaDPUO75_amje2DtRBMosest_OhAw&s=10",
     "color": "#713f28"
   },
   {
@@ -68,7 +68,7 @@
     "is_available": true,
     "description": "Bò Úc xào lửa lớn với ớt chuông, kèm khoai tây chiên",
     "prep_time": 18,
-    "image": "https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=700&q=85",
+    "image": "https://i-giadinh.vnecdn.net/2022/04/02/Thanh-pham-1-1-7429-1648897030.jpg",
     "color": "#713f28"
   },
   {
@@ -80,7 +80,7 @@
     "is_available": true,
     "description": "Khoai tây giòn rụm phủ lớp bột phô mai béo thơm",
     "prep_time": 10,
-    "image": "https://images.unsplash.com/photo-1576107232684-1279f390859f?auto=format&fit=crop&w=700&q=85",
+    "image": "https://cdn.tgdd.vn/2021/09/CookRecipe/GalleryStep/thanh-pham-1181.jpg",
     "color": "#5b3c55"
   },
   {
@@ -92,7 +92,7 @@
     "is_available": false,
     "description": "Rau xà lách tươi, cà chua bi, ức gà áp chảo sốt mè (tạm hết)",
     "prep_time": 12,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "image": "https://file.hstatic.net/200000700229/article/salad-uc-ga-sot-me-rang-1_63c1e02a42c84c7b837c9643ec14d50e.jpg",
     "color": "#2f6845"
   },
   {
@@ -104,7 +104,7 @@
     "is_available": true,
     "description": "Súp bí đỏ mịn, béo ngậy kèm kem tươi và hạt bí rang",
     "prep_time": 10,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "image": "https://cdn.tgdd.vn/Files/2019/11/28/1222896/cong-thuc-nau-sup-bi-do-kem-tuoi-beo-ngay-cuc-ngon-chuan-vi-au-202107232139120180.jpg",
     "color": "#2f6845"
   },
   {
@@ -116,7 +116,7 @@
     "is_available": true,
     "description": "Bánh flan mịn, béo ngậy kèm caramel ngọt dịu",
     "prep_time": 8,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "image": "https://daylambanh.edu.vn/wp-content/uploads/2022/01/cach-lam-banh-flan-bang-lo-nuong.jpg",
     "color": "#5b3c55"
   },
   {
@@ -128,7 +128,7 @@
     "is_available": true,
     "description": "Kem dừa xiêm tươi mát, béo ngậy kèm dừa nạo và nước cốt dừa",
     "prep_time": 10,
-    "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=700&q=85",
+    "image": "https://file.hstatic.net/200000721249/file/cach_lam_kem_dua_matcha_92c03c90fe6c4e22806e1126feedc319.jpg",
     "color": "#5b3c55"
   },
   {
