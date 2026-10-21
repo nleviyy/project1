@@ -180,9 +180,9 @@ def get_services():
     km.synchronize_orders(active_orders)
 
     return (
-        table_manager,
-        kitchen_manager,
-        order_service,
+        st.session_state.table_manager,
+        st.session_state.kitchen_manager,
+        st.session_state.order_service,
         st.session_state.payment_service,
         st.session_state.cart,
     )

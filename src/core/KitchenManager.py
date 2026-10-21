@@ -252,7 +252,7 @@ class KitchenManager:
         self.synchronize_orders(orders or [])
 
     def count_waiting(self):
-        return self._queue.size
+        return len(self._queue)
 
     def is_empty(self):
         return self._queue.is_empty() and self._current_order is None
