@@ -96,7 +96,7 @@ class PaymentService:
         payment = Payment(
             payment_id=f"PAY-{uuid4().hex.upper()}",
             order_id=order_id,
-            table_id=payment_table_id,
+            table_id=order.get("table_id", "Mang về"),
             amount=subtotal,
             discount_rate=discount / subtotal if subtotal else 0,
             amount_paid=total if transaction_successful else 0,
@@ -225,4 +225,49 @@ class PaymentService:
 
     @staticmethod
     def _write_json_updates(updates: dict[Path, list[dict]]) -> None:
-        JSONStorage.save_many(updates)
+        staged: dict[Path, Path] = {}
+        originals: dict[Path, bytes | None] = {}
+        replaced: list[Path] = []
+        try:
+            for target, data in updates.items():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                originals[target] = target.read_bytes() if target.exists() else None
+                temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
+                staged[target] = temporary
+                temporary.write_text(
+                    json.dumps(
+                        JSONStorage.to_json_data(data),
+                        ensure_ascii=False,
+                        indent=2,
+                    ),
+                    encoding="utf-8",
+                )
+            for target, temporary in staged.items():
+                os.replace(temporary, target)
+                replaced.append(target)
+        except OSError as write_error:
+            rollback_errors = []
+            for target in reversed(replaced):
+                try:
+                    original = originals[target]
+                    if original is None:
+                        target.unlink(missing_ok=True)
+                    else:
+                        rollback = target.with_name(
+                            f".{target.name}.{uuid4().hex}.rollback"
+                        )
+                        rollback.write_bytes(original)
+                        os.replace(rollback, target)
+                except OSError as rollback_error:
+                    rollback_errors.append(
+                        f"{target}: {rollback_error}"
+                    )
+            if rollback_errors:
+                raise RuntimeError(
+                    f"Không thể ghi đồng bộ các file JSON ({write_error}); "
+                    "lỗi khi khôi phục: " + "; ".join(rollback_errors)
+                ) from write_error
+            raise
+        finally:
+            for temporary in staged.values():
+                temporary.unlink(missing_ok=True)

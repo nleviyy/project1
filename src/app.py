@@ -169,18 +169,15 @@ def get_services():
     if "cart" not in st.session_state:
         st.session_state.cart = Cart()
 
-    table_manager = st.session_state.table_manager
-    kitchen_manager = st.session_state.kitchen_manager
-    order_service = st.session_state.order_service
-    order_service.table_manager = table_manager
-    order_service.kitchen_manager = kitchen_manager
-    table_manager.load_tables()
-    order_service.load_orders()
-    active_orders = sorted(
-        order_service.get_all_orders(),
-        key=lambda order: str(order.created_at),
-    )
-    kitchen_manager.synchronize_orders(active_orders)
+    # Luôn làm mới dữ liệu từ backend storage (JSON) để đảm bảo đồng bộ
+    st.session_state.table_manager.load_tables()
+    st.session_state.order_service.load_orders()
+
+    km = st.session_state.kitchen_manager
+    os_service = st.session_state.order_service
+
+    active_orders = os_service.get_all_orders()
+    km.synchronize_orders(active_orders)
 
     return (
         table_manager,

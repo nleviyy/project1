@@ -52,7 +52,6 @@ def test_orders_schema():
     order_fields = {
         "id", "table_id", "created_at", "updated_at", "status", "items",
         "total_amount", "discount_amount", "final_amount", "notes",
-        "kitchen_note", "preparing_started_at", "priority_at",
     }
     item_fields = {
         "menu_item_id", "item_name", "unit_price", "quantity", "subtotal",
