@@ -45,105 +45,129 @@ def apply_custom_styles() -> None:
     st.markdown(
         """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
 :root {
-    --purple-900: #5420c8;
-    --purple-700: #6b35dc;
-    --purple-600: #7c3aed;
-    --purple-500: #a855f7;
-    --lavender: #e9ddff;
-    --canvas: #f7f3ff;
-    --ink: #25154f;
-    --muted: #81769c;
+    --primary-600: #2563eb;
+    --primary-700: #1d4ed8;
+    --primary-500: #3b82f6;
+    --primary-50: #eff6ff;
+    --canvas: #f8fafc;
+    --surface: #ffffff;
+    --border: #e2e8f0;
+    --border-hover: #cbd5e1;
+    --ink: #0f172a;
+    --ink-secondary: #334155;
+    --muted: #64748b;
+    --accent: #0284c7;
 }
 html, body, [class*="css"], .stApp {
-    font-family: "Be Vietnam Pro", sans-serif;
+    font-family: "Plus Jakarta Sans", "Be Vietnam Pro", sans-serif;
 }
 .stApp {
     color: var(--ink);
     background: var(--canvas);
 }
 .block-container {
-    max-width: 1500px;
-    padding-top: 1.35rem;
-    padding-bottom: 3rem;
+    max-width: 1520px;
+    padding-top: 1.5rem;
+    padding-bottom: 3.5rem;
 }
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #652bd4 0%, #5420c8 55%, #4820ad 100%);
+    background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%) !important;
+    border-right: 1px solid #334155;
 }
 [data-testid="stSidebar"] * {
-    color: #fff;
+    color: #e2e8f0;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label {
-    border-radius: 12px;
-    padding: .45rem .65rem;
+    border-radius: 10px;
+    padding: .5rem .75rem;
 }
 [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-    background: rgba(255,255,255,.15);
+    background: rgba(255,255,255,.08);
 }
 [data-testid="stSidebar"] hr {
-    border-color: rgba(255,255,255,.22);
+    border-color: rgba(255,255,255,.12);
 }
 h1, h2, h3, h4 {
     color: var(--ink);
-    letter-spacing: -.035em;
+    letter-spacing: -.025em;
+    font-weight: 700;
 }
 [data-testid="stVerticalBlockBorderWrapper"] {
-    border: 1px solid rgba(124,58,237,.10);
-    border-radius: 20px;
-    background: #fff;
-    box-shadow: 0 10px 28px rgba(84,32,200,.08);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.04), 0 2px 6px -1px rgba(15, 23, 42, 0.02);
+    transition: all .2s ease;
+}
+[data-testid="stVerticalBlockBorderWrapper"]:hover {
+    border-color: var(--border-hover);
+    box-shadow: 0 8px 24px -4px rgba(15, 23, 42, 0.07);
 }
 [data-testid="stMetric"] {
-    padding: .8rem 1rem;
-    border: 1px solid rgba(124,58,237,.10);
-    border-radius: 16px;
-    background: #fff;
-    box-shadow: 0 8px 22px rgba(84,32,200,.06);
+    padding: .9rem 1.15rem;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    background: var(--surface);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 }
 [data-testid="stMetricLabel"] {
     color: var(--muted);
+    font-size: .85rem;
+    font-weight: 600;
+}
+[data-testid="stMetricValue"] {
+    color: var(--ink);
+    font-weight: 800;
 }
 [data-testid="stImage"] img {
     width: 100%;
-    height: 100px;
+    height: 105px;
     aspect-ratio: 4 / 3;
     object-fit: cover;
-    border-radius: 12px;
+    border-radius: 10px;
+    border: 1px solid #f1f5f9;
 }
 .menu-item-title {
     overflow: hidden;
-    font-size: .875rem;
+    font-size: .88rem;
     font-weight: 700;
-    line-height: 1.25;
+    line-height: 1.3;
+    color: var(--ink);
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 .menu-item-price {
-    font-size: .65rem;
-    font-weight: 700;
+    font-size: .82rem;
+    font-weight: 800;
+    color: var(--primary-600);
     white-space: nowrap;
 }
 [class*="st-key-add_menu_"] button {
-    min-height: 1.8rem;
-    padding: .15rem .2rem;
+    min-height: 1.85rem;
+    padding: .2rem .45rem;
     border: 0;
-    border-radius: 999px;
-    color: #fff;
-    background: #155c45;
-    font-size: .55rem;
+    border-radius: 8px;
+    color: #ffffff;
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    font-size: .75rem;
+    font-weight: 600;
     white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(37, 99, 235, 0.2);
+    transition: all .15s ease;
 }
 [class*="st-key-add_menu_"] button:hover {
     border-color: transparent;
-    color: #fff;
-    background: #104b39;
-    box-shadow: none;
+    color: #ffffff;
+    background: linear-gradient(135deg, #1d4ed8, #1e40af);
+    box-shadow: 0 4px 10px rgba(37, 99, 235, 0.35);
+    transform: translateY(-1px);
 }
 [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .75rem;
+    gap: .85rem;
 }
 [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) > [data-testid="stColumn"] {
     width: auto !important;
@@ -151,7 +175,7 @@ h1, h2, h3, h4 {
     flex: none !important;
 }
 [data-testid="stHorizontalBlock"]:has(> [data-testid="stColumn"]:nth-child(4)) [data-testid="stVerticalBlockBorderWrapper"] {
-    padding: .5rem;
+    padding: .65rem;
 }
 [data-testid="stHorizontalBlock"]:has(.menu-item-price) {
     gap: .25rem;
@@ -162,41 +186,49 @@ h1, h2, h3, h4 {
     }
 }
 .stButton > button, .stFormSubmitButton > button {
-    min-height: 2.55rem;
+    min-height: 2.6rem;
     border: 1px solid transparent;
-    border-radius: 12px;
-    color: #fff;
-    background: linear-gradient(135deg, var(--purple-600), var(--purple-900));
-    font-weight: 700;
-    transition: transform .15s ease, box-shadow .15s ease;
+    border-radius: 10px;
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+    font-weight: 600;
+    font-size: .88rem;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);
+    transition: all .15s ease;
 }
 .stButton > button:hover, .stFormSubmitButton > button:hover {
     border-color: transparent;
-    color: #fff;
-    background: linear-gradient(135deg, var(--purple-500), var(--purple-700));
-    box-shadow: 0 7px 16px rgba(84,32,200,.2);
+    color: #ffffff;
+    background: linear-gradient(135deg, var(--primary-700) 0%, #1e40af 100%);
+    box-shadow: 0 6px 18px rgba(37, 99, 235, 0.35);
     transform: translateY(-1px);
 }
 .stButton > button:disabled {
-    color: #81769c;
-    background: #eee8fa;
+    color: #94a3b8;
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    box-shadow: none;
+    transform: none;
 }
 [data-testid="stExpander"] {
     overflow: hidden;
-    border: 1px solid var(--lavender);
-    border-radius: 15px;
-    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.02);
 }
 [data-testid="stExpander"] summary:hover {
-    color: var(--purple-900);
+    color: var(--primary-600);
 }
 [data-testid="stDataFrame"], [data-testid="stTable"] {
-    border: 1px solid var(--lavender);
-    border-radius: 14px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
     overflow: hidden;
+    background: var(--surface);
 }
 [data-testid="stAlert"] {
-    border-radius: 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
 }
 @media (max-width: 700px) {
     .block-container {
@@ -307,11 +339,16 @@ def render_ordering_component(
                     with st.container(border=True):
                         if item.image:
                             st.image(item.image, width="stretch")
-                        st.caption(
-                            f"{item.category} · "
-                            f"{'🟢 Còn món' if item.is_available else '🔴 Tạm hết'}"
+                        availability_html = (
+                            '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;">Còn món</span>'
+                            if item.is_available
+                            else '<span style="display:inline-block;padding:2px 8px;border-radius:6px;font-size:0.75rem;font-weight:600;background:#fff1f2;color:#e11d48;border:1px solid #fecdd3;">Tạm hết</span>'
                         )
                         st.markdown(
+                            f'<div style="display:flex;justify-content:space-between;align-items:center;margin:6px 0 4px;">'
+                            f'<span style="font-size:0.75rem;color:#64748b;font-weight:500;">{escape(item.category)}</span>'
+                            f'{availability_html}'
+                            f'</div>'
                             f'<div class="menu-item-title">{escape(item.name)}</div>',
                             unsafe_allow_html=True,
                         )
@@ -531,13 +568,20 @@ def render_tables_component(
     for index, table in enumerate(tables):
         with columns[index % len(columns)]:
             with st.container(border=True):
-                status_label = {
-                    "AVAILABLE": "🟢 Bàn trống",
-                    "OCCUPIED": "🔵 Đang sử dụng",
-                    "RESERVED": "🟠 Đã đặt trước",
-                }.get(table.status, table.status)
-                st.markdown(f"### {table.name}")
-                st.caption(f"{status_label} · Sức chứa {table.capacity} người")
+                badge_bg, badge_color, badge_text = {
+                    "AVAILABLE": ("#eff6ff", "#2563eb", "Trống"),
+                    "OCCUPIED": ("#f5f3ff", "#7c3aed", "Đang sử dụng"),
+                    "RESERVED": ("#fffbeb", "#d97706", "Đã đặt trước"),
+                }.get(table.status, ("#f1f5f9", "#475569", table.status))
+
+                st.markdown(
+                    f'<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+                    f'<h3 style="margin:0;font-size:1.15rem;font-weight:700;color:#0f172a;">{escape(table.name)}</h3>'
+                    f'<span style="padding:3px 10px;border-radius:6px;font-size:0.75rem;font-weight:600;background:{badge_bg};color:{badge_color};">{badge_text}</span>'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                st.caption(f"Sức chứa: {table.capacity} khách")
                 active_order = orders_by_id.get(table.current_order_id)
                 if active_order is not None:
                     st.write(
