@@ -305,5 +305,28 @@
         "id": "ORD-20261021-003",
         "preparing_started_at": null,
         "table_id": 3
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 25000,
+                "item_name": "Cà phê đen đá",
+                "menu_item_id": "M01",
+                "quantity": 1,
+                "unit_price": 25000,
+                "prep_time": 5
+            }
+        ],
+        "final_amount": 25000,
+        "notes": "",
+        "status": "PENDING",
+        "total_amount": 25000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-22T22:19:24",
+        "created_at": "2026-10-22T22:19:24",
+        "id": "ORD-20261022-001",
+        "preparing_started_at": null,
+        "table_id": 4
     }
 ]

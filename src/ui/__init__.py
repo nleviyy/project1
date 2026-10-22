@@ -17,6 +17,7 @@ from src.models.MenuItem import MenuItem
 from src.models.Order import Order
 from src.models.OrderItem import OrderItem
 from src.models.Payment import Payment
+from src.models.Table import Table
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
