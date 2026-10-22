@@ -1,44 +1,44 @@
 [
-    {
-        "current_order_id": "ORD-20261021-001",
-        "status": "OCCUPIED",
-        "capacity": 2,
-        "name": "Bàn 01",
-        "id": 1
-    },
-    {
-        "current_order_id": "ORD-20261021-002",
-        "status": "OCCUPIED",
-        "capacity": 4,
-        "name": "Bàn 02",
-        "id": 2
-    },
-    {
-        "current_order_id": "ORD-20261021-003",
-        "status": "OCCUPIED",
-        "capacity": 4,
-        "name": "Bàn 03",
-        "id": 3
-    },
-    {
-        "current_order_id": null,
-        "status": "AVAILABLE",
-        "capacity": 6,
-        "name": "Bàn 04",
-        "id": 4
-    },
-    {
-        "current_order_id": null,
-        "status": "RESERVED",
-        "capacity": 10,
-        "name": "Bàn VIP 01",
-        "id": 5
-    },
-    {
-        "current_order_id": null,
-        "status": "AVAILABLE",
-        "capacity": 4,
-        "name": "Bàn Ngoài Trời 01",
-        "id": 6
-    }
+  {
+    "current_order_id": null,
+    "status": "AVAILABLE",
+    "capacity": 2,
+    "name": "Bàn 01",
+    "id": 1
+  },
+  {
+    "current_order_id": "ORD-20261021-002",
+    "status": "OCCUPIED",
+    "capacity": 4,
+    "name": "Bàn 02",
+    "id": 2
+  },
+  {
+    "current_order_id": "ORD-20261021-003",
+    "status": "OCCUPIED",
+    "capacity": 4,
+    "name": "Bàn 03",
+    "id": 3
+  },
+  {
+    "current_order_id": "ORD-20261022-001",
+    "status": "OCCUPIED",
+    "capacity": 6,
+    "name": "Bàn 04",
+    "id": 4
+  },
+  {
+    "current_order_id": null,
+    "status": "RESERVED",
+    "capacity": 10,
+    "name": "Bàn VIP 01",
+    "id": 5
+  },
+  {
+    "current_order_id": null,
+    "status": "AVAILABLE",
+    "capacity": 4,
+    "name": "Bàn Ngoài Trời 01",
+    "id": 6
+  }
 ]

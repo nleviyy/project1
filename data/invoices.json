@@ -140,5 +140,56 @@
     "final_amount": 20,
     "payment_method": "CASH",
     "cashier_name": "Thu ngân chính"
+  },
+  {
+    "items": [
+      {
+        "note": "",
+        "subtotal": 120000,
+        "item_name": "Cà phê đen đá",
+        "menu_item_id": "M01",
+        "quantity": 2,
+        "unit_price": 60000,
+        "prep_time": 5
+      },
+      {
+        "note": "",
+        "subtotal": 25000,
+        "item_name": "Bánh flan caramel",
+        "menu_item_id": "M10",
+        "quantity": 1,
+        "unit_price": 25000,
+        "prep_time": 8
+      },
+      {
+        "note": "",
+        "subtotal": 20000,
+        "item_name": "Trà Atiso",
+        "menu_item_id": "M20",
+        "quantity": 1,
+        "unit_price": 20000,
+        "prep_time": 10
+      },
+      {
+        "note": "",
+        "subtotal": 30000,
+        "item_name": "Kem dừa xiêm",
+        "menu_item_id": "M11",
+        "quantity": 1,
+        "unit_price": 30000,
+        "prep_time": 10
+      }
+    ],
+    "final_amount": 195000,
+    "subtotal": 195000,
+    "issued_at": "2026-10-22T08:30:55",
+    "cashier_name": "Thu ngân chính",
+    "order_id": "ORD-20261021-001",
+    "table_id": 1,
+    "total_amount": 195000,
+    "payment_id": "PAY-248F1BF65137449C9D66B6862B74DA95",
+    "discount_amount": 0,
+    "payment_method": "CASH",
+    "id": "INV-9DAAC247D9B34695B8A6528DA3650360"
   }
 ]
