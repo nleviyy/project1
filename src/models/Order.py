@@ -72,6 +72,7 @@ class Order:
         discount_amount=0,
         created_at=None,
         updated_at=None,
+        preparing_started_at=None,
     ):
         if not isinstance(id, str) or id.strip() == "":
             raise ValueError("Mã đơn hàng không được để trống.")
@@ -96,6 +97,7 @@ class Order:
         self.discount_amount = discount_amount
         self.created_at = created_at if created_at is not None else _now()
         self.updated_at = updated_at if updated_at is not None else _now()
+        self.preparing_started_at = preparing_started_at
 
     # ---------- Thông tin chung ----------
 
@@ -148,42 +150,22 @@ class Order:
         return self.status == "COMPLETED"
 
     @property
+    def is_cancelled(self):
+        return self.status == "CANCELLED"
+
+    @property
     def is_active(self):
-        return self.status == "PENDING" or self.status == "PREPARING" or self.status == "SERVED"
+        return self.status in ("PENDING", "PREPARING", "SERVED")
 
     @property
     def can_modify(self):
         return self.can_modify_items()
 
     def can_modify_items(self):
+        """Chỉ cho phép thêm/sửa món khi đơn chưa vào bếp chế biến (PENDING)."""
         return self.status == "PENDING"
 
-    def _touch(self):
-        self.updated_at = _now()
-
-    def _check_can_modify(self):
-        if not self.can_modify_items():
-            raise ValueError("Không thể sửa món khi đơn đang ở trạng thái '" + str(self.status) + "'.")
-
-    # ---------- Sửa món ----------
-
-    def add_item(self, item):
-        self._check_can_modify()
-        node = self.items.head
-        while node is not None:
-            current = node.data
-            if (
-                current.menu_item_id == item.menu_item_id
-                and current.note == item.note
-                and current.unit_price == item.unit_price
-            ):
-                current.update_quantity(current.quantity + item.quantity)
-                self._touch()
-                return True
-            node = node.next
-        self.items.add_last(item)
-        self._touch()
-        return True
+    # ---------- Thao tác món trong đơn ----------
 
     def _find_item(self, menu_item_id):
         node = self.items.head
@@ -193,8 +175,24 @@ class Order:
             node = node.next
         return None
 
+    def add_item(self, item):
+        """Thêm 1 OrderItem vào đơn. Nếu đã có món trùng id và note thì cộng dồn số lượng."""
+        if not self.can_modify_items():
+            raise ValueError("Không thể sửa món khi đơn đang ở trạng thái '" + str(self.status) + "'.")
+        if not isinstance(item, OrderItem):
+            raise TypeError("Món thêm vào phải là OrderItem.")
+
+        existing = self._find_item(item.menu_item_id)
+        if existing is not None and existing.note == item.note and existing.unit_price == item.unit_price:
+            existing.update_quantity(existing.quantity + item.quantity)
+        else:
+            self.items.add_last(item)
+        self._touch()
+        return True
+
     def update_item_quantity(self, menu_item_id, quantity):
-        self._check_can_modify()
+        if not self.can_modify_items():
+            raise ValueError("Không thể sửa món khi đơn đang ở trạng thái '" + str(self.status) + "'.")
         item = self._find_item(menu_item_id)
         if item is None:
             return False
@@ -203,7 +201,8 @@ class Order:
         return True
 
     def update_item_note(self, menu_item_id, note):
-        self._check_can_modify()
+        if not self.can_modify_items():
+            raise ValueError("Không thể sửa món khi đơn đang ở trạng thái '" + str(self.status) + "'.")
         item = self._find_item(menu_item_id)
         if item is None:
             return False
@@ -212,13 +211,19 @@ class Order:
         return True
 
     def remove_item(self, menu_item_id):
-        self._check_can_modify()
-        item = self._find_item(menu_item_id)
-        if item is None:
-            return False
-        self.items.remove(item)
-        self._touch()
-        return True
+        if not self.can_modify_items():
+            raise ValueError("Không thể sửa món khi đơn đang ở trạng thái '" + str(self.status) + "'.")
+        node = self.items.head
+        while node is not None:
+            if node.data.menu_item_id == menu_item_id:
+                self.items.remove(node.data)
+                self._touch()
+                return True
+            node = node.next
+        return False
+
+    def _touch(self):
+        self.updated_at = _now()
 
     def set_discount(self, amount):
         if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
@@ -248,6 +253,10 @@ class Order:
 
         self.status = new_status
         self._touch()
+        if new_status == "PREPARING":
+            self.preparing_started_at = self.updated_at
+        elif new_status in ("PENDING", "SERVED", "COMPLETED", "CANCELLED"):
+            self.preparing_started_at = None
         return True
 
     def mark_preparing(self):
@@ -263,6 +272,7 @@ class Order:
             raise ValueError("Không thể hoàn tất đơn khi đang ở trạng thái '" + str(self.status) + "'.")
         self.status = "COMPLETED"
         self._touch()
+        self.preparing_started_at = None
         return True
 
     def cancel(self):
@@ -285,9 +295,12 @@ class Order:
         data.put("status", self.status)
         data.put("created_at", self.created_at)
         data.put("updated_at", self.updated_at)
+        data.put("preparing_started_at", self.preparing_started_at)
         data.put("items", items_data)
         data.put("notes", self.notes)
         data.put("discount_amount", self.discount_amount)
+        data.put("total_amount", self.total_amount)
+        data.put("final_amount", self.final_amount)
         return data
 
     @classmethod
@@ -317,6 +330,7 @@ class Order:
             discount_amount=discount_amount,
             created_at=data.get("created_at"),
             updated_at=data.get("updated_at"),
+            preparing_started_at=data.get("preparing_started_at"),
         )
 
     @classmethod

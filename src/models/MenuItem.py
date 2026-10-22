@@ -87,7 +87,6 @@ class MenuItem:
         image=None,
         color=None,
     ):
-
         old = self.copy()
         if name is not None:
             self.name = name
@@ -146,6 +145,22 @@ class MenuItem:
         if value is None:
             return default
         return value
+
+    def __eq__(self, other):
+        if not isinstance(other, MenuItem):
+            return False
+        return (
+            self.id == other.id
+            and self.name == other.name
+            and self.category == other.category
+            and self.price == other.price
+            and self.unit == other.unit
+            and self.is_available == other.is_available
+            and self.description == other.description
+            and self.prep_time == other.prep_time
+            and self.image == other.image
+            and self.color == other.color
+        )
 
     @classmethod
     def from_dict(cls, data):

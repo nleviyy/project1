@@ -1,10 +1,10 @@
 [
   {
-    "id": "INV-70E8FC6AC12F442AA61EEE7AF04285F5",
-    "payment_id": "PAY-5081D416ECD5461491D6279E61C55BF9",
+    "id": "INV-C70646A91A0D4751A9E4AECE5C3EC48F",
+    "payment_id": "PAY-F31722D419714787B78975E74302142B",
     "order_id": "ORD-20261014-001",
     "table_id": 2,
-    "issued_at": "2026-10-20T00:53:48",
+    "issued_at": "2026-10-19T02:51:03",
     "items": [
       {
         "menu_item_id": "M02",
@@ -27,49 +27,118 @@
     "discount_amount": 0,
     "total_amount": 113000,
     "final_amount": 113000,
-    "payment_method": "BANK_TRANSFER",
-    "cashier_name": "Lê Vyyyy"
+    "payment_method": "CASH",
+    "cashier_name": "NghimQinh"
   },
   {
+    "id": "INV-DD8FDB5B28664BA8B86C2AF9D3C69883",
+    "payment_id": "PAY-B133462CFB024443B68F80D912B5B663",
+    "order_id": "ORD-20261014-002",
+    "table_id": 5,
+    "issued_at": "2026-10-20T01:32:30",
     "items": [
       {
-        "note": "Ít đá",
-        "subtotal": 117000,
-        "item_name": "Trà đào cam sả",
         "menu_item_id": "M03",
-        "quantity": 3,
+        "item_name": "Trà đào cam sả",
         "unit_price": 39000,
-        "prep_time": 7
+        "quantity": 3,
+        "subtotal": 117000,
+        "note": "Ít đá"
       },
       {
-        "note": "Bò chín vừa",
-        "subtotal": 138000,
-        "item_name": "Bò lúc lắc khoai tây",
         "menu_item_id": "M06",
-        "quantity": 2,
+        "item_name": "Bò lúc lắc khoai tây",
         "unit_price": 69000,
-        "prep_time": 18
+        "quantity": 2,
+        "subtotal": 138000,
+        "note": "Bò chín vừa"
       },
       {
-        "note": "",
-        "subtotal": 32000,
-        "item_name": "Khoai tây chiên lắc phô mai",
         "menu_item_id": "M07",
-        "quantity": 1,
+        "item_name": "Khoai tây chiên lắc phô mai",
         "unit_price": 32000,
+        "quantity": 1,
+        "subtotal": 32000,
+        "note": ""
+      }
+    ],
+    "subtotal": 287000,
+    "discount_amount": 17000,
+    "total_amount": 270000,
+    "final_amount": 270000,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
+  },
+  {
+    "id": "INV-BC12DC629F7E4773B96EE90F5888FDB3",
+    "payment_id": "PAY-EAF58900555D4E5885AB1FC6B52D2267",
+    "order_id": "ORD-20261019-001",
+    "table_id": 1,
+    "issued_at": "2026-10-20T01:34:20",
+    "items": [
+      {
+        "menu_item_id": "M06",
+        "item_name": "Bò lúc lắc khoai tây",
+        "unit_price": 69000,
+        "quantity": 3,
+        "subtotal": 207000,
+        "note": "",
+        "prep_time": 18
+      }
+    ],
+    "subtotal": 207000,
+    "discount_amount": 0,
+    "total_amount": 207000,
+    "final_amount": 207000,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
+  },
+  {
+    "id": "INV-17875B38C40443FFBB583A82C5CFD675",
+    "payment_id": "PAY-0D2C920FEBC44AADB95D50A370A4203F",
+    "order_id": "ORD-20261020-001",
+    "table_id": 1,
+    "issued_at": "2026-10-20T03:36:20",
+    "items": [
+      {
+        "menu_item_id": "M14",
+        "item_name": "Nem lụi",
+        "unit_price": 35000,
+        "quantity": 1,
+        "subtotal": 35000,
+        "note": "",
+        "prep_time": 15
+      }
+    ],
+    "subtotal": 35000,
+    "discount_amount": 0,
+    "total_amount": 35000,
+    "final_amount": 35000,
+    "payment_method": "CASH",
+    "cashier_name": "Thu ngân chính"
+  },
+  {
+    "id": "INV-5B5C38152FD643608B361593065D538A",
+    "payment_id": "PAY-B839389A03D34A1982C903D64CE8A525",
+    "order_id": "ORD-20261020-002",
+    "table_id": 2,
+    "issued_at": "2026-10-20T03:36:28",
+    "items": [
+      {
+        "menu_item_id": "M20",
+        "item_name": "Trà Atiso",
+        "unit_price": 20,
+        "quantity": 1,
+        "subtotal": 20,
+        "note": "",
         "prep_time": 10
       }
     ],
-    "final_amount": 270000,
-    "total_amount": 270000,
-    "subtotal": 287000,
-    "payment_id": "PAY-1A5B5120FCF04323A17EBB60BB59AA75",
-    "discount_amount": 17000,
-    "cashier_name": "Thu ngân chính",
-    "issued_at": "2026-10-21T19:21:13",
+    "subtotal": 20,
+    "discount_amount": 0,
+    "total_amount": 20,
+    "final_amount": 20,
     "payment_method": "CASH",
-    "id": "INV-3F4A643E9BB14C84B02A696A070CD21A",
-    "table_id": 5,
-    "order_id": "ORD-20261014-002"
+    "cashier_name": "Thu ngân chính"
   }
 ]

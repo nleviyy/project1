@@ -10,7 +10,8 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 from src.core.KitchenManager import KitchenManager
-from src.models.KitchenOrder import KitchenOrder as Order
+from src.models.Order import Order
+from src.models.OrderItem import OrderItem
 from src.core.Cart import Cart
 
 
@@ -23,12 +24,28 @@ def print_title(text: str):
 def main():
     print_title("🎯 MINH HỌA NHÁNH DATA_STRUCTURE (CẤU TRÚC DỮ LIỆU)")
 
-    print_title("PHẦN 1: HÀNG ĐỢI BẾP (src/kitchen.py - QUEUE FIFO)")
+    print_title("PHẦN 1: HÀNG ĐỢI BẾP (src/core/KitchenManager.py - FIFO)")
     km = KitchenManager()
 
-    d1 = Order("ORD-001", table_id=1, prep_time=10, notes="Ít cay")
-    d2 = Order("ORD-002", table_id=3, prep_time=15, notes="Nhiều đá")
-    d3 = Order("ORD-003", table_id=5, prep_time=8, notes="Mang về")
+    def make_order(order_id, table_id, prep_time, note):
+        return Order(
+            id=order_id,
+            table_id=table_id,
+            notes=note,
+            items=[
+                OrderItem(
+                    menu_item_id=order_id,
+                    item_name=f"Món {order_id}",
+                    unit_price=0,
+                    quantity=1,
+                    prep_time=prep_time,
+                )
+            ],
+        )
+
+    d1 = make_order("ORD-001", 1, 10, "Ít cay")
+    d2 = make_order("ORD-002", 3, 15, "Nhiều đá")
+    d3 = make_order("ORD-003", 5, 8, "Mang về")
 
     km.add_order(d1)
     km.add_order(d2)
@@ -38,7 +55,7 @@ def main():
     print(f"⏱️ Thời gian khách đơn 3 (ORD-003) phải chờ dự kiến: {km.estimate_wait_time(d3)} phút (10 + 15 + 8 phút).")
 
     order_nau = km.start_next_order()
-    print(f"\n🍳 Bếp bắt đầu nấu: Đơn [{order_nau.order_id}] (Bàn {order_nau.table_id})")
+    print(f"\n🍳 Bếp bắt đầu nấu: Đơn [{order_nau.id}] (Bàn {order_nau.table_id})")
     print(f"   Trạng thái đơn: {order_nau.status} | Ghi chú: '{order_nau.notes}'")
     print(f"   Số đơn còn lại trong hàng đợi chờ nấu: {km.count_waiting()} đơn.")
 
@@ -47,7 +64,7 @@ def main():
     km.finish_current_order()
     print(f"✨ Bếp đã giải phóng chỗ, sẵn sàng nhận nấu đơn tiếp theo!")
 
-    print_title("PHẦN 2: GIỎ HÀNG HOÀN TÁC (src/redo_undo.py - STACK UNDO / REDO)")
+    print_title("PHẦN 2: GIỎ HÀNG HOÀN TÁC (src/core/Cart.py - UNDO / REDO)")
     cart = Cart()
 
     mon_1 = {"id": "M01", "name": "Cà phê đen đá", "price": 25000, "is_available": True}

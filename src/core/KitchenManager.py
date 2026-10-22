@@ -92,6 +92,7 @@ class KitchenManager:
             notes=notes,
         )
         self.add_order(order)
+        self._next_id += 1
         return self.estimate_wait_time(order)
 
     # ---------- Chế biến ----------
@@ -120,6 +121,29 @@ class KitchenManager:
         self._current_order = None
         return order
 
+    def restore_current_order_to_queue(self, order_id):
+        if (
+            self._current_order is None
+            or self._get_order_id(self._current_order) != order_id
+        ):
+            return False
+        order = self._current_order
+        order.status = OrderStatus.PENDING
+        order.preparing_started_at = None
+        order._touch()
+        self._queue.add_first(order)
+        self._current_order = None
+        return True
+
+    def restore_order_to_queue(self, order, position):
+        if not isinstance(order, Order) or order.status != OrderStatus.PENDING:
+            return False
+        if self._is_in_kitchen(self._get_order_id(order)):
+            return False
+        pos = min(max(position, 0), self._queue.size)
+        self._queue.insert(pos, order)
+        return True
+
     # ---------- Trạng thái ----------
 
     def get_status(self, order_id):
@@ -142,7 +166,6 @@ class KitchenManager:
         order = self._current_order
         if order.status == OrderStatus.SERVED:
             raise ValueError("Đơn đã lên món, hãy gọi finish_current_order()")
-        # next_statuses là DoublyLinkedList các trạng thái được phép chuyển tới
         next_statuses = ORDER_STATUS_TRANSITIONS.get(order.status)
         if next_statuses is None or next_statuses.is_empty():
             raise ValueError("Đơn đã ở trạng thái cuối cùng")
@@ -182,47 +205,49 @@ class KitchenManager:
             node = node.next
         return result
 
-    def restore_current_order_to_queue(self, order_id):
-        if (
-            self._current_order is None
-            or self._get_order_id(self._current_order) != order_id
-        ):
-            return False
-        order = self._current_order
-        order.status = OrderStatus.PENDING
-        order._touch()
-        self._queue.add_first(order)
-        self._current_order = None
-        return True
-
     def synchronize_orders(self, orders):
         """
-        orders: DoublyLinkedList các Order.
-        Đồng bộ lại hàng đợi và đơn đang làm theo danh sách này.
+        Đồng bộ lại hàng đợi và đơn đang làm theo danh sách orders (list hoặc DoublyLinkedList).
         """
-        # Bước 1: tìm đơn PREPARING (chỉ được phép có tối đa 1)
-        preparing_order = None
-        node = orders.head
-        while node is not None:
-            if node.data.status == OrderStatus.PREPARING:
-                if preparing_order is not None:
-                    raise ValueError("Chỉ được có một đơn PREPARING trong bếp.")
-                preparing_order = node.data
-            node = node.next
+        orders_list = []
+        if isinstance(orders, DoublyLinkedList):
+            node = orders.head
+            while node is not None:
+                orders_list.append(node.data)
+                node = node.next
+        elif orders is not None:
+            orders_list = list(orders)
 
-        # Bước 2: dựng lại bếp từ đầu
+        active_orders = [
+            order
+            for order in orders_list
+            if order.status in (OrderStatus.PENDING, OrderStatus.PREPARING)
+        ]
+        active_orders.sort(key=lambda order: str(order.created_at or ""))
+        preparing_orders = [
+            order for order in active_orders if order.status == OrderStatus.PREPARING
+        ]
+        if len(preparing_orders) > 1:
+            raise ValueError("Chỉ được có một đơn PREPARING trong bếp.")
+
+        for order in orders_list:
+            order_id = self._get_order_id(order)
+            if isinstance(order_id, str) and order_id.startswith("ORD-"):
+                sequence = order_id.rsplit("-", 1)[-1]
+                if sequence.isdigit():
+                    self._next_id = max(self._next_id, int(sequence) + 1)
+
         self._queue = DoublyLinkedList()
-        self._current_order = preparing_order
+        self._current_order = preparing_orders[0] if preparing_orders else None
+        for order in active_orders:
+            if order.status == OrderStatus.PENDING:
+                self.add_order(order)
 
-        # Bước 3: các đơn PENDING đưa vào hàng đợi
-        node = orders.head
-        while node is not None:
-            if node.data.status == OrderStatus.PENDING:
-                self.add_order(node.data)
-            node = node.next
+    def restore_orders(self, orders):
+        self.synchronize_orders(orders or [])
 
     def count_waiting(self):
-        return self._queue.size
+        return len(self._queue)
 
     def is_empty(self):
         return self._queue.is_empty() and self._current_order is None

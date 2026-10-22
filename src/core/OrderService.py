@@ -1,7 +1,7 @@
 from datetime import datetime
 from pathlib import Path
 import sys
-from typing import Any, Optional, Tuple
+from typing import Any, Optional, Tuple, Callable
 
 from src.structures.hash_table import HashTable
 from src.structures.linked_list import DoublyLinkedList
@@ -27,16 +27,19 @@ try:
     from src.models.JSONStorage import JSONStorage
     from src.models.MenuCatalog import MenuCatalog
 except ImportError:
+
     try:
         from models.Order import Order, OrderStatus
         from models.OrderItem import OrderItem
         from models.JSONStorage import JSONStorage
         from models.MenuCatalog import MenuCatalog
+        from models.HashTable import HashTable
     except ImportError:
         from ..models.Order import Order, OrderStatus
         from ..models.OrderItem import OrderItem
         from ..models.JSONStorage import JSONStorage
         from ..models.MenuCatalog import MenuCatalog
+        from ..models.HashTable import HashTable
 
 
 class OrderService:
@@ -82,12 +85,11 @@ class OrderService:
     # -------------------------------------------------------------
     def load_orders(self) -> bool:
         """Đọc danh sách đơn hàng từ file JSON vào bộ nhớ."""
-        self._orders.clear()
-        self._order_ids.clear()
         data = JSONStorage.from_json_data(
             JSONStorage.load_data(
                 str(self.orders_file),
                 default_data=DoublyLinkedList(),
+                strict=True,
             )
         )
         if not isinstance(data, DoublyLinkedList):
@@ -104,6 +106,9 @@ class OrderService:
                     )
                 )
             )
+
+        new_orders = HashTable()
+        new_order_ids = DoublyLinkedList()
         for order_data in data:
             if not isinstance(order_data, HashTable):
                 print("[Cảnh báo OrderService] Bỏ qua dữ liệu đơn không hợp lệ.")
@@ -116,12 +121,16 @@ class OrderService:
                         item.prep_time = (
                             menu_item.prep_time if menu_item is not None else 0
                         )
-                if not self._orders.contains(order.id):
-                    self._order_ids.add_last(order.id)
-                self._orders.put(order.id, order)
+                if not new_orders.contains(order.id):
+                    new_order_ids.add_last(order.id)
+                new_orders.put(order.id, order)
             except (AttributeError, TypeError, ValueError) as error:
                 print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {error}")
+
+        self._orders = new_orders
+        self._order_ids = new_order_ids
         return True
+
 
     def save_orders(self) -> bool:
         """Ghi toàn bộ đơn hàng hiện có ra file JSON."""
@@ -170,6 +179,7 @@ class OrderService:
         custom_order_id: Optional[str] = None,
         check_existing_active: bool = True,
         kitchen_manager: Optional[Any] = None,
+        table_manager: Optional[Any] = None,
     ) -> Order:
         """
         Tạo, chiếm bàn và xếp đơn PENDING vào hàng đợi bếp qua nghiệp vụ điều phối chung (P0).
@@ -190,6 +200,7 @@ class OrderService:
             discount_amount=discount_amount,
             custom_order_id=custom_order_id,
             kitchen_manager=kitchen_manager,
+            table_manager=table_manager,
         )
 
     def place_order(
@@ -200,6 +211,7 @@ class OrderService:
         discount_amount: int = 0,
         custom_order_id: Optional[str] = None,
         kitchen_manager: Optional[Any] = None,
+        table_manager: Optional[Any] = None,
     ) -> Order:
         """Xác nhận đơn PENDING, chiếm bàn và đưa đơn vào Queue một cách nhất quán."""
         if items is None:
@@ -210,6 +222,16 @@ class OrderService:
         if order_items.is_empty():
             raise ValueError("Giỏ hàng đang trống, không thể tạo đơn hàng.")
         items = order_items
+
+        converted_items = []
+        for item in items:
+            if isinstance(item, dict):
+                converted_items.append(OrderItem.from_dict(item))
+            elif isinstance(item, OrderItem):
+                converted_items.append(item)
+            else:
+                raise TypeError("Mỗi món đặt hàng phải là dict hoặc OrderItem.")
+        items = converted_items
 
         table_id = int(table_id)
         is_takeaway = table_id == 0
@@ -240,8 +262,12 @@ class OrderService:
                 )
             )
             menu.load_from_dict(menu_data)
+            if len(menu.get_all_items()) != len(menu_data):
+                raise ValueError(f"Thực đơn trong '{menu_path}' có món không hợp lệ hoặc mã bị trùng.")
 
         for item in items:
+            if not isinstance(item, OrderItem):
+                raise TypeError("Mỗi món đặt hàng phải được chuyển thành OrderItem trước khi tạo đơn.")
             menu_item = menu.get_item(item.menu_item_id)
             if menu_item is None or not menu_item.is_available:
                 raise ValueError(
@@ -266,6 +292,9 @@ class OrderService:
             notes=notes,
         )
 
+        tm = table_manager or self.table_manager
+        if tm is not None:
+            self.table_manager = tm
         table_occupied = False
         order_queued = False
         order_registered = False
@@ -370,6 +399,8 @@ class OrderService:
                 waiting_orders = km.get_waiting_orders()
                 if not waiting_orders or waiting_orders[0].id != order.id:
                     return False
+                previous_updated_at = order.updated_at
+                previous_started_at = order.preparing_started_at
                 km.start_next_order()
                 if self.save_orders():
                     return True
@@ -378,6 +409,8 @@ class OrderService:
                         f"Không thể lưu trạng thái PREPARING hoặc khôi phục đơn "
                         f"'{order_id}' về Queue."
                     )
+                order.updated_at = previous_updated_at
+                order.preparing_started_at = previous_started_at
                 raise OSError(
                     f"Không thể lưu trạng thái PREPARING cho đơn '{order_id}'."
                 )
@@ -449,15 +482,9 @@ class OrderService:
     def is_order_paid(self, order_id: str) -> bool:
         """
         Kiểm tra xem một đơn hàng đã được thanh toán hay chưa.
-        Nghiệp vụ kiểm tra kết hợp 2 nguồn để đảm bảo tuyệt đối an toàn:
-        1. Trạng thái của đơn hàng đã là 'COMPLETED'.
-        2. Đã có bản ghi thanh toán thành công ('SUCCESS') trong file data/payments.json.
+        Chỉ giao dịch SUCCESS được xem là bằng chứng thanh toán; trạng thái đơn
+        hàng không thay thế cho bản ghi trong payments.json.
         """
-        order = self.get_order_by_id(order_id)
-        if order and order.status == OrderStatus.COMPLETED:
-            return True
-
-        # Kiểm tra thêm trong nhật ký payments.json
         if self.payments_file.exists():
             payments_data = JSONStorage.from_json_data(
                 JSONStorage.load_data(
@@ -492,6 +519,9 @@ class OrderService:
         if order.status == OrderStatus.CANCELLED:
             return False, f"Đơn hàng '{order_id}' đã bị hủy, không thể thanh toán."
 
+        if order.status != OrderStatus.SERVED:
+            return False, "Chỉ có thể thanh toán đơn ở trạng thái SERVED."
+
         if len(order.items) == 0:
             return False, f"Đơn hàng '{order_id}' không có món ăn nào trong danh sách."
 
@@ -511,8 +541,6 @@ class OrderService:
         order = self.get_order_by_id(order_id)
         if not order:
             return False
-        if order.status == OrderStatus.COMPLETED:
-            return True
 
         payments_data = JSONStorage.from_json_data(
             JSONStorage.load_data(
@@ -534,6 +562,8 @@ class OrderService:
             raise ValueError(
                 f"Không thể hoàn thành đơn '{order_id}' khi chưa thanh toán SUCCESS."
             )
+        if order.status == OrderStatus.COMPLETED:
+            return True
         if order.status != OrderStatus.SERVED:
             raise ValueError(
                 f"Chỉ có thể hoàn tất đơn '{order_id}' sau khi lên món (SERVED)."
@@ -588,7 +618,18 @@ class OrderService:
 
         km = kitchen_manager or self.kitchen_manager
         previous_notes = order.notes
+        previous_updated_at = order.updated_at
+        previous_started_at = order.preparing_started_at
+        queue_position = None
         if km is not None:
+            queue_position = next(
+                (
+                    index
+                    for index, waiting_order in enumerate(km.get_waiting_orders())
+                    if waiting_order.id == order_id
+                ),
+                None,
+            )
             km.cancel_order(order_id)
 
         if reason:
@@ -597,11 +638,15 @@ class OrderService:
         if not self.save_orders():
             order.status = OrderStatus.PENDING
             order.notes = previous_notes
-            order._touch()
+            order.updated_at = previous_updated_at
+            order.preparing_started_at = previous_started_at
             rollback_errors = []
             if km is not None:
                 try:
-                    km.add_order(order)
+                    if queue_position is None or not km.restore_order_to_queue(
+                        order, queue_position
+                    ):
+                        rollback_errors.append("không thể khôi phục vị trí trong Queue")
                 except Exception as rollback_error:
                     rollback_errors.append(f"không thể khôi phục Queue: {rollback_error}")
             if rollback_errors:
@@ -615,11 +660,15 @@ class OrderService:
             if not self.table_manager.release_table(order.table_id, order.id):
                 order.status = OrderStatus.PENDING
                 order.notes = previous_notes
-                order._touch()
+                order.updated_at = previous_updated_at
+                order.preparing_started_at = previous_started_at
                 rollback_errors = []
                 if km is not None:
                     try:
-                        km.add_order(order)
+                        if queue_position is None or not km.restore_order_to_queue(
+                            order, queue_position
+                        ):
+                            rollback_errors.append("không thể khôi phục vị trí trong Queue")
                     except Exception as rollback_error:
                         rollback_errors.append(f"không thể khôi phục Queue: {rollback_error}")
                 if not self.save_orders():
@@ -633,6 +682,51 @@ class OrderService:
                     f"Không thể giải phóng bàn cho đơn '{order_id}'; đơn đã được khôi phục."
                 )
 
+        return True
+
+    def prioritize_order(self, order_id: str, kitchen_manager: Optional[Any] = None) -> bool:
+        """Bếp ưu tiên đơn đang chờ: đưa lên đầu hàng đợi và lưu thời điểm ưu tiên."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+        km = kitchen_manager or self.kitchen_manager
+        if km is None:
+            raise ValueError("Chưa kết nối bếp, không thể ưu tiên đơn.")
+        km.prioritize_order(order_id)
+        order.priority_at = datetime.now().isoformat()
+        order._touch()
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu ưu tiên của đơn '{order_id}'.")
+        return True
+
+    def set_kitchen_note(self, order_id: str, note: str) -> bool:
+        """Lưu ghi chú của bếp cho đơn hàng."""
+        order = self.get_order_by_id(order_id)
+        if not order:
+            raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
+        clean = (note or "").strip()
+        if len(clean) > 300:
+            raise ValueError("Ghi chú bếp tối đa 300 ký tự.")
+        order.kitchen_note = clean
+        order._touch()
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu ghi chú của đơn '{order_id}'.")
+        return True
+
+    def move_waiting_order(self, order_id: str, step: int, kitchen_manager: Optional[Any] = None) -> bool:
+        """Đổi chỗ đơn đang chờ với đơn liền kề (step=-1 lên, +1 xuống) và lưu thứ tự mới."""
+        if step not in (-1, 1):
+            raise ValueError("Chỉ đổi chỗ 1 bậc mỗi lần.")
+        km = kitchen_manager or self.kitchen_manager
+        if km is None:
+            raise ValueError("Chưa kết nối bếp, không thể chuyển thứ tự.")
+        new_queue = km.move_waiting(order_id, step)
+        base = datetime.now()
+        total = len(new_queue)
+        for index, order in enumerate(new_queue):
+            order.priority_at = (base + timedelta(seconds=total - index)).isoformat()
+        if not self.save_orders():
+            raise OSError("Không thể lưu thứ tự hàng đợi.")
         return True
 
     def serve_order(self, order_id: str) -> bool:
@@ -665,14 +759,36 @@ class OrderService:
             raise OSError(f"Không thể lưu trạng thái SERVED cho đơn '{order_id}'.")
         return success
 
+    def _save_order_mutation(
+        self,
+        order: Order,
+        mutation: Callable[[], bool],
+    ) -> bool:
+        previous_order = order.model_copy(deep=True)
+        try:
+            if not mutation():
+                return False
+            if self.save_orders():
+                return True
+        except Exception:
+            self._restore_order(order, previous_order)
+            raise
+
+        self._restore_order(order, previous_order)
+        return False
+
+    @staticmethod
+    def _restore_order(order: Order, snapshot: Order) -> None:
+        for field_name in type(snapshot).model_fields:
+            setattr(order, field_name, getattr(snapshot, field_name))
+
     def add_item_to_order(self, order_id: str, item: OrderItem) -> bool:
         """Thêm món vào đơn hàng hiện có và tự động lưu."""
         order = self.get_order_by_id(order_id)
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        order.add_item(item)
-        return self.save_orders()
+        return self._save_order_mutation(order, lambda: order.add_item(item))
 
     def remove_item_from_order(self, order_id: str, menu_item_id: str) -> bool:
         """Xóa món khỏi đơn hàng hiện có và tự động lưu."""
@@ -680,9 +796,46 @@ class OrderService:
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        if order.remove_item(menu_item_id):
-            return self.save_orders()
-        return False
+        return self._save_order_mutation(
+            order,
+            lambda: order.remove_item(menu_item_id),
+        )
+
+    # -------------------------------------------------------------
+    # 8. Đồng bộ với bếp: mọi thay đổi trạng thái bếp được lưu tại đây
+    # -------------------------------------------------------------
+
+    def sync_kitchen(self, kitchen_manager: Any) -> None:
+        """Dựng lại hàng đợi bếp từ đơn đã lưu. Gọi sau mỗi lần load_orders()."""
+        kitchen_manager.restore_orders(self.get_all_orders())
+        if not self.save_orders():
+            raise OSError("Không thể lưu lại đơn hàng sau khi khôi phục bếp.")
+
+    def _save_or_raise(self, order_id: str) -> None:
+        if not self.save_orders():
+            raise OSError(f"Không thể lưu trạng thái đơn hàng '{order_id}'.")
+
+    def kitchen_start_next(self, kitchen_manager: Any) -> Optional[Order]:
+        """Bếp lấy đơn đầu hàng đợi (PENDING -> PREPARING) và lưu lại."""
+        order = kitchen_manager.start_next_order()
+        if order is not None:
+            self._save_or_raise(order.id)
+        return order
+
+    def kitchen_advance(self, kitchen_manager: Any) -> str:
+        """Chuyển đơn đang chế biến sang bước kế tiếp (PREPARING -> SERVED) và lưu lại."""
+        current = kitchen_manager.get_current_order()
+        if current is None:
+            raise ValueError("Bếp chưa làm đơn nào.")
+        status = kitchen_manager.advance_status()
+        self._save_or_raise(current.id)
+        return status
+
+    def kitchen_finish(self, kitchen_manager: Any) -> Order:
+        """Kết thúc đơn đang chế biến sau khi đã lên món và lưu lại."""
+        order = kitchen_manager.finish_current_order()
+        self._save_or_raise(order.id)
+        return order
 
     def update_item_quantity_in_order(self, order_id: str, menu_item_id: str, quantity: int) -> bool:
         """Cập nhật số lượng món trong đơn và tự động lưu."""
@@ -690,6 +843,7 @@ class OrderService:
         if not order:
             raise KeyError(f"Không tìm thấy đơn hàng mã '{order_id}'.")
 
-        if order.update_item_quantity(menu_item_id, quantity):
-            return self.save_orders()
-        return False
+        return self._save_order_mutation(
+            order,
+            lambda: order.update_item_quantity(menu_item_id, quantity),
+        )

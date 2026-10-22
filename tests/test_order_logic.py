@@ -246,6 +246,30 @@ class TestOrderService:
             )
             yield service
 
+    def test_invalid_order_file_does_not_clear_loaded_orders(
+        self, service_with_tmp_storage
+    ):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        service_with_tmp_storage.orders_file.write_text(
+            "{invalid",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(json.JSONDecodeError):
+            service_with_tmp_storage.load_orders()
+
+        assert service_with_tmp_storage.get_order_by_id(order.id) is order
+
     def test_generate_order_id(self, service_with_tmp_storage):
         """Kiểm tra sinh mã đơn tự động theo thứ tự."""
         id1 = service_with_tmp_storage.generate_order_id("20261016")
@@ -517,6 +541,58 @@ class TestOrderService:
         assert order.status == OrderStatus.PREPARING
         assert service_with_tmp_storage.table_manager.get_table(1).current_order_id == order.id
 
+    def test_cancel_save_failure_restores_queue_position(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        orders = [
+            service_with_tmp_storage.create_order(
+                table_id=0,
+                items=[
+                    OrderItem(
+                        menu_item_id=f"M0{index}",
+                        item_name=f"Dish {index}",
+                        unit_price=1000,
+                        quantity=1,
+                    )
+                ],
+            )
+            for index in range(1, 4)
+        ]
+        monkeypatch.setattr(service_with_tmp_storage, "save_orders", lambda: False)
+
+        with pytest.raises(OSError, match="Không thể lưu trạng thái hủy"):
+            service_with_tmp_storage.cancel_order(orders[1].id)
+
+        assert service_with_tmp_storage.kitchen_manager.get_waiting_orders() == orders
+        assert orders[1].status == OrderStatus.PENDING
+
+    def test_cancel_table_release_failure_rolls_back_order_and_queue(
+        self, service_with_tmp_storage, monkeypatch
+    ):
+        order = service_with_tmp_storage.create_order(
+            table_id=1,
+            items=[
+                OrderItem(
+                    menu_item_id="M01",
+                    item_name="Cà phê đen đá",
+                    unit_price=25000,
+                    quantity=1,
+                )
+            ],
+        )
+        monkeypatch.setattr(
+            service_with_tmp_storage.table_manager,
+            "release_table",
+            lambda table_id, order_id: False,
+        )
+
+        with pytest.raises(OSError, match="đơn đã được khôi phục"):
+            service_with_tmp_storage.cancel_order(order.id)
+
+        assert order.status == OrderStatus.PENDING
+        assert service_with_tmp_storage.kitchen_manager.get_waiting_orders() == [order]
+        assert not service_with_tmp_storage.table_manager.is_table_available(1)
+
     def test_start_preparing_restores_queue_if_persistence_fails(
         self, service_with_tmp_storage, monkeypatch
     ):
@@ -574,6 +650,9 @@ class TestOrderService:
         allowed, reason = service_with_tmp_storage.can_checkout(order_paid.id)
         assert allowed is False
         assert "trước đó" in reason or "trùng" in reason
+        service_with_tmp_storage.start_preparing_order(order_paid.id)
+        service_with_tmp_storage.serve_order(order_paid.id)
+        service_with_tmp_storage.complete_order(order_paid.id)
 
         # Đơn 2: Đơn mới chưa thanh toán
         order_new = service_with_tmp_storage.create_order(
@@ -581,13 +660,19 @@ class TestOrderService:
             items=[OrderItem(menu_item_id="M02", item_name="Trà đào", unit_price=35000, quantity=1)]
         )
         assert service_with_tmp_storage.is_order_paid(order_new.id) is False
+        allowed, reason = service_with_tmp_storage.can_checkout(order_new.id)
+        assert allowed is False
+        assert "SERVED" in reason
+
+        service_with_tmp_storage.start_preparing_order(order_new.id)
+        service_with_tmp_storage.serve_order(order_new.id)
         allowed, _ = service_with_tmp_storage.can_checkout(order_new.id)
         assert allowed is True
 
         # Đơn chưa có thanh toán SUCCESS nên không thể hoàn tất bằng OrderService.
         with pytest.raises(ValueError, match="chưa thanh toán SUCCESS"):
             service_with_tmp_storage.complete_order(order_new.id)
-        assert order_new.status == OrderStatus.PENDING
+        assert order_new.status == OrderStatus.SERVED
 
     def test_cancel_order(self, service_with_tmp_storage):
         """Kiểm tra hủy đơn hàng."""

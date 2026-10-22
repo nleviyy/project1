@@ -2,6 +2,13 @@ from src.core.KitchenManager import KitchenManager
 from src.models.Order import Order
 from src.models.OrderItem import OrderItem
 
+from src.core.KitchenManager import KitchenManager
+from src.models.Order import Order
+from src.models.OrderItem import OrderItem
+
+from src.core.OrderService import OrderService
+from src.core.PaymentService import PaymentService
+from src.core.TableManager import TableManager
 
 def test_order_prep_time_uses_each_items_quantity():
     order = Order(

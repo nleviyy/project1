@@ -155,6 +155,21 @@ def test_successful_payment_cannot_be_recorded_twice(tmp_path):
         service.pay_order("ORD-1", "CARD", "Cashier", transaction_successful=True)
 
 
+def test_takeaway_payment_uses_label_and_does_not_release_a_table(tmp_path):
+    service, paths = build_service(tmp_path)
+    order = json.loads(paths["orders_path"].read_text(encoding="utf-8"))[0]
+    order["table_id"] = 0
+    paths["orders_path"].write_text(json.dumps([order]), encoding="utf-8")
+    paths["tables_path"].write_text("[]", encoding="utf-8")
+
+    result = service.pay_order("ORD-1", "CASH", "Cashier", cash_received=20000)
+
+    assert result.payment.table_id == "Mang về"
+    assert result.invoice is not None
+    assert result.invoice.table_id == "Mang về"
+    assert json.loads(paths["tables_path"].read_text(encoding="utf-8")) == []
+
+
 def test_cash_payment_rejects_insufficient_tender_without_writing(tmp_path):
     service, paths = build_service(tmp_path)
 

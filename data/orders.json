@@ -2,6 +2,29 @@
     {
         "items": [
             {
+                "note": "Không đường",
+                "subtotal": 25000,
+                "item_name": "Cà phê đen đá",
+                "menu_item_id": "M01",
+                "quantity": 1,
+                "unit_price": 25000,
+                "prep_time": 5
+            }
+        ],
+        "final_amount": 25000,
+        "notes": "Khách mang về một phần",
+        "status": "COMPLETED",
+        "total_amount": 25000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-14T19:20:00",
+        "created_at": "2026-10-14T18:30:00",
+        "id": "ORD-20261014-003",
+        "preparing_started_at": null,
+        "table_id": 1
+    },
+    {
+        "items": [
+            {
                 "note": "Ít ngọt",
                 "subtotal": 58000,
                 "item_name": "Cà phê sữa đá",
@@ -20,12 +43,15 @@
                 "prep_time": 15
             }
         ],
+        "final_amount": 113000,
         "notes": "Khách ngồi gần cửa sổ",
         "status": "COMPLETED",
+        "total_amount": 113000,
         "discount_amount": 0,
-        "updated_at": "2026-10-20T00:53:48",
+        "updated_at": "2026-10-19T02:51:03",
         "created_at": "2026-10-14T20:15:00",
         "id": "ORD-20261014-001",
+        "preparing_started_at": null,
         "table_id": 2
     },
     {
@@ -58,18 +84,209 @@
                 "prep_time": 10
             }
         ],
+        "final_amount": 270000,
         "notes": "Tiệc sinh nhật, áp dụng voucher 17k",
         "status": "COMPLETED",
+        "total_amount": 287000,
         "discount_amount": 17000,
-        "updated_at": "2026-10-21T19:21:13",
+        "updated_at": "2026-10-20T01:32:30",
         "created_at": "2026-10-14T21:00:00",
         "id": "ORD-20261014-002",
+        "preparing_started_at": null,
         "table_id": 5
     },
     {
         "items": [
             {
-                "note": "Không đường",
+                "note": "",
+                "subtotal": 207000,
+                "item_name": "Bò lúc lắc khoai tây",
+                "menu_item_id": "M06",
+                "quantity": 3,
+                "unit_price": 69000,
+                "prep_time": 18
+            }
+        ],
+        "final_amount": 207000,
+        "notes": "",
+        "status": "COMPLETED",
+        "total_amount": 207000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-20T01:34:20",
+        "created_at": "2026-10-19T03:27:04",
+        "id": "ORD-20261019-001",
+        "preparing_started_at": null,
+        "table_id": 1
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 32000,
+                "item_name": "Khoai tây chiên lắc phô mai",
+                "menu_item_id": "M07",
+                "quantity": 1,
+                "unit_price": 32000,
+                "prep_time": 10
+            }
+        ],
+        "final_amount": 32000,
+        "notes": "[Hủy: Hủy từ điều phối bếp]",
+        "status": "CANCELLED",
+        "total_amount": 32000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-20T03:35:46.474593",
+        "created_at": "2026-10-19T23:20:31",
+        "id": "ORD-20261019-002",
+        "preparing_started_at": null,
+        "table_id": 3
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 35000,
+                "item_name": "Nem lụi",
+                "menu_item_id": "M14",
+                "quantity": 1,
+                "unit_price": 35000,
+                "prep_time": 15
+            }
+        ],
+        "final_amount": 35000,
+        "notes": "",
+        "status": "COMPLETED",
+        "total_amount": 35000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-20T03:36:20",
+        "created_at": "2026-10-20T01:43:26",
+        "id": "ORD-20261020-001",
+        "preparing_started_at": null,
+        "table_id": 1
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 20,
+                "item_name": "Trà Atiso",
+                "menu_item_id": "M20",
+                "quantity": 1,
+                "unit_price": 20,
+                "prep_time": 10
+            }
+        ],
+        "final_amount": 20,
+        "notes": "",
+        "status": "COMPLETED",
+        "total_amount": 20,
+        "discount_amount": 0,
+        "updated_at": "2026-10-20T03:36:28",
+        "created_at": "2026-10-20T01:43:43",
+        "id": "ORD-20261020-002",
+        "preparing_started_at": null,
+        "table_id": 2
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 25000,
+                "item_name": "Bánh flan caramel",
+                "menu_item_id": "M10",
+                "quantity": 1,
+                "unit_price": 25000,
+                "prep_time": 8
+            }
+        ],
+        "final_amount": 25000,
+        "notes": "[Hủy: Hủy từ điều phối bếp]",
+        "status": "CANCELLED",
+        "total_amount": 25000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-20T22:20:44.090835",
+        "created_at": "2026-10-20T03:35:28",
+        "id": "ORD-20261020-003",
+        "preparing_started_at": null,
+        "table_id": 5
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 120000,
+                "item_name": "Cà phê đen đá",
+                "menu_item_id": "M01",
+                "quantity": 2,
+                "unit_price": 60000,
+                "prep_time": 5
+            },
+            {
+                "note": "",
+                "subtotal": 25000,
+                "item_name": "Bánh flan caramel",
+                "menu_item_id": "M10",
+                "quantity": 1,
+                "unit_price": 25000,
+                "prep_time": 8
+            },
+            {
+                "note": "",
+                "subtotal": 20000,
+                "item_name": "Trà Atiso",
+                "menu_item_id": "M20",
+                "quantity": 1,
+                "unit_price": 20000,
+                "prep_time": 10
+            },
+            {
+                "note": "",
+                "subtotal": 30000,
+                "item_name": "Kem dừa xiêm",
+                "menu_item_id": "M11",
+                "quantity": 1,
+                "unit_price": 30000,
+                "prep_time": 10
+            }
+        ],
+        "final_amount": 195000,
+        "notes": "",
+        "status": "PENDING",
+        "total_amount": 195000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-21T00:40:41",
+        "created_at": "2026-10-21T00:40:41",
+        "id": "ORD-20261021-001",
+        "preparing_started_at": null,
+        "table_id": 1
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 20000,
+                "item_name": "Trà Atiso",
+                "menu_item_id": "M20",
+                "quantity": 1,
+                "unit_price": 20000,
+                "prep_time": 10
+            }
+        ],
+        "final_amount": 20000,
+        "notes": "",
+        "status": "PENDING",
+        "total_amount": 20000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-21T02:05:48",
+        "created_at": "2026-10-21T02:05:48",
+        "id": "ORD-20261021-002",
+        "preparing_started_at": null,
+        "table_id": 2
+    },
+    {
+        "items": [
+            {
+                "note": "k sữa",
                 "subtotal": 25000,
                 "item_name": "Cà phê đen đá",
                 "menu_item_id": "M01",
@@ -78,168 +295,15 @@
                 "prep_time": 5
             }
         ],
-        "notes": "Khách mang về một phần",
-        "status": "COMPLETED",
-        "discount_amount": 0,
-        "updated_at": "2026-10-14T19:20:00",
-        "created_at": "2026-10-14T18:30:00",
-        "id": "ORD-20261014-003",
-        "table_id": 1
-    },
-    {
-        "items": [
-            {
-                "note": "Ít ngọt",
-                "subtotal": 58000,
-                "item_name": "Cà phê sữa đá",
-                "menu_item_id": "M02",
-                "quantity": 2,
-                "unit_price": 29000,
-                "prep_time": 6
-            }
-        ],
-        "notes": "Khách quen bàn 8",
-        "status": "COMPLETED",
-        "discount_amount": 0,
-        "updated_at": "2026-10-18T16:23:36",
-        "created_at": "2026-10-18T16:23:36",
-        "id": "ORD-20261018-001",
-        "table_id": 8
-    },
-    {
-        "items": [
-            {
-                "note": "Ít ngọt",
-                "subtotal": 58000,
-                "item_name": "Cà phê sữa đá",
-                "menu_item_id": "M02",
-                "quantity": 2,
-                "unit_price": 29000,
-                "prep_time": 6
-            }
-        ],
-        "notes": "Khách quen bàn 8",
-        "status": "COMPLETED",
-        "discount_amount": 0,
-        "updated_at": "2026-10-18T18:18:50",
-        "created_at": "2026-10-18T18:18:50",
-        "id": "ORD-20261018-002",
-        "table_id": 8
-    },
-    {
-        "items": [
-            {
-                "note": "Ít ngọt",
-                "subtotal": 58000,
-                "item_name": "Cà phê sữa đá",
-                "menu_item_id": "M02",
-                "quantity": 2,
-                "unit_price": 29000,
-                "prep_time": 6
-            }
-        ],
-        "notes": "Khách quen bàn 8",
-        "status": "COMPLETED",
-        "discount_amount": 0,
-        "updated_at": "2026-10-18T18:27:36",
-        "created_at": "2026-10-18T18:27:36",
-        "id": "ORD-20261018-003",
-        "table_id": 8
-    },
-    {
-        "items": [
-            {
-                "note": "",
-                "subtotal": 75000,
-                "item_name": "Cà phê đen đá",
-                "menu_item_id": "M01",
-                "quantity": 3,
-                "unit_price": 25000,
-                "prep_time": 5
-            },
-            {
-                "note": "",
-                "subtotal": 28000,
-                "item_name": "Cà phê sữa đá",
-                "menu_item_id": "M02",
-                "quantity": 1,
-                "unit_price": 28000,
-                "prep_time": 6
-            }
-        ],
+        "final_amount": 25000,
         "notes": "",
-        "status": "SERVED",
+        "status": "PENDING",
+        "total_amount": 25000,
         "discount_amount": 0,
-        "updated_at": "2026-10-21T19:17:31.322295",
-        "created_at": "2026-10-21T19:17:08",
-        "id": "ORD-20261021-001",
-        "table_id": 1
-    },
-    {
-        "items": [
-            {
-                "note": "",
-                "subtotal": 55000,
-                "item_name": "Bánh mì chảo đặc biệt",
-                "menu_item_id": "M05",
-                "quantity": 1,
-                "unit_price": 55000,
-                "prep_time": 15
-            },
-            {
-                "note": "",
-                "subtotal": 69000,
-                "item_name": "Bò lúc lắc khoai tây",
-                "menu_item_id": "M06",
-                "quantity": 1,
-                "unit_price": 69000,
-                "prep_time": 18
-            }
-        ],
-        "notes": "",
-        "status": "SERVED",
-        "discount_amount": 0,
-        "updated_at": "2026-10-21T19:18:59.497263",
-        "created_at": "2026-10-21T19:18:52",
-        "id": "ORD-20261021-002",
-        "table_id": 2
-    },
-    {
-        "items": [
-            {
-                "note": "",
-                "subtotal": 55000,
-                "item_name": "Bánh mì chảo đặc biệt",
-                "menu_item_id": "M05",
-                "quantity": 1,
-                "unit_price": 55000,
-                "prep_time": 15
-            },
-            {
-                "note": "",
-                "subtotal": 69000,
-                "item_name": "Bò lúc lắc khoai tây",
-                "menu_item_id": "M06",
-                "quantity": 1,
-                "unit_price": 69000,
-                "prep_time": 18
-            },
-            {
-                "note": "",
-                "subtotal": 50000,
-                "item_name": "Phở Hà Nội",
-                "menu_item_id": "M12",
-                "quantity": 1,
-                "unit_price": 50000,
-                "prep_time": 25
-            }
-        ],
-        "notes": "",
-        "status": "SERVED",
-        "discount_amount": 0,
-        "updated_at": "2026-10-21T19:21:26.920222",
-        "created_at": "2026-10-21T19:20:41",
+        "updated_at": "2026-10-21T23:55:17",
+        "created_at": "2026-10-21T23:55:17",
         "id": "ORD-20261021-003",
+        "preparing_started_at": null,
         "table_id": 3
     }
 ]

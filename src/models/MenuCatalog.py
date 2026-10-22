@@ -1,14 +1,24 @@
+import json
 import sys
+import unicodedata
+from pathlib import Path
+from typing import Optional, Union
 
 from src.structures.linked_list import DoublyLinkedList
-from src.structures.hash_table import HashTable
+from src.structures.hash_table import HashNode, HashTable
+from src.models.MenuItem import MenuItem
+from src.models.JSONStorage import JSONStorage
 
-if hasattr(sys.stdout, 'reconfigure'):
-    sys.stdout.reconfigure(encoding='utf-8')
-if hasattr(sys.stderr, 'reconfigure'):
-    sys.stderr.reconfigure(encoding='utf-8')
+__all__ = ["HashNode", "HashTable", "MenuCatalog"]
 
-from .MenuItem import MenuItem
+
+def _normalize_text(text: str) -> str:
+    """Normalize Vietnamese accents and casefold for resilient matching."""
+    text = text.replace("đ", "d").replace("Đ", "d")
+    return "".join(
+        c for c in unicodedata.normalize("NFD", text)
+        if unicodedata.category(c) != "Mn"
+    ).casefold()
 
 
 class MenuCatalog:
@@ -42,6 +52,32 @@ class MenuCatalog:
                 self.add_item(item)
             except (ValueError, TypeError) as e:
                 print("[Cảnh báo] Bỏ qua món ID " + str(info.get("id")) + " do dữ liệu không hợp lệ: " + str(e))
+
+    def load_from_file(self, file_path=None) -> bool:
+        """Đọc thực đơn trực tiếp từ file JSON."""
+        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        if not target.exists():
+            return False
+        try:
+            with open(target, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self.load_from_dict(data)
+            return True
+        except Exception as e:
+            print(f"[Lỗi MenuCatalog] Không thể tải dữ liệu từ '{target}': {e}")
+            return False
+
+    def save_to_file(self, file_path=None) -> bool:
+        """Lưu toàn bộ danh mục món ăn hiện tại ra file JSON."""
+        target = Path(file_path) if file_path else (Path(__file__).resolve().parents[2] / "data" / "menu.json")
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with open(target, "w", encoding="utf-8") as f:
+                json.dump(JSONStorage.to_json_data(self.to_dict()), f, ensure_ascii=False, indent=2)
+            return True
+        except Exception as e:
+            print(f"[Lỗi MenuCatalog] Không thể lưu file '{target}': {e}")
+            return False
 
     def to_dict(self):
         """Trả về DoublyLinkedList các HashTable."""
@@ -78,7 +114,15 @@ class MenuCatalog:
         prep_time=None,
         image=None,
         color=None,
+        **kwargs,
     ):
+        if price is None and "unit_price" in kwargs:
+            price = kwargs["unit_price"]
+        if is_available is None and "status" in kwargs:
+            is_available = kwargs["status"]
+        if category is None and "item_type" in kwargs:
+            category = kwargs["item_type"]
+
         item = self.get_item(item_id)
         if item is None:
             return False
@@ -134,6 +178,50 @@ class MenuCatalog:
                 result.add_last(item)
             node = node.next
         return result
+
+    @staticmethod
+    def _matches_prefix(value: str, keyword: str) -> bool:
+        value = value.casefold()
+        keyword = keyword.casefold()
+        if len(keyword) > len(value):
+            return False
+
+        index = 0
+        while index < len(keyword):
+            if value[index] != keyword[index]:
+                return False
+            index += 1
+        return True
+
+    def autocomplete_items(
+        self,
+        keyword: str,
+        max_results: int = 5,
+    ) -> list:
+        """Trả về danh sách món có tên hoặc mã bắt đầu bằng keyword."""
+        if not isinstance(keyword, str) or max_results < 1:
+            return []
+
+        query = keyword.strip()
+        if not query:
+            return []
+
+        suggestions = []
+        node = self._list.head
+        while node is not None:
+            item = node.data
+            matches_name = self._matches_prefix(item.name, query)
+            matches_id = self._matches_prefix(item.id, query)
+            is_exact_match = (
+                item.name.casefold() == query.casefold()
+                or item.id.casefold() == query.casefold()
+            )
+            if (matches_name or matches_id) and not is_exact_match:
+                suggestions.append(item)
+                if len(suggestions) >= max_results:
+                    break
+            node = node.next
+        return suggestions
 
     def filter_by_type(self, item_type):
         result = DoublyLinkedList()

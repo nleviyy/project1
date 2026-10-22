@@ -68,8 +68,10 @@ class JSONStorage:
         return _to_json(data)
 
     @staticmethod
-    def load_data(file_path, default_data):
+    def load_data(file_path, default_data, *, strict: bool = False):
         if not os.path.exists(file_path):
+            if strict:
+                return default_data
             print("Thông báo: File '" + file_path + "' không tồn tại. Đang tạo dữ liệu mặc định...")
             JSONStorage.save_data(file_path, default_data)
             return default_data
@@ -78,13 +80,19 @@ class JSONStorage:
             with open(file_path, 'r', encoding='utf-8') as file:
                 data = json.load(file)
                 if _is_empty(data):
+                    if strict:
+                        return data
                     print("Cảnh báo: File '" + file_path + "' trống. Sử dụng dữ liệu mặc định.")
                     return default_data
                 return data
         except json.JSONDecodeError:
+            if strict:
+                raise
             print("Lỗi: Dữ liệu trong '" + file_path + "' bị hỏng (Invalid JSON). Sử dụng dữ liệu mặc định.")
             return default_data
         except Exception as e:
+            if strict:
+                raise
             print("Lỗi không xác định khi đọc '" + file_path + "': " + str(e))
             return default_data
 

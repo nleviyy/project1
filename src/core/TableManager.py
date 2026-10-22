@@ -130,7 +130,7 @@ class TableManager:
 
     def vacate_table(self, table_id: int) -> bool:
         table = self.get_table(table_id)
-        if not table:
+        if not table or table.status != "RESERVED":
             return False
 
         previous_status = table.status
@@ -139,5 +139,47 @@ class TableManager:
         if not self.save_tables():
             table.status = previous_status
             table.current_order_id = previous_order_id
+            return False
+        return True
+
+    def add_table(self, table: Table) -> bool:
+        if not isinstance(table, Table):
+            raise TypeError("Đối tượng thêm vào phải thuộc lớp Table.")
+        if table.id in self._tables:
+            return False
+        self._tables[table.id] = table
+        if not self.save_tables():
+            del self._tables[table.id]
+            return False
+        return True
+
+    def remove_table(self, table_id: int) -> bool:
+        table = self.get_table(table_id)
+        if not table or table.status == "OCCUPIED":
+            return False
+        del self._tables[int(table_id)]
+        if not self.save_tables():
+            self._tables[int(table_id)] = table
+            return False
+        return True
+
+    def update_table(
+        self,
+        table_id: int,
+        name: Optional[str] = None,
+        capacity: Optional[int] = None,
+    ) -> bool:
+        table = self.get_table(table_id)
+        if not table:
+            return False
+        previous_name = table.name
+        previous_capacity = table.capacity
+        if name:
+            table.name = str(name).strip()
+        if capacity is not None and int(capacity) > 0:
+            table.capacity = int(capacity)
+        if not self.save_tables():
+            table.name = previous_name
+            table.capacity = previous_capacity
             return False
         return True

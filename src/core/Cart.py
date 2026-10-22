@@ -103,6 +103,9 @@ class Cart:
 
     # ---------- Tìm món ----------
 
+    def count_lines(self):
+        return len(self._items)
+
     def _find(self, menu_item_id):
         """Trả về CartItem có id tương ứng, không có thì trả về None."""
         node = self._items.head
@@ -114,22 +117,35 @@ class Cart:
 
     # ---------- Thao tác giỏ hàng ----------
 
-    def add_item(self, menu_item, quantity=1, note=""):
-        if not isinstance(quantity, int) or quantity <= 0:
+    @staticmethod
+    def _validate_quantity(quantity):
+        if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0")
 
-        if isinstance(menu_item, dict):
-            item_id = menu_item.get("id")
-            item_name = menu_item.get("name")
-            unit_price = menu_item.get("price")
-            is_available = menu_item.get("is_available", True)
-            prep_time = menu_item.get("prep_time")
+    def add_item(self, menu_item, quantity=1, note="", *extra_args):
+        if extra_args:
+            item_id = menu_item
+            item_name = quantity
+            unit_price = note
+            quantity = extra_args[0]
+            note = extra_args[1] if len(extra_args) > 1 else ""
+            prep_time = 0
+            is_available = True
+            self._validate_quantity(quantity)
         else:
-            item_id = menu_item.id
-            item_name = menu_item.name
-            unit_price = menu_item.price
-            is_available = getattr(menu_item, "is_available", True)
-            prep_time = getattr(menu_item, "prep_time", None)
+            self._validate_quantity(quantity)
+            if isinstance(menu_item, dict):
+                item_id = menu_item.get("id")
+                item_name = menu_item.get("name")
+                unit_price = menu_item.get("price")
+                is_available = menu_item.get("is_available", True)
+                prep_time = menu_item.get("prep_time")
+            else:
+                item_id = menu_item.id
+                item_name = menu_item.name
+                unit_price = menu_item.price
+                is_available = getattr(menu_item, "is_available", True)
+                prep_time = getattr(menu_item, "prep_time", None)
 
         if not is_available:
             raise ValueError("Món '" + str(item_name) + "' đã hết")
@@ -155,23 +171,12 @@ class Cart:
         self._items.remove(item)
 
     def update_quantity(self, menu_item_id, quantity):
-        if not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
+        self._validate_quantity(quantity)
         item = self._find(menu_item_id)
         if item is None:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.quantity = quantity
-
-    def update_item(self, menu_item_id, quantity, note=""):
-        if not isinstance(quantity, int) or quantity <= 0:
-            raise ValueError("Số lượng phải lớn hơn 0 (muốn bỏ món thì dùng remove_item)")
-        item = self._find(menu_item_id)
-        if item is None:
-            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
-        self._save_for_undo()
-        item.quantity = quantity
-        item.note = note
 
     def set_note(self, menu_item_id, note):
         item = self._find(menu_item_id)
@@ -179,6 +184,18 @@ class Cart:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
         item.note = note
+
+    def update_item(self, menu_item_id, quantity=None, note=None):
+        if quantity is not None:
+            self._validate_quantity(quantity)
+        item = self._find(menu_item_id)
+        if item is None:
+            raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
+        self._save_for_undo()
+        if quantity is not None:
+            item.quantity = quantity
+        if note is not None:
+            item.note = note
 
     def clear(self):
         self._items.clear()

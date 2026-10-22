@@ -7,6 +7,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import uuid4
 
+
 from src.models.Invoice import Invoice
 from src.models.JSONStorage import JSONStorage
 from src.models.Payment import Payment, PaymentMethod
@@ -92,10 +93,13 @@ class PaymentService:
             raise ValueError("Kết quả từ cổng thanh toán phải là true hoặc false.")
 
         status = "SUCCESS" if transaction_successful else "FAILED"
+        payment_table_id = order.get("table_id", "Mang về")
+        if payment_table_id == 0 or str(payment_table_id) == "0":
+            payment_table_id = "Mang về"
         payment = Payment(
             payment_id=f"PAY-{uuid4().hex.upper()}",
             order_id=order_id,
-            table_id=order.get("table_id", "Mang về"),
+            table_id=payment_table_id,
             amount=subtotal,
             discount_rate=discount / subtotal if subtotal else 0,
             amount_paid=total if transaction_successful else 0,
@@ -159,6 +163,8 @@ class PaymentService:
     @staticmethod
     def _release_table(tables: list[dict], order: dict) -> None:
         table_id = order.get("table_id")
+        if table_id == 0 or str(table_id) == "0":
+            return
         if not isinstance(table_id, int) and not str(table_id).isdigit():
             return
         table = next(
@@ -179,11 +185,7 @@ class PaymentService:
 
     @staticmethod
     def _read_json(path: Path) -> list[dict]:
-        try:
-            with path.open(encoding="utf-8") as file:
-                data = json.load(file)
-        except FileNotFoundError:
-            return []
+        data = JSONStorage.load_data(str(path), default_data=[], strict=True)
         if not isinstance(data, list):
             raise ValueError(f"Expected a JSON list in {path}.")
         if any(not isinstance(row, dict) for row in data):

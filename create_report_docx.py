@@ -157,7 +157,7 @@ def create_report():
         ("OrderItem", "Dòng món trong hóa đơn", "Giữ Snapshot đơn giá tại thời điểm đặt để menu đổi giá không sai đơn"),
         ("Order", "Thông tin, tiền & trạng thái", "Lấy bản Order.py trên nhánh Vy làm chuẩn duy nhất; bỏ Order ở kitchen.py"),
         ("OrderService", "Điều phối vòng đời đơn", "Sinh mã ORD- chuẩn, xác nhận, kiểm tra chống thanh toán trùng"),
-        ("KitchenManager", "Hàng đợi bếp (Queue FIFO)", "Dùng collections.deque, chỉ quản lý chế biến, dùng Order chuẩn"),
+        ("KitchenManager", "Hàng đợi bếp (Queue FIFO)", "Dùng list thuần Python theo nguyên lý FIFO (append/pop(0)), chỉ quản lý chế biến, dùng Order chuẩn"),
         ("Table / TableManager", "Quản lý tình trạng bàn", "Liên kết bàn với current_order_id, chiếm bàn & giải phóng bàn"),
         ("Payment & Invoice", "Thanh toán & Hóa đơn", "Xác nhận giao dịch, ghi nhật ký payments.json, in hóa đơn"),
     ]

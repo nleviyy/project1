@@ -1,114 +1,100 @@
-Hệ Thống Quản Lý Đơn Hàng & Bàn Ăn F&B bằng Python
+# DŨNG FAST FOOD — Quản lý nhà hàng
 
-> **Đồ án Module 1** - Phát triển ứng dụng quản lý nhà hàng / quán ăn F&B bằng Python, áp dụng lập trình hướng đối tượng (OOP), lưu trữ dữ liệu JSON và xây dựng giao diện tương tác với Streamlit.
+Ứng dụng quản lý nhà hàng viết bằng Python, Streamlit và JSON. Code được chia theo
+trách nhiệm: `models/` biểu diễn dữ liệu, `core/` xử lý nghiệp vụ, `ui/` nhận thao
+tác và hiển thị dữ liệu. Ứng dụng chỉ có một entry point Streamlit là
+`src/app.py`.
 
----
-
-## 👥 Danh Sách Nhóm & Phân Công Nhiệm Vụ
-
-| Thành viên | Vai trò | Nhiệm vụ chính |
-| :--- | :--- | :--- |
-| **Nguyễn Lê Vy** | **Team Leader** | Khởi tạo dự án, thiết lập `uv` & Git, quản lý repository, review Pull Request và tích hợp code. |
-| **Quỳnh** | Developer | Phụ trách thư mục `src/models/`, thiết kế Data Classes (`MenuItem`, `Order`, `Table`) và xử lý đọc/ghi file JSON (`data/`). |
-| **Anh** | Developer | Phụ trách thư mục `src/core/`, hiện thực hóa các lớp quản lý nghiệp vụ (`OrderManager`, `TableManager`) áp dụng nguyên lý OOP và cấu trúc dữ liệu. |
-| **Thắng** | Developer | Phụ trách thư mục `src/ui/` và `src/app.py`, xây dựng giao diện người dùng tương tác bằng **Streamlit**. |
-
----
-
-## 📅 Kế Hoạch & Mốc Thời Gian
-
-* **Thứ Bảy, ngày 17/10/2026:** Hoàn thành **50% đồ án** để nộp (khung sườn kiến trúc, models cơ bản, luồng OOP sơ khởi, UI demo hiển thị dữ liệu).
-* **Thứ Ba, ngày 20/10/2026:** Báo cáo tiến độ đồ án.
-
----
-
-## 🏗️ Cấu Trúc Thư Mục Dự Án
+## Cấu trúc dự án
 
 ```text
 project1/
-├── data/                   # Chứa các file dữ liệu lưu trữ dạng JSON (menu, orders, tables)
-│   ├── sample_menu.json
-│   └── sample_tables.json
-├── src/                    # Mã nguồn chính của ứng dụng
-│   ├── models/             # Định nghĩa Data Classes & cấu trúc thực thể (Quỳnh)
-│   │   ├── Order.py
-│   │   └── KitchenOrder.py
-│   ├── core/               # Nghiệp vụ logic, OOP & cấu trúc dữ liệu (Anh)
+├── data/
+│   ├── menu.json           # Thực đơn vận hành, gồm giá VNĐ và prep_time
+│   ├── tables.json         # Bàn và trạng thái hiện tại
+│   ├── orders.json         # Lịch sử đơn và trạng thái
+│   ├── payments.json       # Giao dịch thanh toán
+│   └── invoices.json       # Hóa đơn
+├── src/
+│   ├── app.py              # Entry point Streamlit duy nhất
+│   ├── core/
 │   │   ├── Cart.py
 │   │   ├── KitchenManager.py
-│   │   └── OrderService.py
-│   ├── ui/                 # Các component giao diện Streamlit (Thắng)
-│   │   └── __init__.py     # render_ordering_ui()
-│   └── app.py              # File chạy chính của ứng dụng Streamlit
-├── tests/                  # Bộ kiểm thử tự động với pytest
-│   ├── __init__.py
-│   └── test_smoke.py
-├── .gitignore              # Loại bỏ .venv, cache, secrets (GIỮ LẠI uv.lock)
-├── pyproject.toml          # Khai báo metadata dự án và thư viện phụ thuộc (PEP 621)
-├── uv.lock                 # Khóa phiên bản chính xác của toàn bộ dependencies
-└── README.md               # Tài liệu hướng dẫn dự án
+│   │   ├── OrderService.py
+│   │   ├── PaymentService.py
+│   │   └── TableManager.py
+│   ├── models/             # Order, OrderItem, MenuItem, Table, Payment, Invoice,
+│   │                       # MenuCatalog và JSONStorage
+│   └── ui/
+│       ├── __init__.py     # Các component Streamlit
+│       └── bridge.py       # Adapter nghiệp vụ cho các thao tác JSON
+├── tests/                  # Kiểm thử đơn vị và tích hợp
+├── demo_data_structure.py
+├── demo_order.py
+├── demo_mentor_flow.py
+├── pyproject.toml
+└── uv.lock
 ```
 
----
+`sample_menu.json` và `sample_tables.json` nếu được giữ trong repository chỉ là
+dữ liệu minh họa; ứng dụng vận hành chỉ đọc `menu.json`, `tables.json`,
+`orders.json` và `payments.json` trong `data/`.
 
-## 🚀 Hướng Dẫn Cài Đặt & Chạy Ứng Dụng (Dành Cho Thành Viên Mới)
+## Cài đặt và chạy
 
-Dự án sử dụng **`uv`** làm công cụ quản lý package và môi trường ảo.
+Yêu cầu Python 3.11 trở lên và `uv`.
 
-### 1. Yêu cầu tiên quyết
-* Đã cài đặt **Python >= 3.11** và **Git**.
-* Đã cài đặt công cụ **uv**:
-  ```powershell
-  # Trên Windows (PowerShell):
-  powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
-  # Hoặc qua pip:
-  python -m pip install uv
-  ```
-
-### 2. Clone dự án về máy
-```powershell
-git clone https://github.com/nleviyy/project1.git
-cd project1
-```
-
-### 3. Đồng bộ môi trường ảo (Cài đặt dependencies từ `uv.lock`)
-Chỉ với **1 câu lệnh duy nhất**, `uv` sẽ tự tạo môi trường ảo `.venv` và cài đúng phiên bản thư viện:
 ```powershell
 uv sync
-```
-
-### 4. Chạy ứng dụng Streamlit
-```powershell
 uv run streamlit run src/app.py
 ```
-👉 Trình duyệt sẽ tự động mở địa chỉ: `http://localhost:8501`.
-`src/app.py` là entry point duy nhất; các màn hình UI được render từ những component trong `src/ui/`.
 
-### 5. Chạy bộ kiểm thử (pytest)
+Mở địa chỉ được Streamlit in ra trong terminal (mặc định
+`http://localhost:8501`). Không chạy riêng module UI; mọi khu vực đặt món, bếp,
+thu ngân, bàn ăn và tổng quan được điều hướng trong cùng ứng dụng.
+
+## Luồng nghiệp vụ
+
+1. Chọn bàn `AVAILABLE` (hoặc mang về), chọn món còn phục vụ và thao tác giỏ.
+2. Xác nhận tạo đơn `PENDING`; đơn được lưu, bàn được chiếm và đơn vào cuối queue.
+3. Bếp lấy đơn theo FIFO. Chỉ khi bắt đầu chế biến đơn chuyển sang `PREPARING`;
+   lên món chuyển sang `SERVED`.
+4. Thu ngân chỉ thanh toán đơn `SERVED`. Thanh toán thành công tạo Payment và
+   Invoice, cho phép tải hóa đơn dạng văn bản, chuyển đơn sang `COMPLETED` rồi
+   giải phóng bàn.
+5. Chỉ hủy được đơn `PENDING`. Thời gian chờ được tính từ `prep_time` từng món,
+   số lượng và vị trí trong queue; thời gian đã trôi qua của đơn đang chế biến
+   được tính sau khi khởi động lại.
+
+`Cart` và lựa chọn giao diện có thể nằm trong `st.session_state`; đơn hàng, bàn,
+thanh toán và hóa đơn được lưu trong các file JSON. `JSONStorage` phụ trách đọc
+và ghi; thao tác thanh toán dùng ghi nhiều file có rollback để hạn chế dữ liệu
+không nhất quán.
+
+## Kiểm thử và demo
+
 ```powershell
 uv run pytest
+uv run python demo_data_structure.py
+uv run python demo_order.py
+uv run python demo_mentor_flow.py
 ```
 
----
+## Quy trình Git nhóm
 
-## 🌿 Quy Chuẩn Git & Làm Việc Nhóm
+1. Tạo nhánh công việc từ `dev`:
 
-### 1. Quy tắc nhánh (Branch Rules)
-* **Tuyệt đối không commit trực tiếp vào nhánh `main`**.
-* Mỗi thành viên tạo nhánh riêng khi làm việc:
-  * `feature/<tên>-<tính-năng>` (ví dụ: `feature/quynh-models`, `feature/thang-ui`)
-  * `fix/<tên>-<lỗi>` (ví dụ: `fix/anh-order-calc`)
+   ```powershell
+   git switch dev
+   git pull origin dev
+   git switch -c feature/<ten-tinh-nang>
+   ```
 
-### 2. Quy tắc Commit (Conventional Commits)
-* `feat:` Thêm tính năng mới (vd: `feat(models): dinh nghia MenuItem`)
-* `fix:` Sửa lỗi (vd: `fix(core): sua loi tinh tong tien hoa don`)
-* `docs:` Viết tài liệu (vd: `docs: cap nhat huong dan README`)
-* `test:` Viết thêm bài kiểm thử (vd: `test: them test case cho TableManager`)
-* `chore:` Cấu hình môi trường (vd: `chore: cap nhat dependencies uv`)
+2. Commit thay đổi trên nhánh riêng và push lên remote.
+3. Mở Pull Request về `dev` để Leader review; chạy test trước khi merge.
+4. Chỉ tích hợp từ `dev` lên `main` sau khi các thay đổi đã được review và kiểm
+   thử hoàn chỉnh.
 
-### 3. Quy trình Pull Request (PR)
-1. Kéo code mới nhất từ `main` về trước khi code: `git pull origin main`.
-2. Tạo branch, thực hiện code và commit.
-3. Push branch lên GitHub: `git push -u origin feature/<tên-nhánh>`.
-4. Mở **Pull Request** trên GitHub, gắn thẻ Vy (Leader) để review.
-5. Sau khi review và xác nhận không có lỗi, Leader sẽ duyệt và merge vào `main`.
+Dùng Conventional Commits, ví dụ `feat(core): add payment flow`,
+`fix(ui): route kitchen actions through services`, `test: cover order lifecycle`
+và `docs: update run instructions`.
