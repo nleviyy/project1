@@ -246,7 +246,6 @@ def _load_menu_catalog() -> MenuCatalog:
     records = JSONStorage.load_data(
         str(MENU_PATH),
         default_data=[],
-        strict=True,
     )
     if not isinstance(records, list):
         raise ValueError("Dữ liệu thực đơn phải là một danh sách.")
@@ -307,7 +306,7 @@ def render_ordering_component(
             st.subheader("📜 Thực đơn")
             items = menu_catalog.get_all_items()
             search = str(st.session_state.get("header_menu_search", "")).strip()
-            suggestions = menu_catalog.autocomplete_items(search)
+            suggestions = []
             if suggestions:
                 st.caption("Gợi ý món (chọn một món để lọc nhanh):")
                 suggestion_columns = st.columns(len(suggestions))

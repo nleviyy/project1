@@ -47,5 +47,12 @@ temp/
 scratch/
 scripts/
 
+# Large binaries & archives
+*.exe
+*.zip
+*.rar
+*.7z
+
 # QUAN TRỌNG: KHÔNG bỏ qua uv.lock (uv.lock bắt buộc phải được commit lên Git)
 !uv.lock
+

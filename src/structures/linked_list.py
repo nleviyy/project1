@@ -103,6 +103,28 @@ class DoublyLinkedList:
         self.size += 1
 
 
+    def insert(self, index, data):
+        """Chèn phần tử vào vị trí index."""
+        if not isinstance(index, int):
+            raise TypeError("Chỉ số phải là số nguyên.")
+        if index <= 0:
+            self.add_first(data)
+            return
+        if index >= self.size:
+            self.add_last(data)
+            return
+        node = self.head
+        for _ in range(index):
+            node = node.next
+        new_node = Node(data)
+        new_node.prev = node.prev
+        new_node.next = node
+        node.prev.next = new_node
+        node.prev = new_node
+        self.size += 1
+
+
+
     def remove_first(self):
         if self.head is None:
             return None
