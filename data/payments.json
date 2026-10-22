@@ -126,5 +126,53 @@
     "amount": 195000,
     "id": "PAY-248F1BF65137449C9D66B6862B74DA95",
     "discount_rate": 0.0
+  },
+  {
+    "method": "CASH",
+    "change_due": 0,
+    "payment_time": "2026-10-22T08:33:22.649213",
+    "cashier_name": "Thu ngân chính",
+    "order_id": "ORD-20261021-002",
+    "table_id": 2,
+    "cash_received": 20000,
+    "transaction_code": null,
+    "status": "SUCCESS",
+    "note": "",
+    "amount_paid": 20000,
+    "amount": 20000,
+    "id": "PAY-A9383491D66C4666A7DC6E8A3C16055F",
+    "discount_rate": 0.0
+  },
+  {
+    "method": "CASH",
+    "change_due": 0,
+    "payment_time": "2026-10-22T08:33:24.259141",
+    "cashier_name": "Thu ngân chính",
+    "order_id": "ORD-20261021-003",
+    "table_id": 3,
+    "cash_received": 25000,
+    "transaction_code": null,
+    "status": "SUCCESS",
+    "note": "",
+    "amount_paid": 25000,
+    "amount": 25000,
+    "id": "PAY-B8322DC9DB32483F95D02A6728CE5F22",
+    "discount_rate": 0.0
+  },
+  {
+    "method": "CASH",
+    "change_due": 0,
+    "payment_time": "2026-10-22T08:33:25.633368",
+    "cashier_name": "Thu ngân chính",
+    "order_id": "ORD-20261022-001",
+    "table_id": 4,
+    "cash_received": 152000,
+    "transaction_code": null,
+    "status": "SUCCESS",
+    "note": "",
+    "amount_paid": 152000,
+    "amount": 152000,
+    "id": "PAY-C0034D754D3B4EEABB9DCAFFBC8774C8",
+    "discount_rate": 0.0
   }
 ]
