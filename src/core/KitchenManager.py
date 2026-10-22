@@ -1,118 +1,16 @@
 from typing import Optional, List, Any
+from datetime import datetime
 from src.models.Order import Order, OrderStatus, ORDER_STATUS_TRANSITIONS
 from src.models.OrderItem import OrderItem
 from src.core.sorting import merge_sort
-
-
-class Node:
-    def __init__(self, data):
-        self.data = data
-        self.prev = None
-        self.next = None
-
-
-class DoublyLinkedList:
-    def __init__(self):
-        self.head = None   
-        self.tail = None   
-        self.size = 0     
-
-    def is_empty(self):
-        return self.size == 0
-
-    def add_last(self, data):
-        new_node = Node(data)
-        if self.tail is None:          
-            self.head = new_node
-            self.tail = new_node
-        else:
-            new_node.prev = self.tail
-            self.tail.next = new_node
-            self.tail = new_node
-        self.size += 1
-
-    def remove_first(self):
-        if self.head is None:
-            return None
-        data = self.head.data
-        self.head = self.head.next
-        if self.head is None:          
-            self.tail = None
-        else:
-            self.head.prev = None
-        self.size -= 1
-        return data
-
-    def peek_first(self):
-        if self.head is None:
-            return None
-        return self.head.data
-
-    def remove(self, data):
-        node = self.head
-        while node is not None:
-            if node.data == data:
-                break
-            node = node.next
-
-        if node is None:               
-            return False
-
-        if node.prev is None:          
-            self.head = node.next
-        else:
-            node.prev.next = node.next
-
-        if node.next is None:         
-            self.tail = node.prev
-        else:
-            node.next.prev = node.prev
-
-        self.size -= 1
-        return True
-
-    def add_first(self, data):
-        new_node = Node(data)
-        if self.head is None:
-            self.head = new_node
-            self.tail = new_node
-        else:
-            new_node.next = self.head
-            self.head.prev = new_node
-            self.head = new_node
-        self.size += 1
-
-    def pop_where(self, predicate):
-        node = self.head
-        while node is not None and not predicate(node.data):
-            node = node.next
-        if node is None:
-            return None
-        if node.prev is None:
-            self.head = node.next
-        else:
-            node.prev.next = node.next
-        if node.next is None:
-            self.tail = node.prev
-        else:
-            node.next.prev = node.prev
-        self.size -= 1
-        return node.data
-
-    def to_list(self):
-        result = []
-        node = self.head
-        while node is not None:
-            result.append(node.data)
-            node = node.next
-        return result
+from src.core.deque import Deque
 
 
 class KitchenManager:
     def __init__(self):
-        self._queue = DoublyLinkedList()   
-        self._current_order = None         
-        self._next_id = 1                 
+        self._queue = Deque()
+        self._current_order = None
+        self._next_id = 1
 
     def _get_order_id(self, order):
         if order is None:
@@ -148,38 +46,6 @@ class KitchenManager:
             )
         self._queue.add_last(order)
 
-    def receive_order(self, table_id, items, notes=""):
-        order_id = "ORD-" + str(self._next_id).zfill(4)   
-        self._next_id += 1
-        
-        parsed_items = []
-        if items:
-            raw_items = items.values() if isinstance(items, dict) else items
-            for it in raw_items:
-                if isinstance(it, OrderItem):
-                    parsed_items.append(it)
-                elif isinstance(it, dict):
-                    parsed_items.append(
-                        OrderItem(
-                            menu_item_id=it.get("menu_item_id", it.get("item_id", "M01")),
-                            item_name=it.get("item_name", it.get("name", "Món")),
-                            unit_price=int(it.get("unit_price", it.get("price", 0))),
-                            quantity=int(it.get("quantity", it.get("sl", 1))),
-                            note=it.get("note", ""),
-                            prep_time=int(it.get("prep_time", 0) or 0),
-                        )
-                    )
-
-        order = Order(
-            id=order_id,
-            table_id=table_id,
-            items=parsed_items,
-            notes=notes,
-        )
-        order.calculate_prep_time()
-        self.add_order(order)
-        return self.estimate_wait_time(order)
-
     def start_next_order(self):
         if self._current_order is not None:
             oid = self._get_order_id(self._current_order)
@@ -211,7 +77,7 @@ class KitchenManager:
         - Đơn có priority_at được đưa lên trước, sắp giảm dần theo priority_at.
         - Phần còn lại giữ FIFO theo created_at tăng dần.
         """
-        self._queue = DoublyLinkedList()
+        self._queue = Deque()
         self._current_order = None
         active = [o for o in orders if o.status in (OrderStatus.PENDING, OrderStatus.PREPARING)]
         # Sắp xếp tăng dần theo created_at bằng merge_sort tự cài
@@ -224,6 +90,7 @@ class KitchenManager:
         waiting = [o for o in active if o is not self._current_order]
         for order in waiting:
             if order.status == OrderStatus.PREPARING:
+                # Đơn bị gián đoạn được đưa về PENDING khi khôi phục bếp
                 order.status = "PENDING"
 
         prioritized = [o for o in waiting if getattr(o, "priority_at", None)]
@@ -262,7 +129,7 @@ class KitchenManager:
         if not 0 <= target < len(orders):
             raise ValueError("Đơn đã ở vị trí " + ("đầu" if step < 0 else "cuối") + " hàng đợi")
         orders[index], orders[target] = orders[target], orders[index]
-        self._queue = DoublyLinkedList()
+        self._queue = Deque()
         for order in orders:
             self._queue.add_last(order)
         return orders
@@ -295,15 +162,12 @@ class KitchenManager:
 
     def cancel_order(self, order_id):
         if self._get_order_id(self._current_order) == order_id:
-            self._set_status(self._current_order, OrderStatus.CANCELLED)
-            self._current_order = None
-            return
+            raise ValueError(f"Đơn {order_id} đang chế biến, không thể hủy")
         
-        for order in self._queue.to_list():
-            if self._get_order_id(order) == order_id:
-                self._set_status(order, OrderStatus.CANCELLED)
-                self._queue.remove(order)
-                return
+        order = self._queue.pop_where(lambda o: self._get_order_id(o) == order_id)
+        if order is not None:
+            self._set_status(order, OrderStatus.CANCELLED)
+            return
         raise ValueError("Không tìm thấy đơn " + str(order_id) + " trong bếp")
 
     def peek_next_order(self):
@@ -321,14 +185,29 @@ class KitchenManager:
     def is_empty(self):
         return self._queue.is_empty() and self._current_order is None
 
+    def _get_current_remaining_time(self) -> int:
+        """Tính thời gian còn lại của đơn đang nấu (tổng thời gian trừ thời gian đã trôi qua)."""
+        if self._current_order is None:
+            return 0
+        total_prep = self._current_order.calculate_prep_time()
+        elapsed = 0
+        updated_at = getattr(self._current_order, "updated_at", None)
+        if updated_at:
+            try:
+                start_dt = datetime.fromisoformat(updated_at)
+                elapsed = max(0, int((datetime.now() - start_dt).total_seconds() / 60))
+            except Exception:
+                elapsed = 0
+        return max(0, total_prep - elapsed)
+
     def estimate_wait_time(self, order):
         oid = self._get_order_id(order)
         if self._get_order_id(self._current_order) == oid:
-            return order.calculate_prep_time()
+            return self._get_current_remaining_time()
 
         total = 0
         if self._current_order is not None:
-            total += self._current_order.calculate_prep_time()
+            total += self._get_current_remaining_time()
         for waiting in self._queue.to_list():
             if self._get_order_id(waiting) == oid:
                 break

@@ -2,12 +2,10 @@ from importlib import import_module
 
 from .MenuItem import MenuItem
 from .MenuCatalog import MenuCatalog
-from .JSONStorage import JSONStorage
 
 __all__ = [
     "MenuItem",
     "MenuCatalog",
-    "JSONStorage",
     "Order",
     "OrderItem",
     "OrderStatus",
@@ -22,7 +20,6 @@ __all__ = [
 def __getattr__(name):
     module_map = {
         "Order": ".Order",
-        "KitchenOrder": ".Order",  # Alias sang Order
         "OrderItem": ".OrderItem",
         "OrderStatus": ".Order",
         "Table": ".Table",
@@ -35,3 +32,4 @@ def __getattr__(name):
         module = import_module(module_map[name], __name__)
         return getattr(module, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+

@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 import sys
+from src.core.sorting import merge_sort
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 if str(PROJECT_ROOT) not in sys.path:
@@ -59,9 +60,9 @@ def handle(request: dict, data_directory: Path) -> list | dict | None:
 
     if operation == "orders":
         order_service, _, kitchen_manager = _make_runtime(data_directory)
-        orders = sorted(
+        orders = merge_sort(
             order_service.get_all_orders(),
-            key=lambda order: order.created_at,
+            key=lambda order: str(order.created_at),
             reverse=True,
         )
         records = []
@@ -121,18 +122,14 @@ def handle(request: dict, data_directory: Path) -> list | dict | None:
                 )
             )
 
-        order_service, _, kitchen_manager = _make_runtime(data_directory)
-        order = order_service.create_order(
+        order_service, table_manager, kitchen_manager = _make_runtime(data_directory)
+        order = order_service.place_order(
             table_id=table_id,
             items=order_items,
             notes=request.get("notes", ""),
-            check_existing_active=str(table_id).isdigit(),
-        )
-        if not order_service.confirm_order(
-            order.id,
+            table_manager=table_manager,
             kitchen_manager=kitchen_manager,
-        ):
-            raise ValueError(f"Không thể xác nhận đơn hàng '{order.id}'.")
+        )
         record = order.to_dict()
         record["estimated_wait_minutes"] = kitchen_manager.estimate_wait_time(order)
         return record

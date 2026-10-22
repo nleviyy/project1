@@ -104,7 +104,7 @@ class TableManager:
         table.occupy(order_id)
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             table.status, table.current_order_id = prev_status, prev_order_id
             raise
         return True
@@ -126,7 +126,7 @@ class TableManager:
         table.release()
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             table.status, table.current_order_id = prev_status, prev_order_id
             raise
         return True
@@ -141,7 +141,7 @@ class TableManager:
         table.reserve()
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             table.status, table.current_order_id = prev_status, prev_order_id
             raise
         return True
@@ -156,7 +156,7 @@ class TableManager:
         table.vacate()
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             table.status, table.current_order_id = prev_status, prev_order_id
             raise
         return True
@@ -172,7 +172,7 @@ class TableManager:
         self._tables.put(t_id, table)
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             self._tables.remove(t_id)
             raise
         return True
@@ -187,7 +187,7 @@ class TableManager:
         self._tables.remove(t_id)
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             self._tables.put(t_id, table)
             raise
         return True
@@ -229,7 +229,7 @@ class TableManager:
 
         try:
             self.save_tables()
-        except OSError:
+        except Exception:
             table.name = prev_name
             table.capacity = prev_cap
             raise

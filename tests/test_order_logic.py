@@ -400,6 +400,7 @@ class TestPaymentAndInvoice:
             amount_paid=150000,
             method=PaymentMethod.CASH,
             cashier_name="Vy",
+            status=PaymentStatus.SUCCESS,
         )
         assert pay.amount_paid == 150000
         assert pay.is_successful is True

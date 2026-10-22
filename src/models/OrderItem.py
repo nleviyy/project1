@@ -1,9 +1,9 @@
-from typing import Optional
+from typing import Any, Optional
 from pydantic import BaseModel, Field, model_validator
 
 
 class OrderItem(BaseModel):
-    menu_item_id: str = Field(default="M01", description="Mã món ăn từ menu (VD: M02)")
+    menu_item_id: str = Field(..., description="Mã món ăn từ menu (VD: M02)")
     item_name: str = Field(default="Món", description="Tên món ăn")
     unit_price: int = Field(default=0, description="Đơn giá (VNĐ)", ge=0)
     quantity: int = Field(default=1, description="Số lượng món", gt=0)
@@ -13,15 +13,16 @@ class OrderItem(BaseModel):
         default=0,
         description="Thời gian chế biến một món (phút)",
         ge=0,
-        exclude_if=lambda value: value == 0,
     )
 
     @model_validator(mode="before")
     @classmethod
     def populate_defaults(cls, data):
         if isinstance(data, dict):
+            data = dict(data)  # Bản sao độc lập, không mutate dict đầu vào
             if "menu_item_id" not in data:
-                data["menu_item_id"] = data.get("item_id", "M01")
+                if "item_id" in data:
+                    data["menu_item_id"] = data["item_id"]
             if "item_name" not in data:
                 data["item_name"] = data.get("name", "Món")
             if "unit_price" not in data:
@@ -32,16 +33,27 @@ class OrderItem(BaseModel):
 
     @model_validator(mode='after')
     def auto_calculate_subtotal(self):
-        """Nếu JSON không truyền subtotal hoặc bằng 0 thì tự tính: đơn giá * số lượng."""
-        if self.subtotal is None or self.subtotal == 0:
+        """Nếu JSON không truyền subtotal (None) thì tự tính: đơn giá * số lượng."""
+        if self.subtotal is None:
             self.subtotal = self.unit_price * self.quantity
         return self
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if name == "unit_price" and hasattr(self, "quantity"):
+            object.__setattr__(self, "subtotal", self.unit_price * self.quantity)
 
     def update_quantity(self, quantity: int) -> None:
         if isinstance(quantity, bool) or not isinstance(quantity, int) or quantity <= 0:
             raise ValueError("Số lượng phải là số nguyên lớn hơn 0.")
         self.quantity = quantity
         self.subtotal = self.unit_price * quantity
+
+    def update_unit_price(self, unit_price: int) -> None:
+        if isinstance(unit_price, bool) or not isinstance(unit_price, int) or unit_price < 0:
+            raise ValueError("Đơn giá phải là số nguyên không âm.")
+        self.unit_price = unit_price
+        self.subtotal = unit_price * self.quantity
 
     def update_note(self, note: str) -> None:
         self.note = note
@@ -55,5 +67,6 @@ class OrderItem(BaseModel):
     @classmethod
     def from_dict(cls, data: dict) -> "OrderItem":
         return cls.model_validate(data)
+
 
 

@@ -1,8 +1,6 @@
 from dataclasses import dataclass, asdict
 from enum import Enum
-from typing import Optional, Set
-
-from src.models.HashTable import HashTable
+from typing import Optional
 
 
 class TableStatus(str, Enum):
@@ -11,7 +9,12 @@ class TableStatus(str, Enum):
     RESERVED = "RESERVED"
 
 
-VALID_TABLE_STATUSES: Set[str] = {s.value for s in TableStatus}
+VALID_TABLE_STATUSES: tuple[str, ...] = (
+    TableStatus.AVAILABLE.value,
+    TableStatus.OCCUPIED.value,
+    TableStatus.RESERVED.value,
+)
+
 
 
 @dataclass
@@ -86,9 +89,8 @@ class Table:
         self.current_order_id = None
         return True
 
-    def release(self) -> bool:
-        """Giải phóng bàn về trạng thái AVAILABLE."""
-        return self.vacate()
+    # release là alias cho vacate để thống nhất
+    release = vacate
 
     def reserve(self) -> bool:
         """Đặt trước bàn (chuyển sang RESERVED). Không được đặt bàn đang OCCUPIED."""
@@ -104,34 +106,32 @@ class Table:
     def update_status(self, new_status: str, order_id: Optional[str] = None) -> bool:
         """
         Cập nhật trạng thái bàn an toàn (Atomic Update):
-        Validate toàn bộ dữ liệu trước khi thay đổi trạng thái thực tế.
+        Validate toàn bộ dữ liệu trước khi thay đổi trạng thái thực tế. Ném ValueError nếu không hợp lệ.
         """
         target_status = str(new_status).upper().strip()
         target_order_id = str(order_id).strip() if order_id else None
-        try:
-            temp_table = Table(
-                id=self.id,
-                name=self.name,
-                capacity=self.capacity,
-                status=target_status,
-                current_order_id=target_order_id,
-            )
-            self.status = temp_table.status
-            self.current_order_id = temp_table.current_order_id
-            return True
-        except ValueError as e:
-            print(f"[Lỗi cập nhật bàn {self.id}] {e}")
-            return False
+        temp_table = Table(
+            id=self.id,
+            name=self.name,
+            capacity=self.capacity,
+            status=target_status,
+            current_order_id=target_order_id,
+        )
+        self.status = temp_table.status
+        self.current_order_id = temp_table.current_order_id
+        return True
 
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, data: dict) -> "Table":
+        if "capacity" not in data or data["capacity"] is None:
+            raise ValueError("Bàn ăn bắt buộc phải có thông tin sức chứa (capacity).")
         return cls(
             id=data.get("id"),
             name=data.get("name", ""),
-            capacity=data.get("capacity", 4),
+            capacity=data["capacity"],
             status=data.get("status", TableStatus.AVAILABLE.value),
             current_order_id=data.get("current_order_id"),
         )

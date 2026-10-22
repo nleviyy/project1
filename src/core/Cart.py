@@ -74,6 +74,14 @@ class CartItem:
         self.note = note
         self.prep_time = prep_time
 
+    @property
+    def item_id(self):
+        return self.menu_item_id
+
+    @item_id.setter
+    def item_id(self, val):
+        self.menu_item_id = val
+
     def calculate_subtotal(self):
         return self.unit_price * self.quantity
 
@@ -179,11 +187,16 @@ class Cart:
                 existing.note = note
 
     def remove_item(self, menu_item_id):
-        item = self._find(menu_item_id)
-        if item is None:
+        idx = -1
+        for i in range(len(self._items)):
+            if getattr(self._items[i], "menu_item_id", None) == menu_item_id or getattr(self._items[i], "item_id", None) == menu_item_id:
+                idx = i
+                break
+        if idx == -1:
             raise ValueError("Món " + str(menu_item_id) + " không có trong giỏ")
         self._save_for_undo()
-        self._items.remove(item)
+        del self._items[idx]
+
 
     def update_quantity(self, menu_item_id, quantity):
         if not isinstance(quantity, int) or quantity <= 0:

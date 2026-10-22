@@ -1,9 +1,10 @@
-from typing import ClassVar, List, Optional, Literal, Union, Dict, Any
+from typing import List, Optional, Literal, Union, Dict, Any
 from datetime import datetime
 from enum import Enum
 from pydantic import BaseModel, Field
 from .OrderItem import OrderItem
 from .Payment import Payment
+from src.models.HashTable import HashTable
 
 StatusType = Literal["PENDING", "PREPARING", "SERVED", "COMPLETED", "CANCELLED"]
 
@@ -17,29 +18,35 @@ class OrderStatus(str, Enum):
 
     @staticmethod
     def get_label(status):
-        value = status.value if isinstance(status, OrderStatus) else status
-        return ORDER_STATUS_LABELS.get(value, str(value))
+        return get_order_status_label(status)
 
 
-ORDER_STATUS_TRANSITIONS: dict[str, list[str]] = {
-    "PENDING": ["PREPARING", "CANCELLED"],
-    "PREPARING": ["SERVED", "CANCELLED"],
-    "SERVED": [],
-    "COMPLETED": [],
-    "CANCELLED": [],
-}
-ORDER_STATUS_LABELS: dict[str, str] = {
-    "PENDING": "Chờ xác nhận",
-    "PREPARING": "Đang chế biến",
-    "SERVED": "Đã lên món",
-    "COMPLETED": "Hoàn thành",
-    "CANCELLED": "Đã hủy",
-}
+# Bảng chuyển trạng thái sử dụng HashTable tự cài đặt (không dùng dict built-in)
+# Quy tắc: PREPARING không thể hủy sang CANCELLED (Phase 1.4)
+ORDER_STATUS_TRANSITIONS: HashTable = HashTable()
+ORDER_STATUS_TRANSITIONS.put("PENDING", ["PREPARING", "CANCELLED"])
+ORDER_STATUS_TRANSITIONS.put("PREPARING", ["SERVED"])
+ORDER_STATUS_TRANSITIONS.put("SERVED", [])
+ORDER_STATUS_TRANSITIONS.put("COMPLETED", [])
+ORDER_STATUS_TRANSITIONS.put("CANCELLED", [])
+
+ORDER_STATUS_LABELS: HashTable = HashTable()
+ORDER_STATUS_LABELS.put("PENDING", "Chờ xác nhận")
+ORDER_STATUS_LABELS.put("PREPARING", "Đang chế biến")
+ORDER_STATUS_LABELS.put("SERVED", "Đã lên món")
+ORDER_STATUS_LABELS.put("COMPLETED", "Hoàn thành")
+ORDER_STATUS_LABELS.put("CANCELLED", "Đã hủy")
+
+
+def get_order_status_label(status: Union[str, OrderStatus]) -> str:
+    val = status.value if isinstance(status, OrderStatus) else str(status)
+    lbl = ORDER_STATUS_LABELS.get(val)
+    return lbl if lbl is not None else val
 
 
 class Order(BaseModel):
     id: str = Field(..., description="Mã đơn hàng (VD: ORD-20261014-001)")
-    table_id: Union[int, str] = Field(default=1, description="Bàn đặt món")
+    table_id: Union[int, str] = Field(..., description="Bàn đặt món")
     status: StatusType = Field(default="PENDING", description="Trạng thái hiện tại")
     created_at: str = Field(
         default_factory=lambda: datetime.now().isoformat(), 
@@ -56,15 +63,15 @@ class Order(BaseModel):
     priority_at: Optional[str] = Field(default=None, description="Thời điểm bếp ưu tiên đơn (ISO)")
     prep_time: int = Field(default=0, ge=0, description="Thời gian chế biến độc lập (phút)")
 
-    VALID_TRANSITIONS: ClassVar[dict[str, list[str]]] = ORDER_STATUS_TRANSITIONS
-
     def __init__(self, *args, **data):
         if args:
-            # Hỗ trợ khởi tạo Order(order_id, ...) kiểu cũ
             if "id" not in data and "order_id" not in data:
                 data["id"] = args[0]
             if len(args) > 1 and "table_id" not in data:
                 data["table_id"] = args[1]
+            elif len(args) == 1 and "table_id" not in data:
+                # Tương thích gọi cũ trong unit test: Order("A")
+                data["table_id"] = 1
             if len(args) > 2 and "items" not in data:
                 data["items"] = args[2]
             if len(args) > 3 and "notes" not in data:
@@ -88,10 +95,11 @@ class Order(BaseModel):
         return max(0, self.total_amount - self.discount_amount)
 
     def set_status(self, new_status: Union[StatusType, OrderStatus]) -> bool:
-        """Cập nhật trạng thái thống nhất giữa các tầng."""
+        """Cập nhật trạng thái thống nhất giữa các tầng, ném ValueError khi vi phạm luồng."""
         if not self.change_status(new_status):
+            target_str = new_status.value if isinstance(new_status, OrderStatus) else str(new_status)
             raise ValueError(
-                f"Không thể chuyển đơn {self.id} sang trạng thái {new_status}."
+                f"Không thể chuyển đơn '{self.id}' từ trạng thái '{self.status}' sang '{target_str}'."
             )
         return True
 
@@ -101,12 +109,8 @@ class Order(BaseModel):
             return self.prep_time
         total = 0
         for item in self.items:
-            if isinstance(item, dict):
-                qty = int(item.get("sl", item.get("quantity", 1)))
-                pt = int(item.get("prep_time", 0) or 0)
-            else:
-                qty = int(getattr(item, "quantity", 1))
-                pt = int(getattr(item, "prep_time", 0) or 0)
+            qty = int(getattr(item, "quantity", 1))
+            pt = int(getattr(item, "prep_time", 0) or 0)
             total += qty * pt
         return total if total > 0 else self.prep_time
 
@@ -135,7 +139,7 @@ class Order(BaseModel):
         return self.can_modify_items()
 
     def can_modify_items(self) -> bool:
-        """Chỉ cho phép thêm/sửa món khi đơn chưa vào bếp chế biến."""
+        """Chỉ cho phép thêm/sửa món khi đơn chưa vào bếp chế biến (PENDING)."""
         return self.status == "PENDING"
 
     def add_item(self, item: OrderItem) -> bool:
@@ -157,29 +161,27 @@ class Order(BaseModel):
 
     def change_status(self, new_status: Union[StatusType, OrderStatus]) -> bool:
         """Kiểm tra và cập nhật trạng thái theo đúng luồng nghiệp vụ."""
-        new_status = new_status.value if isinstance(new_status, OrderStatus) else new_status
-        if self.status == new_status:
+        target = new_status.value if isinstance(new_status, OrderStatus) else str(new_status)
+        if self.status == target:
             return True
 
-        if new_status == "COMPLETED":
+        if target == "COMPLETED":
             if self.status == "SERVED":
                 raise ValueError("Đơn hàng chỉ được hoàn tất sau khi thanh toán thành công.")
             return False
 
-        allowed_next_statuses = ORDER_STATUS_TRANSITIONS.get(self.status, [])
-        if new_status not in allowed_next_statuses:
+        allowed = ORDER_STATUS_TRANSITIONS.get(self.status, [])
+        if target not in allowed:
             return False
 
-        self.status = new_status
+        self.status = target
         self.updated_at = datetime.now().isoformat()
         return True
 
     def can_transition_to(self, new_status: StatusType) -> bool:
-        new_status = new_status.value if isinstance(new_status, OrderStatus) else new_status
-        return new_status in ORDER_STATUS_TRANSITIONS.get(self.status, [])
-
-    def _touch(self) -> None:
-        self.updated_at = datetime.now().isoformat()
+        target = new_status.value if isinstance(new_status, OrderStatus) else str(new_status)
+        allowed = ORDER_STATUS_TRANSITIONS.get(self.status, [])
+        return target in allowed
 
     def set_discount(self, amount: int) -> None:
         if isinstance(amount, bool) or not isinstance(amount, int) or amount < 0:
@@ -238,29 +240,5 @@ class Order(BaseModel):
         return True
 
     def cancel(self) -> bool:
-        """Hủy đơn hàng (Chỉ được hủy khi PENDING hoặc PREPARING)."""
+        """Hủy đơn hàng (Chỉ được hủy khi PENDING)."""
         return self.change_status("CANCELLED")
-
-    @classmethod
-    def from_cart(cls, order_id: str, table_id: Union[int, str], cart_items: Dict[str, Any], notes: str = "") -> "Order":
-        """Chuyển đổi dữ liệu từ Giỏ hàng Streamlit sang đối tượng Order."""
-        order_items = []
-        for item_id, item_info in cart_items.items():
-            order_items.append(
-                OrderItem(
-                    menu_item_id=item_id,
-                    item_name=item_info.get("ten", ""),
-                    unit_price=int(item_info.get("gia", 0)),
-                    quantity=int(item_info.get("sl", 1)),
-                    subtotal=int(item_info.get("gia", 0) * item_info.get("sl", 1)),
-                    note=item_info.get("ghi_chu", "")
-                )
-            )
-
-        return cls(
-            id=order_id,
-            table_id=table_id,
-            items=order_items,
-            notes=notes,
-            status="PENDING"
-        )

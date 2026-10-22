@@ -6,6 +6,7 @@ from src.models.MenuItem import MenuItem
 from src.models.HashTable import HashNode, HashTable
 from src.core.paths import MENU_PATH
 from src.core.JSONStorage import load_data, save_data
+from src.core.sorting import merge_sort
 
 __all__ = ["HashNode", "HashTable", "MenuCatalog"]
 
@@ -132,33 +133,43 @@ class MenuCatalog:
         max_results: int = 5,
     ) -> List[MenuItem]:
         """
-        Gợi ý món ăn có tên hoặc mã món bắt đầu bằng keyword.
-        Sử dụng str.startswith trên bản đã casefold.
-        Lưu ý: Giữ nguyên hành vi bỏ qua món khớp hoàn toàn (is_exact) theo code hiện tại.
+        Gợi ý món ăn theo tên:
+        - Quét toàn bộ món một lần, gom các món khớp theo 2 nhóm:
+          + nhóm 0: tên bắt đầu bằng từ khóa;
+          + nhóm 1: một từ trong tên bắt đầu bằng từ khóa.
+        - Bỏ qua món có tên trùng hoàn toàn với từ khóa.
+        - Xếp hạng bằng merge_sort theo (nhóm, tên đã casefold), cắt max_results phần tử.
+        - Kiểm tra từ bằng vòng lặp tự viết (không dùng any() hay next()).
         """
         if not isinstance(keyword, str) or max_results < 1:
             return []
 
-        query = keyword.strip()
+        query = keyword.strip().casefold()
         if not query:
             return []
 
-        query_fold = query.casefold()
-
-        suggestions: List[MenuItem] = []
+        matches = []  # tuple: (nhóm, tên_casefold, item)
         for item in self._items.values():
-            name_fold = item.name.casefold()
-            id_fold = item.id.casefold()
+            name = item.name.casefold()
+            item_id = item.id.casefold()
+            if name == query or item_id == query:
+                continue
+            if name.startswith(query) or item_id.startswith(query):
+                matches.append((0, name, item))
+                continue
 
-            matches_name = name_fold.startswith(query_fold)
-            matches_id = id_fold.startswith(query_fold)
-            is_exact_match = (name_fold == query_fold or id_fold == query_fold)
-
-            if (matches_name or matches_id) and not is_exact_match:
-                suggestions.append(item)
-                if len(suggestions) >= max_results:
+            words = name.split()
+            matched_word = False
+            for word in words:
+                if word.startswith(query):
+                    matched_word = True
                     break
-        return suggestions
+            if matched_word:
+                matches.append((1, name, item))
+
+        ordered = merge_sort(matches, key=lambda m: (m[0], m[1]))
+        return [m[2] for m in ordered[:max_results]]
+
 
     def filter_by_type(self, item_type: str) -> List[MenuItem]:
         """Lọc món theo danh mục (so sánh không phân biệt hoa thường)."""

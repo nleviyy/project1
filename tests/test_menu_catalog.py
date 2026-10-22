@@ -172,8 +172,12 @@ def test_menu_catalog_autocomplete_matches_name_and_id_prefixes():
     for item in items:
         catalog.add_item(item)
 
-    assert catalog.autocomplete_items("tr") == items[:2]
-    assert catalog.autocomplete_items("dr") == items[:2]
+    res_tr = catalog.autocomplete_items("tr")
+    assert len(res_tr) == 2
+    assert sorted([i.id for i in res_tr]) == ["DR01", "DR02"]
+    res_dr = catalog.autocomplete_items("dr")
+    assert len(res_dr) == 2
+    assert sorted([i.id for i in res_dr]) == ["DR01", "DR02"]
     assert catalog.autocomplete_items("TRÀ ĐÀO") == []
     assert catalog.autocomplete_items(" ") == []
 

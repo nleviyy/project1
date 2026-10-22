@@ -254,9 +254,10 @@ class PaymentService:
         total: int,
     ) -> Invoice:
         raw_items = order_dict.get("items", [])
-        invoice_items = []
-        for it in raw_items:
-            invoice_items.append(InvoiceItem.parse_item(it))
+        invoice_items = [
+            InvoiceItem.model_validate(it)
+            for it in raw_items
+        ]
 
         return Invoice(
             id=f"INV-{uuid4().hex.upper()}",
@@ -297,38 +298,57 @@ class PaymentService:
         order_dict["status"] = "COMPLETED"
         order_dict["updated_at"] = datetime.now().isoformat(timespec="seconds")
 
-        # Đồng bộ qua OrderService và TableManager nếu có instance
+        live_order = None
+        prev_order_status = None
+        prev_order_updated = None
         if self.order_service is not None:
             live_order = self.order_service.get_order(order_id)
             if live_order:
+                prev_order_status = live_order.status
+                prev_order_updated = live_order.updated_at
                 live_order.status = "COMPLETED"
                 live_order.updated_at = order_dict["updated_at"]
 
         table_id = order_dict.get("table_id")
+        table_obj = None
+        prev_table_status = None
+        prev_table_order = None
+        if self.table_manager is not None and table_id is not None and str(table_id).isdigit():
+            table_obj = self.table_manager.get_table(int(table_id))
+            if table_obj and str(table_obj.current_order_id) == str(order_id):
+                prev_table_status = table_obj.status
+                prev_table_order = table_obj.current_order_id
+                table_obj.vacate()
+
+        if self.order_service is not None:
+            orders_payload = [o.to_dict() for o in self.order_service._orders.values()]
+        else:
+            orders_payload = orders
+
         if self.table_manager is not None:
-            if table_id is not None and str(table_id).isdigit():
-                self.table_manager.release_table(int(table_id), order_id=order_id)
-            # Ghi cả 4 file đồng bộ
-            updates = {
-                self.payments_path: updated_payments,
-                self.invoices_path: updated_invoices,
-            }
-            write_json_updates(updates)
-            # Lưu orders và tables qua service quản lý tương ứng
-            if self.order_service is not None:
-                self.order_service.save_orders()
-            else:
-                write_json_updates({self.orders_path: orders})
-            self.table_manager.save_tables()
+            tables_payload = [t.to_dict() for t in self.table_manager._tables.values()]
         else:
             self._release_table(tables, order_dict)
-            updates = {
-                self.payments_path: updated_payments,
-                self.invoices_path: updated_invoices,
-                self.orders_path: orders,
-                self.tables_path: tables,
-            }
+            tables_payload = tables
+
+        # Ghi toàn bộ thay đổi của thanh toán trong duy nhất một lần write_json_updates nguyên tử
+        updates = {
+            self.payments_path: updated_payments,
+            self.invoices_path: updated_invoices,
+            self.orders_path: orders_payload,
+            self.tables_path: tables_payload,
+        }
+        try:
             write_json_updates(updates)
+        except Exception:
+            if live_order is not None:
+                live_order.status = prev_order_status
+                live_order.updated_at = prev_order_updated
+            if table_obj is not None:
+                table_obj.status = prev_table_status
+                table_obj.current_order_id = prev_table_order
+            raise
+
 
     @staticmethod
     def _order_subtotal(order: dict) -> int:

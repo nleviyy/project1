@@ -1,22 +1,12 @@
 from datetime import datetime
 from pathlib import Path
-import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
-
-CURRENT_DIR = Path(__file__).resolve().parent
-SRC_DIR = CURRENT_DIR.parent
-PROJECT_ROOT = SRC_DIR.parent
-
-for path in [str(SRC_DIR), str(PROJECT_ROOT)]:
-    if path not in sys.path:
-        sys.path.append(path)
 
 from src.models.Order import Order, OrderStatus
 from src.models.OrderItem import OrderItem
 from src.models.HashTable import HashTable
 from src.core.JSONStorage import load_data, save_data
 from src.core.paths import ORDERS_PATH, PAYMENTS_PATH
-from src.core.sorting import merge_sort
 
 
 class OrderService:
@@ -42,19 +32,21 @@ class OrderService:
             self.load_orders()
 
     def load_orders(self) -> bool:
-        """Đọc danh sách đơn hàng từ file JSON vào bộ nhớ."""
-        self._orders.clear()
+        """Đọc danh sách đơn hàng từ file JSON vào bộ nhớ an toàn (không xóa bộ nhớ nếu đọc thất bại)."""
         data = load_data(self.orders_file, default_data=[])
-        if isinstance(data, list):
-            for order_dict in data:
-                if isinstance(order_dict, dict):
-                    try:
-                        order = Order.from_dict(order_dict)
-                        self._orders.put(order.id, order)
-                    except Exception as e:
-                        print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {e}")
-            return True
-        return False
+        if not isinstance(data, list):
+            return False
+
+        new_orders = HashTable()
+        for order_dict in data:
+            if isinstance(order_dict, dict):
+                try:
+                    order = Order.from_dict(order_dict)
+                    new_orders.put(order.id, order)
+                except Exception as e:
+                    print(f"[Cảnh báo OrderService] Bỏ qua đơn lỗi: {e}")
+        self._orders = new_orders
+        return True
 
     def save_orders(self) -> bool:
         """Ghi toàn bộ đơn hàng hiện có ra file JSON nguyên tử."""
@@ -87,7 +79,7 @@ class OrderService:
         check_existing_active: bool = False,
         table_manager: Optional[Any] = None,
     ) -> Order:
-        """Tạo đơn hàng mới."""
+        """Tạo đơn hàng mới (ném lỗi nếu chiếm bàn thất bại, không nuốt lỗi)."""
         tm = table_manager or self.table_manager
 
         if check_existing_active and str(table_id).isdigit():
@@ -104,16 +96,7 @@ class OrderService:
                 if isinstance(it, OrderItem):
                     parsed_items.append(it)
                 elif isinstance(it, dict):
-                    parsed_items.append(
-                        OrderItem(
-                            menu_item_id=it.get("menu_item_id", it.get("item_id", "M01")),
-                            item_name=it.get("item_name", it.get("name", "Món")),
-                            unit_price=int(it.get("unit_price", it.get("price", 0))),
-                            quantity=int(it.get("quantity", it.get("sl", 1))),
-                            note=it.get("note", ""),
-                            prep_time=int(it.get("prep_time", 0) or 0),
-                        )
-                    )
+                    parsed_items.append(OrderItem.model_validate(it))
 
         order_id = custom_order_id or self.generate_order_id()
         order = Order(
@@ -129,11 +112,11 @@ class OrderService:
         self.save_orders()
 
         if tm and not (isinstance(table_id, str) and table_id == "Mang về (Takeaway)"):
-            try:
-                t_id = int(table_id) if str(table_id).isdigit() else table_id
-                tm.occupy_table(t_id, order.id)
-            except Exception:
-                pass
+            t_id = int(table_id) if str(table_id).isdigit() else table_id
+            if not tm.occupy_table(t_id, order.id):
+                self._orders.remove(order.id)
+                self.save_orders()
+                raise ValueError(f"Không thể chiếm bàn {t_id} cho đơn '{order.id}'.")
 
         return order
 
@@ -162,13 +145,10 @@ class OrderService:
         return success
 
     def get_order_by_id(self, order_id: str) -> Optional[Order]:
-        """Tìm đơn hàng theo mã đơn chính xác (O(1))."""
-        if not order_id:
-            return None
-        return self._orders.get(str(order_id).strip())
+        """Tìm đơn hàng theo mã đơn (O(1))."""
+        return self._orders.get(order_id)
 
     def get_order(self, order_id: str) -> Optional[Order]:
-        """Bí danh cho get_order_by_id."""
         return self.get_order_by_id(order_id)
 
     def get_all_orders(self) -> List[Order]:
@@ -194,39 +174,37 @@ class OrderService:
         return [order for order in self._orders.values() if order.status == target]
 
     def is_order_paid(self, order_id: str) -> bool:
-        """
-        Kiểm tra xem một đơn hàng đã được thanh toán hay chưa.
-        1. Trạng thái của đơn hàng đã là 'COMPLETED'.
-        2. Đã có bản ghi thanh toán thành công ('SUCCESS') trong file payments.json.
-        """
+        """Kiểm tra xem đơn hàng đã từng được thanh toán thành công (SUCCESS) chưa."""
         order = self.get_order_by_id(order_id)
-        if order and order.status == OrderStatus.COMPLETED:
+        if order and order.status == "COMPLETED":
             return True
 
         payments_data = load_data(self.payments_file, default_data=[])
-        if isinstance(payments_data, list):
-            for pay in payments_data:
-                if isinstance(pay, dict):
-                    if pay.get("order_id") == order_id and pay.get("status") == "SUCCESS":
-                        return True
+        if not isinstance(payments_data, list):
+            return False
+
+        for payment in payments_data:
+            if (
+                isinstance(payment, dict)
+                and payment.get("order_id") == order_id
+                and payment.get("status") == "SUCCESS"
+            ):
+                return True
         return False
 
     def can_checkout(self, order_id: str) -> Tuple[bool, str]:
-        """
-        Kiểm tra đơn hàng có đủ điều kiện thanh toán hay không.
-        Chống thanh toán trùng lặp.
-        """
+        """Kiểm tra điều kiện để thanh toán."""
         order = self.get_order_by_id(order_id)
         if not order:
-            return False, f"Không tìm thấy đơn hàng mã '{order_id}'."
+            return False, f"Không tìm thấy đơn hàng với mã '{order_id}'."
 
         if self.is_order_paid(order_id):
-            return False, f"Đơn hàng '{order_id}' đã được thanh toán trước đó. Không thể thanh toán trùng!"
+            return False, f"Đơn hàng '{order_id}' đã được thanh toán trước đó (Tránh thanh toán trùng)."
 
-        if order.status == OrderStatus.CANCELLED:
+        if order.status == "CANCELLED":
             return False, f"Đơn hàng '{order_id}' đã bị hủy, không thể thanh toán."
 
-        if len(order.items) == 0:
+        if not order.items:
             return False, f"Đơn hàng '{order_id}' không có món ăn nào trong danh sách."
 
         if order.final_amount < 0:
@@ -241,16 +219,19 @@ class OrderService:
         kitchen_manager: Optional[Any] = None,
         table_manager: Optional[Any] = None,
     ) -> bool:
-        """Hủy đơn hàng và giải phóng bàn liên kết."""
+        """Hủy đơn hàng và giải phóng bàn liên kết (Chỉ được phép hủy khi ở trạng thái PENDING)."""
         order = self.get_order_by_id(order_id)
         if not order:
             return False
 
-        if order.status in ("COMPLETED", "CANCELLED"):
-            raise ValueError(f"Không thể hủy đơn hàng đã ở trạng thái {order.status}.")
+        if order.status != "PENDING" and order.status != OrderStatus.PENDING:
+            raise ValueError(
+                f"Chỉ có thể hủy đơn hàng ở trạng thái PENDING (hiện tại: {order.status})."
+            )
 
-        order.status = "CANCELLED"
-        order.updated_at = datetime.now().isoformat()
+        if not order.change_status(OrderStatus.CANCELLED):
+            raise ValueError(f"Không thể chuyển đơn '{order_id}' sang CANCELLED.")
+
         if reason:
             order.notes = f"{order.notes} [Hủy: {reason}]".strip()
 
@@ -258,8 +239,8 @@ class OrderService:
         if km:
             try:
                 km.cancel_order(order_id)
-            except Exception:
-                pass
+            except ValueError as e:
+                print(f"[Cảnh báo hủy đơn bếp {order_id}] {e}")
 
         self.save_orders()
 
@@ -268,15 +249,13 @@ class OrderService:
             try:
                 t_id = int(order.table_id) if str(order.table_id).isdigit() else order.table_id
                 tm.release_table(t_id, order_id=order.id)
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[Cảnh báo giải phóng bàn {order.table_id}] {e}")
 
         return True
 
     def complete_order(self, order_id: str, force: bool = False) -> bool:
-        """
-        Đánh dấu đơn hàng là hoàn thành (COMPLETED) sau khi thanh toán thành công.
-        """
+        """Đánh dấu đơn hàng là hoàn thành (COMPLETED) sau khi thanh toán thành công."""
         order = self.get_order_by_id(order_id)
         if not order:
             return False
@@ -300,8 +279,8 @@ class OrderService:
                     f"Chỉ có thể hoàn tất đơn '{order_id}' sau khi lên món (SERVED)."
                 )
 
-        order.status = "COMPLETED"
-        order.updated_at = datetime.now().isoformat()
+        if not order.change_status("COMPLETED"):
+            raise ValueError(f"Không thể chuyển đơn '{order_id}' sang COMPLETED.")
         self.save_orders()
 
         if self.table_manager and order.table_id:
@@ -323,17 +302,17 @@ class OrderService:
         return self.save_orders()
 
     def prioritize_order(self, order_id: str, kitchen_manager: Optional[Any] = None) -> bool:
-        """Đưa đơn hàng lên ưu tiên trong bếp."""
+        """Đưa đơn hàng lên ưu tiên trong bếp (kiểm tra điều kiện trước, rồi mới gán priority_at)."""
         order = self.get_order_by_id(order_id)
         if not order:
             return False
-        order.priority_at = datetime.now().isoformat()
-        order.updated_at = datetime.now().isoformat()
 
         km = kitchen_manager or self.kitchen_manager
         if km:
             km.prioritize_order(order_id)
 
+        order.priority_at = datetime.now().isoformat()
+        order.updated_at = datetime.now().isoformat()
         return self.save_orders()
 
     def _save_or_raise(self, order_id: str) -> None:
@@ -422,10 +401,7 @@ class OrderService:
         table_manager: Optional[Any] = None,
         kitchen_manager: Optional[Any] = None,
     ) -> Order:
-        """Luồng đặt món: kiểm tra bàn -> tạo đơn -> chiếm bàn -> đưa vào hàng đợi bếp.
-
-        Nếu bước nào thất bại, đơn và bàn được hoàn lại để dữ liệu luôn nhất quán.
-        """
+        """Luồng đặt món nguyên tử: kiểm tra bàn -> tạo đơn -> chiếm bàn -> đưa vào bếp trong cùng một luồng, lưu một lần, rollback nếu lỗi."""
         if not items:
             raise ValueError("Giỏ hàng trống, không thể tạo đơn.")
         tm = table_manager or self.table_manager
@@ -433,35 +409,57 @@ class OrderService:
         if dine_in and tm is None:
             raise ValueError("Chưa kết nối quản lý bàn, không thể nhận bàn.")
 
-        # 1. Kiểm tra bàn trước khi tạo đơn
         if dine_in:
             if not tm.is_table_available(int(table_id)):
                 raise ValueError(f"Bàn số {table_id} hiện không còn trống.")
             if self.get_active_order_by_table(int(table_id)) is not None:
                 raise ValueError(f"Bàn số {table_id} đang có đơn chưa hoàn thành.")
 
-        # 2. Tạo đơn và chiếm bàn (create_order tự hoàn tác nếu lưu thất bại)
-        order = self.create_order(
-            table_id,
-            items=items,
+        parsed_items: List[OrderItem] = []
+        for it in items:
+            if isinstance(it, OrderItem):
+                parsed_items.append(it)
+            elif isinstance(it, dict):
+                parsed_items.append(OrderItem.model_validate(it))
+
+        order_id = self.generate_order_id()
+        order = Order(
+            id=order_id,
+            table_id=table_id,
+            status="PENDING",
+            items=parsed_items,
             notes=notes,
-            check_existing_active=dine_in,
-            table_manager=tm,
         )
 
-        # 3. Đưa vào hàng đợi bếp; nếu thất bại thì hoàn tác đơn và bàn
+        self._orders.put(order.id, order)
+        table_occupied = False
+        kitchen_added = False
+
         try:
-            if not self.confirm_order(order.id, kitchen_manager=kitchen_manager):
-                raise ValueError(f"Không thể xác nhận đơn hàng '{order.id}'.")
+            if dine_in and tm:
+                if not tm.occupy_table(int(table_id), order.id):
+                    raise ValueError(f"Không thể chiếm bàn {table_id}.")
+                table_occupied = True
+
+            km = kitchen_manager or self.kitchen_manager
+            if km:
+                km.add_order(order)
+                kitchen_added = True
+
+            if not self.save_orders():
+                raise OSError("Không thể lưu đơn hàng.")
         except Exception:
-            self._rollback_order(order, tm)
+            self._orders.remove(order.id)
+            if table_occupied and tm:
+                try:
+                    tm.release_table(int(table_id), order_id=order.id)
+                except Exception:
+                    pass
+            if kitchen_added and km:
+                try:
+                    km.cancel_order(order.id)
+                except Exception:
+                    pass
             raise
+
         return order
-
-    def _rollback_order(self, order: Order, table_manager: Optional[Any]) -> None:
-        """Hoàn tác đơn chưa được xác nhận và trả bàn về trống."""
-        self._orders.pop(order.id, None)
-        if table_manager is not None and str(order.table_id).isdigit():
-            table_manager.release_table(int(order.table_id), order_id=order.id)
-        self.save_orders()
-

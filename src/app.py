@@ -13,7 +13,9 @@ from src.core.Cart import Cart
 from src.core.KitchenManager import KitchenManager
 from src.core.OrderService import OrderService
 from src.core.PaymentService import PaymentService
+from src.core.sorting import merge_sort
 from src.core.TableManager import TableManager
+
 from src.ui import (
     apply_custom_styles,
     render_cart_component,
@@ -168,15 +170,21 @@ def get_services():
             kitchen_manager=st.session_state.kitchen_manager,
         )
     if "payment_service" not in st.session_state:
-        st.session_state.payment_service = PaymentService()
+        st.session_state.payment_service = PaymentService(
+            order_service=st.session_state.order_service,
+            table_manager=st.session_state.table_manager,
+        )
     if "cart" not in st.session_state:
         st.session_state.cart = Cart()
 
     table_manager = st.session_state.table_manager
     kitchen_manager = st.session_state.kitchen_manager
     order_service = st.session_state.order_service
+    payment_service = st.session_state.payment_service
     order_service.table_manager = table_manager
     order_service.kitchen_manager = kitchen_manager
+    payment_service.table_manager = table_manager
+    payment_service.order_service = order_service
     table_manager.load_tables()
     order_service.load_orders()
     if hasattr(kitchen_manager, "restore_orders"):
@@ -274,7 +282,7 @@ elif selected_page == "🍳  Bếp":
     served_orders = order_service.filter_orders_by_status("SERVED")
     if served_orders:
         with st.expander(f"🍽️ Đã lên món · chờ thanh toán ({len(served_orders)})"):
-            for order in sorted(
+            for order in merge_sort(
                 served_orders,
                 key=lambda item: str(item.created_at),
                 reverse=True,

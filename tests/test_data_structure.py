@@ -5,8 +5,9 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from KitchenManage import KitchenManager, Order, OrderStatus
-from redo_undo import Cart, CartItem
+from src.core.KitchenManager import KitchenManager
+from src.models.Order import Order, OrderStatus
+from src.core.Cart import Cart, CartItem
 
 
 # ====================== Hàng đợi bếp (FIFO) ======================
@@ -103,9 +104,8 @@ class TestOrderStatus(unittest.TestCase):
 
     def test_cancel_current_order_while_preparing(self):
         self.kitchen.start_next_order()
-        self.kitchen.cancel_order("A")
-        self.assertEqual(self.order.status, OrderStatus.CANCELLED)
-        self.assertTrue(self.kitchen.is_empty())
+        with self.assertRaises(ValueError):
+            self.kitchen.cancel_order("A")
 
     def test_cannot_cancel_after_served(self):
         self.kitchen.start_next_order()

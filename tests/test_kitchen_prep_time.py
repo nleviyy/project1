@@ -1,4 +1,5 @@
-from KitchenManage import KitchenManager, Order
+from src.core.KitchenManager import KitchenManager
+from src.models.Order import Order
 import json
 
 from src.core.OrderService import OrderService
@@ -10,8 +11,8 @@ def test_order_prep_time_uses_each_items_quantity():
     order = Order(
         "A",
         items=[
-            {"quantity": 2, "prep_time": 5},
-            {"quantity": 3, "prep_time": 4},
+            {"menu_item_id": "M01", "quantity": 2, "prep_time": 5},
+            {"menu_item_id": "M02", "quantity": 3, "prep_time": 4},
         ],
     )
 
@@ -20,18 +21,17 @@ def test_order_prep_time_uses_each_items_quantity():
 
 def test_wait_time_includes_current_and_earlier_queued_orders():
     kitchen = KitchenManager()
-    current = Order("A", items=[{"quantity": 2, "prep_time": 5}])
-    waiting = Order("B", items=[{"sl": 1, "prep_time": 4}])
+    current = Order("A", items=[{"menu_item_id": "M01", "quantity": 2, "prep_time": 5}])
+    waiting = Order("B", items=[{"menu_item_id": "M02", "sl": 1, "prep_time": 4}])
     kitchen.add_order(current)
     kitchen.start_next_order()
     kitchen.add_order(waiting)
 
-    estimate = kitchen.receive_order(
-        table_id="Bàn số 1",
-        items={"M03": {"sl": 3, "prep_time": 6}},
-    )
+    new_order = Order("C", items=[{"menu_item_id": "M03", "sl": 3, "prep_time": 6}])
+    estimate = kitchen.estimate_wait_time(new_order)
 
     assert estimate == 32
+    kitchen.add_order(new_order)
     assert kitchen.count_waiting() == 2
     assert kitchen.peek_next_order() is waiting
 
@@ -107,10 +107,10 @@ def test_order_kitchen_payment_and_table_lifecycle(tmp_path):
 
 def test_kitchen_restore_orders():
     kitchen = KitchenManager()
-    order_preparing = Order("ORD-0001", items=[{"quantity": 1, "prep_time": 5}], status="PREPARING")
-    order_pending1 = Order("ORD-0002", items=[{"quantity": 2, "prep_time": 3}], status="PENDING", created_at="2026-10-20T01:00:00")
-    order_pending2 = Order("ORD-0003", items=[{"quantity": 1, "prep_time": 4}], status="PENDING", created_at="2026-10-20T01:05:00")
-    order_completed = Order("ORD-0004", items=[{"quantity": 1, "prep_time": 2}], status="COMPLETED")
+    order_preparing = Order("ORD-0001", items=[{"menu_item_id": "M01", "quantity": 1, "prep_time": 5}], status="PREPARING")
+    order_pending1 = Order("ORD-0002", items=[{"menu_item_id": "M02", "quantity": 2, "prep_time": 3}], status="PENDING", created_at="2026-10-20T01:00:00")
+    order_pending2 = Order("ORD-0003", items=[{"menu_item_id": "M03", "quantity": 1, "prep_time": 4}], status="PENDING", created_at="2026-10-20T01:05:00")
+    order_completed = Order("ORD-0004", items=[{"menu_item_id": "M04", "quantity": 1, "prep_time": 2}], status="COMPLETED")
 
     orders_list = [order_completed, order_pending2, order_preparing, order_pending1]
     kitchen.restore_orders(orders_list)
