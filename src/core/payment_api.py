@@ -2,6 +2,7 @@ import json
 import sys
 
 from src.core.PaymentService import PaymentService
+from src.models.JSONStorage import JSONStorage
 
 
 def main() -> int:
@@ -19,8 +20,8 @@ def main() -> int:
             transaction_successful=request.get("transaction_successful"),
         )
         response = {
-            "payment": result.payment.model_dump(mode="json"),
-            "invoice": result.invoice.model_dump(mode="json") if result.invoice else None,
+            "payment": JSONStorage.to_json_data(result.payment.to_dict()),
+            "invoice": JSONStorage.to_json_data(result.invoice.to_dict()) if result.invoice else None,
         }
     except ValueError as error:
         response = {"error": str(error), "status": 400}

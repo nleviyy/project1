@@ -167,27 +167,19 @@ class Payment:
         paid_orders = HashTable()
         paid_order_ids = DoublyLinkedList()
 
-        payment_list = []
-        if isinstance(payments, DoublyLinkedList):
-            node = payments.head
-            while node is not None:
-                payment_list.append(node.data)
-                node = node.next
-        elif payments is not None:
-            payment_list = list(payments)
+        if payments is not None:
+            for payment in payments:
+                if not payment.is_successful:
+                    continue
+                if processed_payment_ids.contains(payment.id):
+                    continue
+                if paid_orders.contains(payment.order_id):
+                    continue
 
-        for payment in payment_list:
-            if not payment.is_successful:
-                continue
-            if processed_payment_ids.contains(payment.id):
-                continue
-            if paid_orders.contains(payment.order_id):
-                continue
-
-            total_revenue += payment.amount_paid
-            processed_payment_ids.put(payment.id, True)
-            paid_orders.put(payment.order_id, True)
-            paid_order_ids.add_last(payment.order_id)
+                total_revenue += payment.amount_paid
+                processed_payment_ids.put(payment.id, True)
+                paid_orders.put(payment.order_id, True)
+                paid_order_ids.add_last(payment.order_id)
 
         result = HashTable()
         result.put("total_revenue", total_revenue)

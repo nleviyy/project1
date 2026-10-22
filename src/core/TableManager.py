@@ -148,8 +148,10 @@ class TableManager:
         if table.id in self._tables:
             return False
         self._tables[table.id] = table
+        self._table_ids.add_last(table.id)
         if not self.save_tables():
             del self._tables[table.id]
+            self._table_ids.remove(table.id)
             return False
         return True
 
@@ -157,9 +159,12 @@ class TableManager:
         table = self.get_table(table_id)
         if not table or table.status == "OCCUPIED":
             return False
-        del self._tables[int(table_id)]
+        tid = int(table_id)
+        del self._tables[tid]
+        self._table_ids.remove(tid)
         if not self.save_tables():
-            self._tables[int(table_id)] = table
+            self._tables[tid] = table
+            self._table_ids.add_last(tid)
             return False
         return True
 

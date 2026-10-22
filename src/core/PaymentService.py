@@ -11,6 +11,8 @@ from uuid import uuid4
 from src.models.Invoice import Invoice
 from src.models.JSONStorage import JSONStorage
 from src.models.Payment import Payment, PaymentMethod
+from src.structures.hash_table import HashTable
+from src.structures.linked_list import DoublyLinkedList
 
 
 @dataclass(frozen=True)
@@ -54,13 +56,20 @@ class PaymentService:
         orders = self._read_json(self.orders_path)
         self._normalize_order_prep_times(orders)
         tables = self._read_json(self.tables_path)
-        order = next((row for row in orders if row.get("id") == order_id), None)
+        order = None
+        for row in orders:
+            if row.get("id") == order_id:
+                order = row
+                break
         if order is None:
             raise ValueError(f"Không tìm thấy đơn hàng '{order_id}'.")
-        if any(
-            row.get("order_id") == order_id and row.get("status") == "SUCCESS"
-            for row in payments
-        ):
+
+        has_paid = False
+        for row in payments:
+            if row.get("order_id") == order_id and row.get("status") == "SUCCESS":
+                has_paid = True
+                break
+        if has_paid:
             raise ValueError(f"Đơn hàng '{order_id}' đã được thanh toán thành công.")
         if order.get("status") != "SERVED":
             raise ValueError("Chỉ có thể thanh toán đơn ở trạng thái SERVED.")
@@ -167,10 +176,11 @@ class PaymentService:
             return
         if not isinstance(table_id, int) and not str(table_id).isdigit():
             return
-        table = next(
-            (row for row in tables if str(row.get("id")) == str(table_id)),
-            None,
-        )
+        table = None
+        for row in tables:
+            if str(row.get("id")) == str(table_id):
+                table = row
+                break
         if table is None:
             raise ValueError(f"Không tìm thấy bàn '{table_id}' để giải phóng.")
         if (
@@ -208,10 +218,10 @@ class PaymentService:
 
     def _normalize_order_prep_times(self, orders: list[dict]) -> None:
         menu_items = self._read_json(self.menu_path)
-        prep_times = {
-            str(item.get("id", item.get("item_id", ""))): item.get("prep_time", 0)
-            for item in menu_items
-        }
+        prep_times = HashTable()
+        for item in menu_items:
+            item_key = str(item.get("id", item.get("item_id", "")))
+            prep_times.put(item_key, item.get("prep_time", 0))
         for order in orders:
             items = order.get("items", [])
             if not isinstance(items, list):
@@ -228,15 +238,15 @@ class PaymentService:
 
     @staticmethod
     def _write_json_updates(updates: dict[Path, list[dict]]) -> None:
-        staged: dict[Path, Path] = {}
-        originals: dict[Path, bytes | None] = {}
-        replaced: list[Path] = []
+        staged = HashTable()
+        originals = HashTable()
+        replaced = DoublyLinkedList()
         try:
             for target, data in updates.items():
                 target.parent.mkdir(parents=True, exist_ok=True)
-                originals[target] = target.read_bytes() if target.exists() else None
+                originals.put(target, target.read_bytes() if target.exists() else None)
                 temporary = target.with_name(f".{target.name}.{uuid4().hex}.tmp")
-                staged[target] = temporary
+                staged.put(target, temporary)
                 temporary.write_text(
                     json.dumps(
                         JSONStorage.to_json_data(data),
@@ -245,14 +255,15 @@ class PaymentService:
                     ),
                     encoding="utf-8",
                 )
-            for target, temporary in staged.items():
+            for target in staged:
+                temporary = staged.get(target)
                 os.replace(temporary, target)
-                replaced.append(target)
+                replaced.add_first(target)
         except OSError as write_error:
             rollback_errors = []
-            for target in reversed(replaced):
+            for target in replaced:
                 try:
-                    original = originals[target]
+                    original = originals.get(target)
                     if original is None:
                         target.unlink(missing_ok=True)
                     else:
@@ -272,5 +283,7 @@ class PaymentService:
                 ) from write_error
             raise
         finally:
-            for temporary in staged.values():
-                temporary.unlink(missing_ok=True)
+            for target in staged:
+                temporary = staged.get(target)
+                if temporary is not None:
+                    temporary.unlink(missing_ok=True)
