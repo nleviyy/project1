@@ -136,22 +136,15 @@ class HashTable:
             node = node.next
 
 
-    def __eq__(self, other):
-        if isinstance(other, HashTable):
+        def __eq__(self, other):
+            if not isinstance(other, HashTable):
+                return NotImplemented
             if self.size != other.size:
                 return False
             for key in self:
                 if not other.contains(key) or self.get(key) != other.get(key):
                     return False
             return True
-        if isinstance(other, dict):
-            if self.size != len(other):
-                return False
-            for key in self:
-                if key not in other or self.get(key) != other[key]:
-                    return False
-            return True
-        return NotImplemented
 
 
     def keys(self):
@@ -179,4 +172,4 @@ class HashTable:
             while node is not None:
                 result.add_last((node.key, node.value))
                 node = node.next
-        return result
+        return result
