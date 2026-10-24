@@ -355,5 +355,37 @@
         "id": "ORD-20261022-001",
         "preparing_started_at": null,
         "table_id": 4
+    },
+    {
+        "items": [
+            {
+                "note": "",
+                "subtotal": 25000,
+                "item_name": "Cà phê đen đá",
+                "menu_item_id": "M01",
+                "quantity": 1,
+                "unit_price": 25000,
+                "prep_time": 5
+            },
+            {
+                "note": "",
+                "subtotal": 32000,
+                "item_name": "Khoai tây chiên lắc phô mai",
+                "menu_item_id": "M07",
+                "quantity": 1,
+                "unit_price": 32000,
+                "prep_time": 10
+            }
+        ],
+        "final_amount": 57000,
+        "notes": "",
+        "status": "COMPLETED",
+        "total_amount": 57000,
+        "discount_amount": 0,
+        "updated_at": "2026-10-24T11:06:47",
+        "created_at": "2026-10-24T11:06:25",
+        "id": "ORD-20261024-001",
+        "preparing_started_at": null,
+        "table_id": 2
     }
 ]

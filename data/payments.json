@@ -174,5 +174,21 @@
     "amount": 152000,
     "id": "PAY-C0034D754D3B4EEABB9DCAFFBC8774C8",
     "discount_rate": 0.0
+  },
+  {
+    "method": "CASH",
+    "change_due": 0,
+    "payment_time": "2026-10-24T11:06:47.942669",
+    "cashier_name": "Thu ngân chính",
+    "order_id": "ORD-20261024-001",
+    "table_id": 2,
+    "cash_received": 57000,
+    "transaction_code": null,
+    "status": "SUCCESS",
+    "note": "",
+    "amount_paid": 57000,
+    "amount": 57000,
+    "id": "PAY-066C00253BEA480CA9AF51D1A45E1237",
+    "discount_rate": 0.0
   }
 ]

@@ -1,23 +1,16 @@
 [
-  {
-    "current_order_id": null,
-    "status": "AVAILABLE",
-    "capacity": 4,
-    "name": "Bàn 02",
-    "id": 2
-  },
-  {
-    "current_order_id": null,
-    "status": "AVAILABLE",
-    "capacity": 4,
-    "name": "Bàn 03",
-    "id": 3
-  },
-  {
-    "current_order_id": null,
-    "status": "AVAILABLE",
-    "capacity": 6,
-    "name": "Bàn 04",
-    "id": 4
-  }
+    {
+        "current_order_id": null,
+        "status": "AVAILABLE",
+        "capacity": 4,
+        "name": "Bàn 03",
+        "id": 3
+    },
+    {
+        "current_order_id": null,
+        "status": "AVAILABLE",
+        "capacity": 6,
+        "name": "Bàn 04",
+        "id": 4
+    }
 ]

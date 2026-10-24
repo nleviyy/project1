@@ -290,5 +290,38 @@
     "discount_amount": 0,
     "payment_method": "CASH",
     "id": "INV-EE4E24AC738342DE84384F1A82C0C69C"
+  },
+  {
+    "items": [
+      {
+        "note": "",
+        "subtotal": 25000,
+        "item_name": "Cà phê đen đá",
+        "menu_item_id": "M01",
+        "quantity": 1,
+        "unit_price": 25000,
+        "prep_time": 5
+      },
+      {
+        "note": "",
+        "subtotal": 32000,
+        "item_name": "Khoai tây chiên lắc phô mai",
+        "menu_item_id": "M07",
+        "quantity": 1,
+        "unit_price": 32000,
+        "prep_time": 10
+      }
+    ],
+    "final_amount": 57000,
+    "subtotal": 57000,
+    "issued_at": "2026-10-24T11:06:47",
+    "cashier_name": "Thu ngân chính",
+    "order_id": "ORD-20261024-001",
+    "table_id": 2,
+    "total_amount": 57000,
+    "payment_id": "PAY-066C00253BEA480CA9AF51D1A45E1237",
+    "discount_amount": 0,
+    "payment_method": "CASH",
+    "id": "INV-2504BFD072CB4CEBB2D73DE880E49648"
   }
 ]
